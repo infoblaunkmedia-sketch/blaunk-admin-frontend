@@ -2,8 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Screenshot theme (blue + yellow) */
+  --brand-primary: #0B61C9;
+  --brand-accent: #F2B705;
+  --brand-surface: #F8F9FA;
+  /* Sidebar: white background, black inactive text, blue active */
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #111827;
+  --sidebar-active: #0B61C9;
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
+  --card-radius: 10px;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
 body {
-  @apply bg-white text-slate-900;
+  @apply bg-surface text-slate-900;
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;
   line-height: 1.45;
