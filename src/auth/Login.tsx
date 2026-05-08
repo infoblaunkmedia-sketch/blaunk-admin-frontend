@@ -162,7 +162,7 @@ export const Login: React.FC = () => {
             alt="Blaunk"
             className="mx-auto h-8.5 sm:h-9 sm:max-w-[170px]"
           />
-          <p className="mt-1 text-sm text-slate-500">Sign In</p>
+          <p className="mt-1 text-sm text-slate-500">Sign in to your account</p>
         </div>
 
         <div className="rounded-card bg-white p-8 shadow-card">
