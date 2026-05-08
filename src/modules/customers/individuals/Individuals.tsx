@@ -1,0 +1,128 @@
+import React from 'react';
+import type { TableColumn } from 'react-data-table-component';
+import { toast } from 'react-toastify';
+import { PageHeader } from '../../../shared/components/PageHeader';
+import { SectionCard } from '../../../shared/components/SectionCard';
+import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { StatusBadge } from '../../../shared/components/StatusBadge';
+import { FormField } from '../../../shared/components/FormField';
+import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import type { Individual, CustomerStatus } from '../customers.types';
+import { fetchIndividuals, updateIndividualStatus, updateIndividualNotes } from '../customers.service';
+
+const inputClass =
+  'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+export const Individuals: React.FC = () => {
+  const [individuals, setIndividuals] = React.useState<Individual[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selected, setSelected] = React.useState<Individual | null>(null);
+  const [notesDraft, setNotesDraft] = React.useState('');
+  const [statusDraft, setStatusDraft] = React.useState<CustomerStatus>('Active');
+  const [saving, setSaving] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setIndividuals(await fetchIndividuals());
+    setLoading(false);
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const openProfile = (ind: Individual) => {
+    setSelected(ind);
+    setNotesDraft(ind.internalNotes);
+    setStatusDraft(ind.accountStatus);
+  };
+
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await updateIndividualStatus(selected.id, statusDraft);
+      await updateIndividualNotes(selected.id, notesDraft);
+      toast.success('Customer profile updated');
+      setSelected(null);
+      load();
+    } catch { toast.error('Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const columns: TableColumn<Individual>[] = [
+    { name: 'Customer ID', selector: (r) => r.id, width: '130px', sortable: true },
+    { name: 'Full Name', selector: (r) => r.fullName, sortable: true, grow: 2 },
+    { name: 'Email', selector: (r) => r.email, grow: 2 },
+    { name: 'Mobile', selector: (r) => r.mobile, width: '130px' },
+    { name: 'Country', selector: (r) => r.country, width: '110px' },
+    { name: 'Registered', selector: (r) => r.registrationDate, width: '110px', sortable: true },
+    { name: 'Last Login', selector: (r) => r.lastLoginDate, width: '110px' },
+    { name: 'Orders', selector: (r) => r.totalOrders, width: '80px', sortable: true },
+    { name: 'Status', cell: (r) => <StatusBadge status={r.accountStatus} />, width: '100px' },
+    {
+      name: 'Actions',
+      cell: (r) => (
+        <button type="button" onClick={() => openProfile(r)}
+          className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10">
+          View / Edit
+        </button>
+      ),
+      width: '100px', ignoreRowClick: true,
+    },
+  ];
+
+  return (
+    <ErrorBoundary>
+      <PageHeader title="Individual Customers"
+        subtitle="End users registered via the website. Admin manages status and internal notes." />
+
+      <DataTableWrapper columns={columns} data={individuals} loading={loading} searchable />
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h3 className="text-base font-bold text-primary">Customer Profile</h3>
+              <button type="button" onClick={() => setSelected(null)}
+                className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="font-semibold text-slate-500">Name:</span> <span>{selected.fullName}</span></div>
+                <div><span className="font-semibold text-slate-500">Email:</span> <span>{selected.email}</span></div>
+                <div><span className="font-semibold text-slate-500">Mobile:</span> <span>{selected.mobile}</span></div>
+                <div><span className="font-semibold text-slate-500">Country:</span> <span>{selected.country}</span></div>
+                <div><span className="font-semibold text-slate-500">Registered:</span> <span>{selected.registrationDate}</span></div>
+                <div><span className="font-semibold text-slate-500">Last Login:</span> <span>{selected.lastLoginDate}</span></div>
+              </div>
+              <SectionCard title="Account Status">
+                <FormField label="Status">
+                  <select className={inputClass} value={statusDraft}
+                    onChange={(e) => setStatusDraft(e.target.value as CustomerStatus)}>
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Blocked">Blocked</option>
+                  </select>
+                </FormField>
+              </SectionCard>
+              <SectionCard title="Internal Notes">
+                <textarea className={`${inputClass} h-auto py-2`} rows={3}
+                  value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)}
+                  placeholder="Add internal notes visible only to admin staff…" />
+              </SectionCard>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-5 py-4">
+              <button type="button" disabled={saving} onClick={handleSave}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button type="button" onClick={() => setSelected(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </ErrorBoundary>
+  );
+};
