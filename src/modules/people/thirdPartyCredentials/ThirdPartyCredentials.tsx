@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -120,6 +120,7 @@ export const ThirdPartyCredentials: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [showPass, setShowPass] = React.useState<Record<string, boolean>>({});
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -520,9 +521,11 @@ export const ThirdPartyCredentials: React.FC = () => {
       <PageHeader
         title="3P Credentials"
         subtitle="Manage 3PC employees (non-regular employees) and their onboarding data."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Add Credential', onClick: handleNew }]}
       />
-      <DataTableWrapper columns={columns} data={records} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={records} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
       {confirmDel && (
         <ConfirmDialog
           title="Delete Credential"

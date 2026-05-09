@@ -2,7 +2,7 @@ import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../../shared/components/PageHeader';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -77,6 +77,7 @@ export const Employees: React.FC = () => {
   const [newCode, setNewCode] = React.useState('');
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [tableSearch, setTableSearch] = React.useState('');
   const navigate = useNavigate();
 
   const load = React.useCallback(async () => {
@@ -184,6 +185,7 @@ export const Employees: React.FC = () => {
       <PageHeader
         title="Employees"
         subtitle="Manage employee records, salary, and documents."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ New Employee', onClick: handleNew }]}
       />
       <DataTableWrapper
@@ -191,6 +193,9 @@ export const Employees: React.FC = () => {
         data={employees}
         loading={loading}
         searchable
+        filterText={tableSearch}
+        onFilterTextChange={setTableSearch}
+        hideSearchInput
       />
       {confirmDel && (
         <ConfirmDialog

@@ -33,6 +33,13 @@ export async function fetchShareholders(): Promise<Shareholder[]> {
   const json = (await res.json()) as { records: any[] };
   return (json.records || []).map(toShareholder);
 }
+export interface ShareholderByPanResponse {
+  identity: Shareholder | null;
+  record: Shareholder | null;
+  history: Shareholder[];
+  credential: unknown | null;
+}
+
 export async function saveShareholder(sh: Shareholder): Promise<void> {
   const base = import.meta.env.VITE_API_BASE_URL ?? '';
   if (!base) throw new Error('VITE_API_BASE_URL is not configured');
@@ -66,7 +73,23 @@ export async function deleteShareholder(pan: string): Promise<void> {
   if (!res.ok) throw new Error(await res.text());
 }
 
-export async function fetchShareholderByPan(pan: string): Promise<{ record: Shareholder; credential?: unknown | null }> {
+export async function deleteShareholdingHistory(pan: string, historyId: string): Promise<void> {
+  const base = import.meta.env.VITE_API_BASE_URL ?? '';
+  if (!base) throw new Error('VITE_API_BASE_URL is not configured');
+  const token = sessionStorage.getItem('authToken');
+  const res = await fetch(
+    `${base}/api/shareholding/${encodeURIComponent(pan)}/history/${encodeURIComponent(historyId)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  );
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export async function fetchShareholderByPan(pan: string): Promise<ShareholderByPanResponse> {
   const base = import.meta.env.VITE_API_BASE_URL ?? '';
   if (!base) throw new Error('VITE_API_BASE_URL is not configured');
   const token = sessionStorage.getItem('authToken');
@@ -77,8 +100,20 @@ export async function fetchShareholderByPan(pan: string): Promise<{ record: Shar
     },
   });
   if (!res.ok) throw new Error(await res.text());
-  const json = (await res.json()) as { record: any; credential?: any };
-  return { record: toShareholder(json.record), credential: json.credential ?? null };
+  const json = (await res.json()) as {
+    shareholder?: any;
+    record: any;
+    history?: any[];
+    credential?: any;
+  };
+  const history = Array.isArray(json.history) ? json.history.map((h) => toShareholder(h)) : [];
+  const identity = json.shareholder ? toShareholder(json.shareholder) : null;
+  return {
+    identity,
+    record: json.record ? toShareholder(json.record) : null,
+    history,
+    credential: json.credential ?? null,
+  };
 }
 
 function toNominee(n: any): Nominee {
@@ -92,8 +127,19 @@ function toNominee(n: any): Nominee {
 }
 
 function toShareholder(r: any): Shareholder {
+  const y = String(r?.year || '');
+  const pk = String(r?.projectKey ?? '');
+  const historyId =
+    r.historyId != null
+      ? String(r.historyId)
+      : r.shareholder != null && r._id != null
+        ? String(r._id)
+        : undefined;
   return {
-    id: String(r?._id || r?.id || r?.pan || crypto.randomUUID()),
+    id: String(r._id || r.id || r.pan || crypto.randomUUID()),
+    historyId,
+    historyCount: r?.historyCount != null ? Number(r.historyCount) : undefined,
+    projectKey: pk === '_' ? '' : pk,
     name: String(r?.name || ''),
     pan: String(r?.pan || ''),
     mobile: String(r?.mobile || ''),
@@ -119,7 +165,7 @@ function toShareholder(r: any): Shareholder {
     dateOfAllotment: String(r?.dateOfAllotment || ''),
     remarks: (r?.remarks || '') as any,
     exitDate: String(r?.exitDate || ''),
-    year: String(r?.year || ''),
+    year: y === '_' ? '' : y,
     bankName: String(r?.bankName || ''),
     ifscCode: String(r?.ifscCode || ''),
     bankAccountNumber: String(r?.bankAccountNumber || ''),
@@ -131,6 +177,8 @@ function toShareholder(r: any): Shareholder {
 function toPayload(sh: Shareholder) {
   return {
     pan: String(sh.pan || '').trim().toUpperCase(),
+    projectKey: String(sh.projectKey || '').trim(),
+    historyId: sh.historyId || undefined,
     name: sh.name,
     mobile: sh.mobile,
     email: sh.email,

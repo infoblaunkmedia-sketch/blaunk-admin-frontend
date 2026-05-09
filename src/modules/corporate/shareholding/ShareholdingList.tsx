@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Shareholder } from '../corporate.types';
@@ -73,6 +73,7 @@ export const ShareholdingList: React.FC = () => {
   const [rows, setRows] = React.useState<Shareholder[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
+  const [tableSearch, setTableSearch] = React.useState('');
   const navigate = useNavigate();
 
   const load = React.useCallback(async () => {
@@ -96,7 +97,7 @@ export const ShareholdingList: React.FC = () => {
 
   const columns: TableColumn<Shareholder>[] = [
     { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2 },
-    { name: 'Folio No.', selector: (r) => r.folioNumber, width: '130px' },
+    { name: 'Year', selector: (r) => r.year || '—', width: '100px' },
     { name: 'PAN', selector: (r) => r.pan, width: '120px' },
     { name: 'Share Type', selector: (r) => r.shareType as string, width: '150px' },
     { name: 'No. of Shares', selector: (r) => r.numberOfShares, width: '120px', sortable: true },
@@ -145,10 +146,12 @@ export const ShareholdingList: React.FC = () => {
       <PageHeader
         title="Shareholding Register"
         subtitle="Manage company shareholders, share allocations, and nominees."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Add Shareholder', onClick: () => navigate('/corporate/shareholding/new') }]}
       />
 
-      <DataTableWrapper columns={columns} data={rows} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={rows} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
         <ConfirmDialog

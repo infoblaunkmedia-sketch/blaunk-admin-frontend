@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -32,6 +32,7 @@ export const ImageLibrary: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [sectionFilter, setSectionFilter] = React.useState('');
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -127,6 +128,7 @@ export const ImageLibrary: React.FC = () => {
     <ErrorBoundary>
       <PageHeader title="Image Library"
         subtitle="Upload and manage images used across the public website."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Upload Image', onClick: () => { setShowForm(true); setForm(emptyForm()); setCroppedUrl(''); } }]} />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -187,7 +189,8 @@ export const ImageLibrary: React.FC = () => {
         </SectionCard>
       )}
 
-      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
         <ConfirmDialog title="Delete Image" message="Delete this image permanently? It may still be in use on the website."

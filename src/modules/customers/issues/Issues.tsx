@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -62,6 +62,7 @@ export const Issues: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [statusFilter, setStatusFilter] = React.useState('');
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -161,6 +162,7 @@ export const Issues: React.FC = () => {
     <ErrorBoundary>
       <PageHeader title="Customer Issues"
         subtitle="Track and resolve customer complaints. Status lifecycle: Pending → In Progress → Resolved."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ New Issue', onClick: openNew }]} />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -241,7 +243,8 @@ export const Issues: React.FC = () => {
         </SectionCard>
       )}
 
-      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
         <ConfirmDialog title="Delete Issue" message="Delete this issue record permanently?"

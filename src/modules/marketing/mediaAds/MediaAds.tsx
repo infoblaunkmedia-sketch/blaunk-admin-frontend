@@ -175,7 +175,7 @@ export const MediaAds: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title={`Media Upload - ${activeTab}`} subtitle="Dynamic Sales Advertisement / Slider management." />
+      <PageHeader title={`Media Upload - ${activeTab}`} subtitle="Advertisement" />
 
       <SectionCard title="" className="mb-6">
         <div className="mb-3 flex flex-wrap gap-2">

@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -40,6 +40,7 @@ export const DsaNetwork: React.FC = () => {
   const [form, setForm] = React.useState<DsaRecord | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -195,8 +196,10 @@ export const DsaNetwork: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader title="DSA Network" subtitle="Manage DSA partner records and sharing ratios."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ New DSA', onClick: handleNew }]} />
-      <DataTableWrapper columns={columns} data={records} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={records} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
       {confirmDel && (
         <ConfirmDialog title="Delete DSA" message={`Delete DSA ${confirmDel}?`}
           confirmLabel="Delete" onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />

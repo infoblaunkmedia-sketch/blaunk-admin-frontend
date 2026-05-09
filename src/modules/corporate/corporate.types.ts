@@ -14,6 +14,12 @@ export interface Nominee {
 
 export interface Shareholder {
   id: string;
+  /** Mongo id of the active shareholding history row (latest in list, or selected period). */
+  historyId?: string;
+  /** Number of year/project history rows for this PAN. */
+  historyCount?: number;
+  /** Optional project or scheme reference; distinguishes history when year repeats. */
+  projectKey: string;
   name: string;
   pan: string;
   mobile: string;

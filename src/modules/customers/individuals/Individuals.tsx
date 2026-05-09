@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -20,6 +20,7 @@ export const Individuals: React.FC = () => {
   const [notesDraft, setNotesDraft] = React.useState('');
   const [statusDraft, setStatusDraft] = React.useState<CustomerStatus>('Active');
   const [saving, setSaving] = React.useState(false);
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -73,9 +74,11 @@ export const Individuals: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader title="Individual Customers"
-        subtitle="End users registered via the website. Admin manages status and internal notes." />
+        subtitle="End users registered via the website. Admin manages status and internal notes."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />} />
 
-      <DataTableWrapper columns={columns} data={individuals} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={individuals} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

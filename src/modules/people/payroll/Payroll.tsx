@@ -2,7 +2,7 @@ import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Employee } from '../people.types';
 import { fetchEmployees } from '../people.service';
@@ -31,6 +31,7 @@ export const Payroll: React.FC = () => {
     employeeCode: '',
     month: '',
   });
+  const [tableSearch, setTableSearch] = React.useState('');
 
   React.useEffect(() => {
     fetchEmployees().then(setEmployees);
@@ -74,7 +75,8 @@ export const Payroll: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title="Payroll" subtitle="Generate payslips and cost reports." />
+      <PageHeader title="Payroll" subtitle="Generate payslips and cost reports."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />} />
 
       <div className="mb-5 flex flex-wrap gap-2">
         {PAYROLL_TABS.map((tab) => (
@@ -136,7 +138,8 @@ export const Payroll: React.FC = () => {
         </div>
       </SectionCard>
 
-      <DataTableWrapper columns={columns} data={filtered} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={filtered} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
     </ErrorBoundary>
   );
 };

@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -34,6 +34,7 @@ export const Vacancies: React.FC = () => {
   const [editId, setEditId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -105,6 +106,7 @@ export const Vacancies: React.FC = () => {
       <PageHeader
         title="Vacancies"
         subtitle="Post and manage open positions."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Post Vacancy', onClick: () => { setShowForm(true); setEditId(null); setForm(emptyForm()); } }]}
       />
 
@@ -158,7 +160,8 @@ export const Vacancies: React.FC = () => {
         </SectionCard>
       )}
 
-      <DataTableWrapper columns={columns} data={vacancies} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={vacancies} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
         <ConfirmDialog

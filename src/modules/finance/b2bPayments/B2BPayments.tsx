@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -45,6 +45,7 @@ export const B2BPayments: React.FC = () => {
   const [statusFilter, setStatusFilter] = React.useState<string>('');
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -148,6 +149,7 @@ export const B2BPayments: React.FC = () => {
       <PageHeader
         title="B2B Payments"
         subtitle="Track and manage B2B payment records."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[
           { label: '+ Add Payment', onClick: () => { setShowForm(true); setEditId(null); setForm(emptyForm()); } },
           { label: 'Export Excel', onClick: handleExport, variant: 'secondary' },
@@ -240,6 +242,7 @@ export const B2BPayments: React.FC = () => {
       )}
 
       <DataTableWrapper columns={columns} data={filteredRecords} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput
         exportable onExport={handleExport} />
 
       {confirmDel && (

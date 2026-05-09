@@ -17,10 +17,7 @@ lerna-debug.log*
 
 ### Environment variables (keep local secrets out of git)
 .env
-<<<<<<< HEAD
 .env.example
-=======
->>>>>>> 46b5e1252e494a93a3075a8dc36958491cf4478a
 .env.*.local
 .env.local
 .env.development.local

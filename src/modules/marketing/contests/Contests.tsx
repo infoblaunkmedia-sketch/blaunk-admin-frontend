@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -33,6 +33,7 @@ export const Contests: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [statusFilter, setStatusFilter] = React.useState('');
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -98,6 +99,7 @@ export const Contests: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader title="Contests" subtitle="Manage marketing contests and campaigns."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ New Contest', onClick: () => { setShowForm(true); setEditId(null); setForm(emptyForm()); } }]} />
 
       <div className="mb-4 flex items-center gap-3">
@@ -157,7 +159,8 @@ export const Contests: React.FC = () => {
         </SectionCard>
       )}
 
-      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
         <ConfirmDialog title="Delete Contest" message="Delete this contest permanently?"

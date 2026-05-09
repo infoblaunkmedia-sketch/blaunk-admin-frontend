@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { getWorkspaceHomePath } from '../../auth/homePath';
@@ -156,6 +157,11 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClose }) => {
   const { hasPermission, user } = useAuth();
   const location = useLocation();
+  const [collapsedTip, setCollapsedTip] = React.useState<{
+    label: string;
+    top: number;
+    left: number;
+  } | null>(null);
 
   const workspaceHome =
     user && user.role !== 'admin' ? getWorkspaceHomePath(user) : null;
@@ -164,6 +170,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
     if (item.permission === 'dashboard' && user?.role !== 'admin') return false;
     return hasPermission(item.permission);
   });
+
+  React.useEffect(() => {
+    if (!collapsed) setCollapsedTip(null);
+  }, [collapsed]);
+
+  const collapsedLabelProps = (label: string) =>
+    collapsed
+      ? {
+          'aria-label': label,
+          onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setCollapsedTip({
+              label,
+              top: r.top + r.height / 2,
+              left: r.right + 10,
+            });
+          },
+          onMouseLeave: () => setCollapsedTip(null),
+          onFocus: (e: React.FocusEvent<HTMLElement>) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setCollapsedTip({
+              label,
+              top: r.top + r.height / 2,
+              left: r.right + 10,
+            });
+          },
+          onBlur: () => setCollapsedTip(null),
+        }
+      : {};
 
   return (
     <>
@@ -199,6 +234,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
               key={workspaceHome}
               to={workspaceHome}
               onClick={onClose}
+              {...collapsedLabelProps('Home')}
               className={({ isActive }) =>
                 [
                   'flex items-center rounded-lg px-3 text-sm font-bold transition-colors',
@@ -223,6 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
                 key={item.path}
                 to={item.path}
                 onClick={onClose}
+                {...collapsedLabelProps(item.label)}
                 className={[
                   'flex items-center rounded-lg px-3 text-sm font-bold transition-colors',
                   collapsed ? 'justify-center' : '',
@@ -244,6 +281,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
           })}
         </nav>
       </aside>
+
+      {collapsed &&
+        collapsedTip != null &&
+        createPortal(
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed z-[9999] max-w-[min(16rem,calc(100vw-6rem))] -translate-y-1/2 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold leading-snug text-white shadow-lg"
+            style={{ top: collapsedTip.top, left: collapsedTip.left }}
+          >
+            {collapsedTip.label}
+          </div>,
+          document.body,
+        )}
     </>
   );
 };

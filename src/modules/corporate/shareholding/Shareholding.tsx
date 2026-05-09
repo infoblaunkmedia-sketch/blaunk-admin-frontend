@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -22,8 +22,9 @@ const emptyForm = (): Omit<Shareholder, 'id'> => ({
   mode: '', isinCode: '', dpNumber: '', folioNumber: '',
   distinctiveFrom: '', distinctiveTo: '', yearOfIssuance: '',
   stakeholder: '', dateOfAllotment: '', remarks: '', exitDate: '',
-  year: '', bankName: '', ifscCode: '', bankAccountNumber: '',
+  year: '', projectKey: '', bankName: '', ifscCode: '', bankAccountNumber: '',
   pledge: 'NA',
+  historyId: '',
   nominees: [emptyNominee(), emptyNominee(), emptyNominee()],
 });
 
@@ -35,6 +36,7 @@ export const Shareholding: React.FC = () => {
   const [editId, setEditId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -87,7 +89,6 @@ export const Shareholding: React.FC = () => {
 
   const columns: TableColumn<Shareholder>[] = [
     { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2 },
-    { name: 'Folio No.', selector: (r) => r.folioNumber, width: '130px' },
     { name: 'PAN', selector: (r) => r.pan, width: '120px' },
     { name: 'Share Type', selector: (r) => r.shareType, width: '150px' },
     { name: 'No. of Shares', selector: (r) => r.numberOfShares, width: '120px', sortable: true },
@@ -99,7 +100,7 @@ export const Shareholding: React.FC = () => {
         <div className="flex gap-2">
           <button type="button" onClick={() => openEdit(r)}
             className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10">Edit</button>
-          <button type="button" onClick={() => setConfirmDel(r.id)}
+          <button type="button" onClick={() => setConfirmDel(r.pan)}
             className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
         </div>
       ),
@@ -111,9 +112,11 @@ export const Shareholding: React.FC = () => {
     <ErrorBoundary>
       <PageHeader title="Shareholding Register"
         subtitle="Manage company shareholders, share allocations, and nominees."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Add Shareholder', onClick: openNew }]} />
 
-      <DataTableWrapper columns={columns} data={shareholders} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={shareholders} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4">
@@ -237,6 +240,10 @@ export const Shareholding: React.FC = () => {
                       <option value="">Select…</option>
                       <option>2024-2025</option><option>2025-2026</option><option>2026-2027</option><option>2027-2028</option>
                     </select>
+                  </FormField>
+                  <FormField label="Project ref (optional)">
+                    <input className={inputClass} value={form.projectKey}
+                      onChange={(e) => setField('projectKey', e.target.value)} placeholder="Same year, different project" />
                   </FormField>
                   <FormField label="Exit Date">
                     <input type="date" className={`${inputClass} [color-scheme:light]`} value={form.exitDate}

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Nominee, Shareholder } from '../corporate.types';
-import { deleteShareholder, fetchShareholderByPan, saveShareholder } from '../corporate.service';
+import { fetchShareholderByPan, saveShareholder } from '../corporate.service';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -47,22 +47,85 @@ const defaultValues: FormValues = {
   remarks: '',
   exitDate: '',
   year: '',
+  projectKey: '',
 
   bankName: '',
   ifscCode: '',
   bankAccountNumber: '',
 
   pledge: 'NA',
+  historyId: '',
   nominees: [emptyNominee(), emptyNominee(), emptyNominee()],
 };
 
+function pickPeriodForm(
+  identity: Shareholder | null,
+  historyRows: Shareholder[],
+  record: Shareholder | null,
+  historyIdParam: string | null,
+): Shareholder {
+  const idNominees = identity?.nominees?.length ? identity.nominees : defaultValues.nominees;
+  const personal = (): Partial<FormValues> =>
+    identity
+      ? {
+          name: identity.name,
+          pan: identity.pan,
+          mobile: identity.mobile,
+          email: identity.email,
+          aadhaar: identity.aadhaar,
+          address: identity.address,
+          city: identity.city,
+          landmark: identity.landmark,
+          country: identity.country,
+          gender: identity.gender,
+          nominees: idNominees,
+        }
+      : {};
+
+  if (historyIdParam === '__new__') {
+    return {
+      ...defaultValues,
+      ...personal(),
+      year: '',
+      projectKey: '',
+      historyId: '',
+    } as Shareholder;
+  }
+
+  if (historyIdParam) {
+    const row = historyRows.find((h) => h.historyId === historyIdParam);
+    if (row) {
+      return {
+        ...defaultValues,
+        ...personal(),
+        ...row,
+        ...personal(),
+        nominees: row.nominees?.length ? row.nominees : idNominees,
+      } as Shareholder;
+    }
+  }
+
+  if (record) {
+    return {
+      ...defaultValues,
+      ...personal(),
+      ...record,
+      nominees: record.nominees?.length ? record.nominees : idNominees,
+    } as Shareholder;
+  }
+
+  return { ...defaultValues, ...personal() } as Shareholder;
+}
+
 export const ShareholdingForm: React.FC = () => {
   const { pan } = useParams();
+  const [searchParams] = useSearchParams();
   const isEdit = !!pan && pan !== 'new';
   const navigate = useNavigate();
-  const originalPanRef = React.useRef<string>('');
   const [loading, setLoading] = React.useState(isEdit);
   const [saving, setSaving] = React.useState(false);
+  const [identityPan, setIdentityPan] = React.useState('');
+  const [historyOptions, setHistoryOptions] = React.useState<Shareholder[]>([]);
 
   const {
     register,
@@ -79,10 +142,13 @@ export const ShareholdingForm: React.FC = () => {
       try {
         setLoading(true);
         const res = await fetchShareholderByPan(pan);
-        const r = res.record;
-        originalPanRef.current = String(r.pan || pan).trim().toUpperCase();
+        const idPan = String(res.identity?.pan || res.record?.pan || pan).trim().toUpperCase();
+        setIdentityPan(idPan);
+        setHistoryOptions(res.history);
+        const hid = searchParams.get('historyId');
+        const merged = pickPeriodForm(res.identity, res.history, res.record, hid);
         (Object.keys(defaultValues) as (keyof FormValues)[]).forEach((k) => {
-          const map = r as unknown as Record<string, unknown>;
+          const map = merged as unknown as Record<string, unknown>;
           const fallback = defaultValues as unknown as Record<string, unknown>;
           setValue(k, (map[k] ?? fallback[k]) as any, { shouldDirty: false });
         });
@@ -95,15 +161,28 @@ export const ShareholdingForm: React.FC = () => {
     }
     run();
     return () => { mounted = false; };
-  }, [isEdit, pan, navigate, setValue]);
+  }, [isEdit, pan, navigate, setValue, searchParams]);
 
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
     try {
+      const panNorm = data.pan.trim().toUpperCase();
+      if (isEdit && identityPan && panNorm !== identityPan) {
+        toast.error('PAN cannot be changed while editing an existing shareholder.');
+        return;
+      }
+      const hid = searchParams.get('historyId');
+      const isNewPeriod = hid === '__new__';
+      const resolvedHistoryId = isNewPeriod
+        ? undefined
+        : hid && hid !== '__new__'
+          ? hid
+          : data.historyId || undefined;
       const payload: Shareholder = {
-        id: isEdit && pan ? pan : data.pan.trim().toUpperCase(),
         ...data,
-        pan: data.pan.trim().toUpperCase(),
+        id: isEdit && pan ? pan : panNorm,
+        pan: panNorm,
+        historyId: resolvedHistoryId,
         mobile: data.mobile.replace(/\D/g, '').slice(0, 10),
         aadhaar: data.aadhaar.replace(/\D/g, '').slice(0, 12),
         email: data.email.trim(),
@@ -115,12 +194,7 @@ export const ShareholdingForm: React.FC = () => {
         })),
       };
       await saveShareholder(payload);
-      // If PAN was changed during edit, migrate the record (avoid "new record" leftover).
-      const originalPan = originalPanRef.current;
-      if (isEdit && originalPan && originalPan !== payload.pan) {
-        await deleteShareholder(originalPan);
-      }
-      toast.success(isEdit ? 'Shareholder updated' : 'Shareholder added');
+      toast.success(isEdit ? 'Saved' : 'Shareholder added');
       navigate('/corporate/shareholding', { replace: true });
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Save failed';
@@ -178,6 +252,8 @@ export const ShareholdingForm: React.FC = () => {
                   className={inputClass}
                   maxLength={10}
                   placeholder="ABCDE1234F"
+                  disabled={isEdit}
+                  title={isEdit ? 'Unique shareholder key — add a new year/project under Share details instead.' : undefined}
                   {...register('pan', {
                     required: 'Required',
                     setValueAs: (v) => String(v || '').trim().toUpperCase(),
@@ -215,6 +291,62 @@ export const ShareholdingForm: React.FC = () => {
                   <option>Female</option>
                   <option>Other</option>
                 </select>
+              </FormField>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Shareholding period (year / project)">
+            <p className="mb-3 text-xs font-semibold text-slate-600">
+              Same PAN re-used: set a different <strong>Year</strong> or <strong>Project reference</strong> to add another history row without duplicating the shareholder.
+            </p>
+            {isEdit && historyOptions.length > 0 ? (
+              <div className="mb-4">
+                <FormField label="Editing snapshot">
+                  <select
+                    className={inputClass}
+                    value={searchParams.get('historyId') || (historyOptions[0]?.historyId ?? '')}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      navigate(
+                        v
+                          ? `/corporate/shareholding/${encodeURIComponent(pan!)}/edit?historyId=${encodeURIComponent(v)}`
+                          : `/corporate/shareholding/${encodeURIComponent(pan!)}/edit`,
+                        { replace: true },
+                      );
+                    }}
+                  >
+                    {historyOptions.map((h) => (
+                      <option key={h.historyId} value={h.historyId}>
+                        {h.year || '—'} {h.projectKey ? `· ${h.projectKey}` : ''} ({h.folioNumber || 'folio —'})
+                      </option>
+                    ))}
+                    <option value="__new__">+ New year / project…</option>
+                  </select>
+                </FormField>
+              </div>
+            ) : null}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <FormField label="Year (FY / label)" required={!!isEdit} error={errors.year?.message}>
+                <input
+                  className={inputClass}
+                  placeholder="e.g. 2025-2026"
+                  {...register('year', {
+                    validate: (v) => {
+                      if (!isEdit) return true;
+                      if (searchParams.get('historyId') === '__new__' && !String(v || '').trim()) {
+                        return 'Enter year for the new snapshot';
+                      }
+                      return true;
+                    },
+                  })}
+                />
+              </FormField>
+              <FormField label="Project / scheme ref (optional)">
+                <input
+                  className={inputClass}
+                  placeholder="Distinguishes same year"
+                  {...register('projectKey')}
+                />
               </FormField>
             </div>
           </SectionCard>
@@ -303,9 +435,7 @@ export const ShareholdingForm: React.FC = () => {
               <FormField label="Exit Date">
                 <input type="date" className={inputClass} {...register('exitDate')} />
               </FormField>
-              <FormField label="Year">
-                <input className={inputClass} {...register('year')} />
-              </FormField>
+              <input type="hidden" {...register('historyId')} />
               <FormField label="Pledge">
                 <select className={inputClass} {...register('pledge')}>
                   <option>NA</option>

@@ -38,19 +38,33 @@ export const ProfilePage: React.FC = () => {
     if (saving) return;
 
     const trimmedEmail = email.trim();
-    const wantsPasswordChange = newPassword.trim().length > 0 || currentPassword.trim().length > 0;
+    const trimmedCurrent = currentPassword.trim();
+    const trimmedNew = newPassword.trim();
+    const trimmedConfirm = confirmPassword.trim();
 
-    if (wantsPasswordChange && newPassword.trim() !== confirmPassword.trim()) {
-      toast.error('New password and confirm password do not match.');
+    if (!trimmedCurrent) {
+      toast.error('Enter your current password to save changes.');
       return;
+    }
+
+    if (trimmedNew || trimmedConfirm) {
+      if (trimmedNew.length < 6) {
+        toast.error('New password must be at least 6 characters.');
+        return;
+      }
+      if (trimmedNew !== trimmedConfirm) {
+        toast.error('New password and confirm password do not match.');
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      const payload: Record<string, string> = {};
+      const payload: Record<string, string> = {
+        currentPassword: trimmedCurrent,
+      };
       if (trimmedEmail) payload.email = trimmedEmail;
-      if (currentPassword.trim()) payload.currentPassword = currentPassword.trim();
-      if (newPassword.trim()) payload.newPassword = newPassword.trim();
+      if (trimmedNew) payload.newPassword = trimmedNew;
 
       const res = await api.patch<UpdateProfileResponse>('/api/auth/profile', payload);
       patchUserFields({ email: res?.user?.email ?? trimmedEmail });
@@ -93,7 +107,7 @@ export const ProfilePage: React.FC = () => {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-primary/30 focus:border-primary focus:ring-2"
-              placeholder="Required only for password change"
+              placeholder="Required to save any changes"
             />
           </label>
           <label className="space-y-1">

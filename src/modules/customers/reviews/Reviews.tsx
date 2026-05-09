@@ -2,7 +2,7 @@ import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { CustomerReview, ReviewStatus } from '../customers.types';
@@ -14,6 +14,7 @@ export const Reviews: React.FC = () => {
   const [reviews, setReviews] = React.useState<CustomerReview[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [statusFilter, setStatusFilter] = React.useState('');
+  const [tableSearch, setTableSearch] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -78,7 +79,8 @@ export const Reviews: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title="Customer Reviews" subtitle="Moderate reviews submitted by customers." />
+      <PageHeader title="Customer Reviews" subtitle="Moderate reviews submitted by customers."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />} />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-slate-600">Filter:</span>
@@ -93,7 +95,8 @@ export const Reviews: React.FC = () => {
         ))}
       </div>
 
-      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
     </ErrorBoundary>
   );
 };

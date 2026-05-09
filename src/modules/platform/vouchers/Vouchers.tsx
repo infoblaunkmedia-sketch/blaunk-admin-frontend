@@ -3,7 +3,7 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -35,6 +35,7 @@ export const Vouchers: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [statusFilter, setStatusFilter] = React.useState('');
+  const [tableSearch, setTableSearch] = React.useState('');
   const currentUser = useAuthStore((s) => s.user);
 
   const load = React.useCallback(async () => {
@@ -111,6 +112,7 @@ export const Vouchers: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader title="Vouchers" subtitle="Create and manage discount voucher codes."
+        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ New Voucher', onClick: openNew }]} />
 
       <div className="mb-4 flex items-center gap-3">
@@ -182,7 +184,8 @@ export const Vouchers: React.FC = () => {
         </SectionCard>
       )}
 
-      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable />
+      <DataTableWrapper columns={columns} data={displayed} loading={loading} searchable
+        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
         <ConfirmDialog title="Delete Voucher" message="Delete this voucher code permanently?"
