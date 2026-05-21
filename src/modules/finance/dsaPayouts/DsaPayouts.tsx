@@ -322,7 +322,6 @@ export const DsaPayouts: React.FC = () => {
     { name: 'Mode', selector: (r) => r.mode, sortable: true, width: '90px' },
     { name: 'Curr', selector: (r) => r.currency, sortable: true, width: '70px' },
     { name: 'Amount Pay-in', selector: (r) => r.submittedAmount, format: (r) => r.submittedAmount.toLocaleString(), width: '120px' },
-    { name: 'INR', selector: (r) => r.currencyInr, format: (r) => `₹${r.currencyInr.toLocaleString()}` },
     { name: 'Share %', selector: (r) => r.shareRatio, format: (r) => `${r.shareRatio}:${100 - r.shareRatio}`, width: '90px' },
     { name: 'Limit (₹)', selector: (r) => r.calculatedLimit, format: (r) => `₹${r.calculatedLimit.toLocaleString()}` },
     { name: 'Available (₹)', selector: (r) => Number(r.availableBalance || 0), format: (r) => `₹${Number(r.availableBalance || 0).toLocaleString()}` },

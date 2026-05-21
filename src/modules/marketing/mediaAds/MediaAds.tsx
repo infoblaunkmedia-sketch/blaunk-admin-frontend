@@ -498,7 +498,6 @@ export const MediaAds: React.FC = () => {
                   <th className="px-3 py-2 text-left">Mode</th>
                   <th className="px-3 py-2 text-left">Curr</th>
                   <th className="px-3 py-2 text-left">Amount Pay-in</th>
-                  <th className="px-3 py-2 text-left">INR</th>
                   <th className="px-3 py-2 text-left">Calculated Limit</th>
                   <th className="px-3 py-2 text-left">Status</th>
                   <th className="px-3 py-2 text-left">Approval/Rejection Log</th>
@@ -512,7 +511,6 @@ export const MediaAds: React.FC = () => {
                     <td className="border-b px-3 py-2">{row.mode || '-'}</td>
                     <td className="border-b px-3 py-2">{row.currency}</td>
                     <td className="border-b px-3 py-2">{Number(row.submittedAmount || 0).toLocaleString()}</td>
-                    <td className="border-b px-3 py-2">₹{Number(row.currencyInr || 0).toLocaleString()}</td>
                     <td className="border-b px-3 py-2">₹{Number(row.calculatedLimit || 0).toLocaleString()}</td>
                     <td className="border-b px-3 py-2">
                       <StatusBadge status={row.status} />

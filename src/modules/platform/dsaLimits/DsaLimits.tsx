@@ -65,7 +65,6 @@ export const DsaLimits: React.FC = () => {
     { header: 'Mode', render: (r: DsaPayoutSubmission) => r.mode },
     { header: 'Curr', render: (r: DsaPayoutSubmission) => r.currency },
     { header: 'Amount Pay-in', render: (r: DsaPayoutSubmission) => r.submittedAmount.toLocaleString() },
-    { header: 'INR', render: (r: DsaPayoutSubmission) => `₹${r.currencyInr.toLocaleString()}` },
     { header: 'Share %', render: (r: DsaPayoutSubmission) => `${r.shareRatio}:${100 - r.shareRatio}` },
     { header: 'Limit (₹)', render: (r: DsaPayoutSubmission) => <span className="font-bold text-amber-700">₹{r.calculatedLimit.toLocaleString()}</span> },
   ];
