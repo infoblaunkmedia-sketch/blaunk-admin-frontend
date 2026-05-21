@@ -1,4 +1,5 @@
 import React from 'react';
+import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../shared/utils/numericInput';
 
 const TABS = ['Invoice', 'Financial', 'Rejection'] as const;
 const REJECTION_YEARS = Array.from({ length: 15 }, (_, i) => String(2026 + i));
@@ -553,6 +554,7 @@ export const RetailShopPage: React.FC = () => {
                 <input
                   type="text"
                   inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
                   value={pincode}
                   onChange={(e) => {
                     const next = digitsOnly(e.target.value, 6);
@@ -684,6 +686,7 @@ export const RetailShopPage: React.FC = () => {
                         min={0}
                         step={1}
                         value={row.qty}
+                        onKeyDown={onIntegerInputKeyDown}
                         onChange={(e) => updateQty(row.id, e.target.value)}
                         className="qty-stepper mx-auto box-border h-8 w-[4.5rem] min-w-0 rounded-md border-2 border-black bg-white py-0.5 pl-1 pr-0 text-center font-serif text-base font-semibold text-primary shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
                         aria-label={`Quantity for ${row.article}`}
@@ -720,6 +723,7 @@ export const RetailShopPage: React.FC = () => {
                 <input
                   type="text"
                   inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
                   value={eWayNo}
                   onChange={(e) => {
                     const next = digitsOnly(e.target.value, 12);
@@ -780,6 +784,7 @@ export const RetailShopPage: React.FC = () => {
                 <input
                   type="text"
                   inputMode="decimal"
+                  onKeyDown={onNumericInputKeyDown}
                   value={weightKg}
                   onChange={(e) => {
                     const v = normalizeWeightKg(e.target.value);
@@ -833,6 +838,7 @@ export const RetailShopPage: React.FC = () => {
                 <input
                   type="text"
                   inputMode="decimal"
+                  onKeyDown={onNumericInputKeyDown}
                   value={refund}
                   onChange={(e) => {
                     const v = normalizeMoney(e.target.value);
@@ -865,6 +871,7 @@ export const RetailShopPage: React.FC = () => {
                     <input
                       type="text"
                       inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
                       value={carryBagPrice}
                       onChange={(e) => {
                         const v = normalizeMoney(e.target.value);
@@ -890,6 +897,7 @@ export const RetailShopPage: React.FC = () => {
                     <input
                       type="text"
                       inputMode="numeric"
+                      onKeyDown={onIntegerInputKeyDown}
                       value={carryBagQty}
                       onChange={(e) => {
                         const v = digitsOnly(e.target.value, 4);
@@ -933,6 +941,7 @@ export const RetailShopPage: React.FC = () => {
                 <input
                   type="text"
                   inputMode="decimal"
+                  onKeyDown={onNumericInputKeyDown}
                   value={voucherValue}
                   onChange={(e) => {
                     const v = normalizeMoney(e.target.value);
@@ -1070,6 +1079,7 @@ export const RetailShopPage: React.FC = () => {
                     <input
                       type="text"
                       inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
                       value={finAmount}
                       onChange={(e) => setFinAmount(normalizeMoney(e.target.value))}
                       className={finEditableClass}
@@ -1103,6 +1113,7 @@ export const RetailShopPage: React.FC = () => {
                     <input
                       type="text"
                       inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
                       value={finCashEod}
                       onChange={(e) => setFinCashEod(normalizeMoney(e.target.value))}
                       className={finEditableClass}
@@ -1205,6 +1216,7 @@ export const RetailShopPage: React.FC = () => {
                     <input
                       type="text"
                       inputMode="numeric"
+                      onKeyDown={onIntegerInputKeyDown}
                       value={rejectionQty}
                       onChange={(e) => setRejectionQty(digitsOnly(e.target.value, 3))}
                       className={rejectionEditableClass}
@@ -1256,6 +1268,7 @@ export const RetailShopPage: React.FC = () => {
                     <input
                       type="text"
                       inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
                       value={rejectionAmount}
                       onChange={(e) => setRejectionAmount(normalizeMoney(e.target.value))}
                       className={rejectionEditableClass}

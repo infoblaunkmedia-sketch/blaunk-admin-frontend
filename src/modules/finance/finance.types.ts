@@ -33,6 +33,10 @@ export interface DsaPayoutSubmission {
   status: PayoutStatus;
   approvalNote?: string;
   rejectionReason?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
   newAmount?: number;
   bodBalance?: number;
   usedValue?: number;

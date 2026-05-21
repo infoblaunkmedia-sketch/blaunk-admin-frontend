@@ -1,4 +1,5 @@
 import React from 'react';
+import { onNumericInputKeyDown } from '../shared/utils/numericInput';
 
 const PORTAL_PRODUCTS = ['Tour', 'Cake', 'Store'] as const;
 
@@ -111,6 +112,7 @@ export const CommissionPage: React.FC = () => {
                         inputMode="decimal"
                         className={inputClass}
                         placeholder="Enter amount"
+                        onKeyDown={onNumericInputKeyDown}
                         value={portalFees[product]}
                         disabled={!portalEditing}
                         onChange={(e) =>

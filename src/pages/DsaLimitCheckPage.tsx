@@ -1,4 +1,5 @@
 import React from 'react';
+import { onIntegerInputKeyDown } from '../shared/utils/numericInput';
 
 /** Currency-INR and Limit: digits only. */
 function sanitizeAmount(raw: string): string {
@@ -157,6 +158,7 @@ export const DsaLimitCheckPage: React.FC = () => {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     className={`${inputClass} tabular-nums`}
+                    onKeyDown={onIntegerInputKeyDown}
                     value={row.currencyInr}
                     placeholder="0"
                     onChange={(e) =>
@@ -172,6 +174,7 @@ export const DsaLimitCheckPage: React.FC = () => {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     className={`${inputClass} tabular-nums`}
+                    onKeyDown={onIntegerInputKeyDown}
                     value={row.limit}
                     placeholder="0"
                     onChange={(e) =>

@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { BankDetailsFields } from '../shared/BankDetailsFields';
 import { INDIAN_STATES } from '../../../shared/constants/hrConstants';
 import type { VerifierRecord, BankDetails } from '../channelPartners.types';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 import {
   fetchVerifiers, saveVerifier, deleteVerifier, generateVerifierCode,
 } from '../channelPartners.service';
@@ -148,6 +149,7 @@ export const Verifiers: React.FC = () => {
               </FormField>
               <FormField label="Verification Fee (₹)">
                 <input type="number" min={0} className={inputClass} value={form.verificationFee}
+                  onKeyDown={onNumericInputKeyDown}
                   onChange={(e) => setField('verificationFee', Number(e.target.value))} />
               </FormField>
               <FormField label="Status">

@@ -37,6 +37,7 @@ export interface Shareholder {
   mode: ShareMode | '';
   isinCode: string;
   dpNumber: string;
+  beneficiaryDpId: string;
   folioNumber: string;
   distinctiveFrom: string;
   distinctiveTo: string;

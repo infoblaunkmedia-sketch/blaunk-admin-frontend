@@ -12,6 +12,7 @@ import { SUBSCRIPTION_PLAN_NAMES } from '../platform.types';
 import type { Voucher, VoucherStatus } from '../platform.types';
 import { fetchVouchers, saveVoucher, deleteVoucher, generateVoucherCode } from '../platform.service';
 import { useAuthStore } from '../../../auth/authStore';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -149,6 +150,7 @@ export const Vouchers: React.FC = () => {
             </FormField>
             <FormField label="Discount (0–100%)" required>
               <input type="number" min={0} max={100} className={inputClass} value={form.discount || ''}
+                onKeyDown={onNumericInputKeyDown}
                 onChange={(e) => setField('discount', Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))} />
             </FormField>
             <FormField label="Usage Type">

@@ -1,5 +1,7 @@
 import type { Employee, Vacancy, EmployeeReference } from './people.types';
+import { CTC_DIVISOR_OPTIONS } from '../../shared/constants/hrConstants';
 import { logger } from '../../shared/utils/logger';
+import { parseApiErrorBody } from '../../shared/utils/apiErrorMessage';
 
 const EMP_KEY = 'blaunk_employees';
 const VAC_KEY = 'blaunk_vacancies';
@@ -22,8 +24,20 @@ type EmployeeCredentialsRecord = {
   designation?: string;
   bankName?: string;
   ifscCode?: string;
+  micrCode?: string;
   bankAccountNumber?: string;
   medicalInsuranceNo?: string;
+  medicalInsurer?: string;
+  gratuityNo?: string;
+  gratuityInsurer?: string;
+  bonus?: string;
+  pfRequest?: string;
+  esiInsuranceNo?: string;
+  npsSubscriptionNo?: string;
+  ctcDivisorDays?: string;
+  pfContributionEmployer?: string;
+  bankArea?: string;
+  bankCity?: string;
   doj?: string;
   doc?: string;
   centreName?: string;
@@ -104,6 +118,10 @@ function toEmployee(r: EmployeeCredentialsRecord): Employee {
     uan: r.uan || '',
     pf: r.pf || '',
     exitDate: r.exitDate || '',
+    pfRequest: r.pfRequest || '',
+    bonus: r.bonus || '',
+    esiInsuranceNo: r.esiInsuranceNo || '',
+    npsSubscriptionNo: r.npsSubscriptionNo || '',
 
     basicSalary: n(r.basicSalary),
     hra: n(r.hra),
@@ -126,23 +144,39 @@ function toEmployee(r: EmployeeCredentialsRecord): Employee {
     yearlyCtc: r.yearlyCtc || '',
     esiSalary: r.esiSalary || '',
     pfContribution: r.pfContribution || '',
+    pfContributionEmployer: r.pfContributionEmployer || '',
     npsEmployer: r.npsEmployer || '',
     npsEmployee: r.npsEmployee || '',
+    ctcDivisorDays: (() => {
+      const v = String(r.ctcDivisorDays || '').trim();
+      return (CTC_DIVISOR_OPTIONS as readonly string[]).includes(v) ? v : CTC_DIVISOR_OPTIONS[0];
+    })(),
 
     accountHolderName: '',
     accountNumber: r.bankAccountNumber || '',
     ifsc: r.ifscCode || '',
     bankName: r.bankName || '',
-    branch: '',
+    micrCode: r.micrCode || '',
+    branch: r.bankArea || '',
+    bankArea: r.bankArea || '',
+    bankCity: r.bankCity || '',
 
     medicalInsuranceNo: r.medicalInsuranceNo || '',
+    medicalInsurer: r.medicalInsurer || '',
+    gratuityNo: r.gratuityNo || '',
+    gratuityInsurer: r.gratuityInsurer || '',
     pTax: r.pTax || '',
 
     aadhaarNumber: r.aadhaar || '',
     panNumber: r.pan || '',
 
     employeeDocumentUrl: r.employeeDocumentUrl || '',
-    references: r.references || [],
+    references: (r.references || []).map((ref) => ({
+      name: ref?.name || '',
+      mobile: ref?.mobile || '',
+      designation: ref?.designation || '',
+      city: ref?.city || '',
+    })),
 
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -168,6 +202,7 @@ function toPayload(emp: Employee) {
     designation: emp.designation,
     bankName: emp.bankName,
     ifscCode: emp.ifsc,
+    micrCode: emp.micrCode,
     bankAccountNumber: emp.accountNumber,
     medicalInsuranceNo: emp.medicalInsuranceNo,
     doj: emp.dateOfJoining,
@@ -175,6 +210,14 @@ function toPayload(emp: Employee) {
     centreName: emp.centreName,
     confirmationStatus: emp.confirmationStatus,
     monthlyLeaves: emp.monthlyLeaves,
+    medicalInsurer: emp.medicalInsurer,
+    gratuityNo: emp.gratuityNo,
+    gratuityInsurer: emp.gratuityInsurer,
+    bonus: emp.bonus,
+    pfRequest: emp.pfRequest,
+    esiInsuranceNo: emp.esiInsuranceNo,
+    npsSubscriptionNo: emp.npsSubscriptionNo,
+    ctcDivisorDays: emp.ctcDivisorDays,
     nps: String(emp.nps ?? ''),
     esi: String(emp.esi ?? ''),
     jobGrade: emp.jobGrade,
@@ -195,13 +238,21 @@ function toPayload(emp: Employee) {
     healthInsurance: String(emp.healthInsurance ?? ''),
     esiSalary: emp.esiSalary,
     pfContribution: emp.pfContribution,
+    pfContributionEmployer: emp.pfContributionEmployer,
     npsEmployer: emp.npsEmployer,
     npsEmployee: emp.npsEmployee,
+    bankArea: emp.bankArea,
+    bankCity: emp.bankCity,
     roundOff: String(emp.roundOff ?? ''),
     ctcMonthly: String(emp.monthlyCtc ?? ''),
     ctcPerDay: String(emp.perDayCtc ?? ''),
     gratuity: String(emp.gratuity ?? ''),
-    references: emp.references || [],
+    references: (emp.references || []).map((r) => ({
+      name: r.name || '',
+      mobile: r.mobile || '',
+      designation: r.designation || '',
+      city: r.city || '',
+    })),
     employeePhotoUrl: emp.photoUrl || emp.employeePhotoUrl || '',
     employeeDocumentUrl: emp.employeeDocumentUrl || '',
   };
@@ -219,7 +270,10 @@ export async function fetchEmployees(): Promise<Employee[]> {
         : {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
   const json = (await res.json()) as ListEmployeesResponse;
   return (json.records || []).map(toEmployee);
 }
@@ -242,7 +296,7 @@ export async function saveEmployee(emp: Employee): Promise<void> {
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     logger.error('saveEmployee failed', text);
-    throw new Error(text || 'Failed to save employee');
+    throw new Error(parseApiErrorBody(text, res.status) || 'Failed to save employee');
   }
   await res.json().catch(() => ({} as SaveEmployeeResponse));
 }
@@ -257,13 +311,28 @@ export async function deleteEmployee(pan: string): Promise<void> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
 }
 
-export async function generateEmployeeCode(existing: Employee[]): Promise<string> {
-  const codes = existing.map((e) => e.employeeCode).filter((c) => /^E\d+$/.test(c));
-  const max = codes.reduce((acc, c) => Math.max(acc, parseInt(c.slice(1), 10)), 0);
-  return `E${String(max + 1).padStart(4, '0')}`;
+export async function generateEmployeeCode(): Promise<string> {
+  const base = import.meta.env.VITE_API_BASE_URL ?? '';
+  if (!base) throw new Error('VITE_API_BASE_URL is not configured');
+  const token = sessionStorage.getItem('authToken');
+  const res = await fetch(`${base}/api/employees/next-code?type=employee`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
+  const json = (await res.json()) as { code?: string };
+  return String(json.code || '').trim().toUpperCase();
 }
 
 export async function uploadEmployeeDocument(file: File): Promise<string> {
@@ -280,7 +349,10 @@ export async function uploadEmployeeDocument(file: File): Promise<string> {
     },
     body: form,
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
   const json = (await res.json()) as { url?: string };
   if (!json.url) throw new Error('Upload failed (missing url)');
   return String(json.url);
@@ -296,7 +368,10 @@ export async function fetchEmployeeByPan(pan: string): Promise<Employee> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
   const json = (await res.json()) as GetEmployeeResponse;
   return toEmployee(json.record);
 }

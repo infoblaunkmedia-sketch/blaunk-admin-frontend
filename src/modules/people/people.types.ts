@@ -41,6 +41,12 @@ export interface Employee {
   uan: string;
   pf: string; // PF identifier/number (backend: pf)
   exitDate: string;
+  pfRequest: string;
+  bonus: string;
+  /** ESI membership / insurance number (distinct from salary ESI %). */
+  esiInsuranceNo: string;
+  /** NPS subscriber / reference number (distinct from salary NPS amount). */
+  npsSubscriptionNo: string;
 
   // Salary
   basicSalary: number;
@@ -65,18 +71,28 @@ export interface Employee {
   yearlyCtc: string;
   esiSalary: string;
   pfContribution: string;
+  pfContributionEmployer: string;
   npsEmployer: string;
   npsEmployee: string;
+  /** Days per month for per-day CTC (28, 30, or 31). */
+  ctcDivisorDays: string;
 
   // Bank
   accountHolderName: string;
   accountNumber: string;
   ifsc: string;
   bankName: string;
+  /** Bank branch MICR (9 digits). */
+  micrCode: string;
   branch: string;
+  bankArea: string;
+  bankCity: string;
 
   // Backend bank-related fields
   medicalInsuranceNo: string;
+  medicalInsurer: string;
+  gratuityNo: string;
+  gratuityInsurer: string;
   pTax: string; // backend pTax (derived from professionalTax)
 
   // Documents

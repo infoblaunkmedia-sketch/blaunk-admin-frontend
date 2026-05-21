@@ -5,6 +5,7 @@ import { Input } from '../components/Input';
 import { Select } from '../components/Select';
 import { GenerateButton } from '../components/GenerateButton';
 import ReportFilters from '../components/ReportFilters';
+import { onIntegerInputKeyDown } from '../shared/utils/numericInput';
 
 const TABS = ['MIS', 'Verifier'] as const;
 
@@ -240,6 +241,7 @@ export const VerifierPage: React.FC = () => {
             <div className="px-1">
               <Input
                 inputMode="numeric"
+                onKeyDown={onIntegerInputKeyDown}
                 value={fees}
                 onChange={(e) => setFees(e.target.value.replace(/\D/g, ''))}
               />

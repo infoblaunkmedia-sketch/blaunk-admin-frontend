@@ -51,7 +51,7 @@ const customStyles = {
     style: {
       backgroundColor: '#0B61C9',
       color: '#ffffff',
-      minHeight: '44px',
+      minHeight: '48px',
       borderRadius: '8px 8px 0 0',
     },
   },
@@ -62,6 +62,10 @@ const customStyles = {
       fontSize: '13px',
       paddingLeft: '12px',
       paddingRight: '12px',
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      overflow: 'visible',
+      textOverflow: 'clip',
     },
   },
   rows: {

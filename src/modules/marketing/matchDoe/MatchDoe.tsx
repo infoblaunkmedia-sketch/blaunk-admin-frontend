@@ -34,10 +34,24 @@ export const MatchDoe: React.FC = () => {
     try {
       const entry = await generateNewMatchDoe(currentUser?.code ?? 'system');
       setActive(entry);
-      toast.success(`New Match Doe code generated: ${entry.code}`);
+      toast.success(`New Match Code generated: ${entry.code}`);
       load();
     } catch { toast.error('Failed to generate code'); }
     finally { setGenerating(false); }
+  };
+
+  const handleCopyCode = async () => {
+    const code = String(active?.code || '').trim();
+    if (!code) {
+      toast.error('No active code to copy.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success('Match Code copied.');
+    } catch {
+      toast.error('Failed to copy code.');
+    }
   };
 
   const columns: TableColumn<MatchDoeEntry>[] = [
@@ -70,11 +84,11 @@ export const MatchDoe: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader
-        title="Match Doe"
+        title="Match Code"
         subtitle="DSA agents must enter the active code when submitting media uploads."
       />
 
-      <SectionCard title="Active Code" className="mb-5">
+      <SectionCard title="Active Match Code" className="mb-5">
         {loading ? (
           <div className="flex h-24 items-center justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -92,17 +106,26 @@ export const MatchDoe: React.FC = () => {
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              disabled={generating}
-              onClick={handleRefresh}
-              className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow hover:bg-primary-dark disabled:opacity-60"
-            >
-              <svg className={['h-4 w-4', generating ? 'animate-spin' : ''].join(' ')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {generating ? 'Generating…' : 'Refresh Code'}
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={generating}
+                onClick={handleRefresh}
+                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow hover:bg-primary-dark disabled:opacity-60"
+              >
+                <svg className={['h-4 w-4', generating ? 'animate-spin' : ''].join(' ')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {generating ? 'Generating…' : 'Refresh Code'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="rounded-xl border border-slate-300 px-6 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Copy Code
+              </button>
+            </div>
           </div>
         )}
       </SectionCard>

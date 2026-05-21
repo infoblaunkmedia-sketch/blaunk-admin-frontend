@@ -8,14 +8,37 @@ import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
-import { DEPARTMENTS } from '../../../shared/constants/hrConstants';
+import {
+  DEPARTMENTS,
+  DESIGNATIONS,
+  THIRD_PARTY_ENTITY_OPTIONS,
+  THIRD_PARTY_REMARK_OPTIONS,
+  THIRD_PARTY_STATUS_OPTIONS,
+  THIRD_PARTY_VERIFIED_STATUS_OPTIONS,
+} from '../../../shared/constants/hrConstants';
 import type { ThirdPartyCredential } from './thirdPartyCredentials.types';
 import {
   fetchThirdPartyCredentials,
+  fetchNextThreePcEmployeeCode,
   saveThirdPartyCredential,
   deleteThirdPartyCredential,
   upload3pImage,
 } from './thirdPartyCredentials.service';
+import {
+  digitsOnlyMax,
+  INDIAN_PINCODE_DIGITS_MAX,
+  isValidIndianPan,
+  MOBILE_DIGITS_MAX,
+  sanitizePan,
+  titleCaseWords,
+} from '../../../utils/inputFormats';
+import { onIntegerInputKeyDown } from '../../../shared/utils/numericInput';
+import {
+  applySharingRatioEdit,
+  findReferenceContactIssue,
+  validateImageFileForUpload,
+  validateSharingRatioStrings,
+} from '../../../shared/validation/contactFormMessages';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -138,10 +161,16 @@ export const ThirdPartyCredentials: React.FC = () => {
   const setField = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  const handleNew = () => {
-    setEditId(null);
-    setForm(emptyForm());
-    setView('form');
+  const handleNew = async () => {
+    try {
+      setEditId(null);
+      const nextCode = await fetchNextThreePcEmployeeCode();
+      setForm({ ...emptyForm(), threePEmplCode: nextCode });
+      setView('form');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to generate 3PC employee code';
+      toast.error(msg);
+    }
   };
 
   const handleEdit = (r: ThirdPartyCredential) => {
@@ -162,11 +191,29 @@ export const ThirdPartyCredentials: React.FC = () => {
 
   const handleSave = async () => {
     if (!form.name.trim()) {
-      toast.error('Name is required');
+      toast.error('Please enter the person’s name.');
       return;
     }
-    if (!form.threePEmplCode.trim()) {
-      toast.error('3PC Employee Code is required');
+    if (String(form.mobileNo || '').trim() && String(form.mobileNo).length !== MOBILE_DIGITS_MAX) {
+      toast.error('Mobile number must be exactly 10 digits.');
+      return;
+    }
+    if (String(form.panNo || '').trim() && !isValidIndianPan(form.panNo)) {
+      toast.error('PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).');
+      return;
+    }
+    if (String(form.zip || '').trim() && String(form.zip).length !== INDIAN_PINCODE_DIGITS_MAX) {
+      toast.error('PIN code must be exactly 6 digits.');
+      return;
+    }
+    const sharingErr = validateSharingRatioStrings(form.sharingThreeP, form.sharingBlaunk);
+    if (sharingErr) {
+      toast.error(sharingErr);
+      return;
+    }
+    const refErr = findReferenceContactIssue(form.references);
+    if (refErr) {
+      toast.error(refErr);
       return;
     }
     setSaving(true);
@@ -272,11 +319,18 @@ export const ThirdPartyCredentials: React.FC = () => {
                 className={inputClass}
                 placeholder="Name"
                 value={form.name}
-                onChange={(e) => setField('name', e.target.value)}
+                onChange={(e) => setField('name', titleCaseWords(e.target.value))}
               />
             </FormField>
             <FormField label="Mobile No">
-              <input className={inputClass} value={form.mobileNo} onChange={(e) => setField('mobileNo', e.target.value)} />
+              <input
+                className={inputClass}
+                inputMode="numeric"
+                maxLength={MOBILE_DIGITS_MAX}
+                onKeyDown={onIntegerInputKeyDown}
+                value={form.mobileNo}
+                onChange={(e) => setField('mobileNo', digitsOnlyMax(e.target.value, MOBILE_DIGITS_MAX))}
+              />
             </FormField>
             <FormField label="Email">
               <input
@@ -293,7 +347,13 @@ export const ThirdPartyCredentials: React.FC = () => {
               <input className={inputClass} value={form.passportNo} onChange={(e) => setField('passportNo', e.target.value)} />
             </FormField>
             <FormField label="PAN Card No">
-              <input className={inputClass} value={form.panNo} onChange={(e) => setField('panNo', e.target.value.toUpperCase())} />
+              <input
+                className={inputClass}
+                maxLength={10}
+                placeholder="ABCDE1234F"
+                value={form.panNo}
+                onChange={(e) => setField('panNo', sanitizePan(e.target.value))}
+              />
             </FormField>
             <FormField label="TAN No">
               <input className={inputClass} value={form.tanNo} onChange={(e) => setField('tanNo', e.target.value.toUpperCase())} />
@@ -314,10 +374,21 @@ export const ThirdPartyCredentials: React.FC = () => {
               <input className={inputClass} value={form.address2} onChange={(e) => setField('address2', e.target.value)} />
             </FormField>
             <FormField label="City">
-              <input className={inputClass} value={form.city} onChange={(e) => setField('city', e.target.value)} />
+              <input
+                className={inputClass}
+                value={form.city}
+                onChange={(e) => setField('city', titleCaseWords(e.target.value))}
+              />
             </FormField>
             <FormField label="PIN Code">
-              <input className={inputClass} value={form.zip} onChange={(e) => setField('zip', e.target.value)} />
+              <input
+                className={inputClass}
+                inputMode="numeric"
+                maxLength={INDIAN_PINCODE_DIGITS_MAX}
+                onKeyDown={onIntegerInputKeyDown}
+                value={form.zip}
+                onChange={(e) => setField('zip', digitsOnlyMax(e.target.value, INDIAN_PINCODE_DIGITS_MAX))}
+              />
             </FormField>
             <FormField label="Country">
               <input className={inputClass} value={form.country} onChange={(e) => setField('country', e.target.value)} />
@@ -326,14 +397,18 @@ export const ThirdPartyCredentials: React.FC = () => {
               <input className={inputClass} value={form.state} onChange={(e) => setField('state', e.target.value)} />
             </FormField>
 
-            <FormField label="3PC Employee Code" required>
-              <input className={inputClass} value={form.threePEmplCode} onChange={(e) => setField('threePEmplCode', e.target.value.toUpperCase())} />
-            </FormField>
             <FormField label="3PC Company Name">
               <input className={inputClass} value={form.threePCompanyName} onChange={(e) => setField('threePCompanyName', e.target.value)} />
             </FormField>
             <FormField label="3PC Entity">
-              <input className={inputClass} value={form.threePEntity} onChange={(e) => setField('threePEntity', e.target.value)} />
+              <select className={inputClass} value={form.threePEntity} onChange={(e) => setField('threePEntity', e.target.value)}>
+                <option value="">Select entity</option>
+                {THIRD_PARTY_ENTITY_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </FormField>
             <FormField label="Business Code">
               <input className={inputClass} value={form.businessCode} onChange={(e) => setField('businessCode', e.target.value)} />
@@ -371,23 +446,81 @@ export const ThirdPartyCredentials: React.FC = () => {
               <input type="date" className={inputClass} value={form.exitDate} onChange={(e) => setField('exitDate', e.target.value)} />
             </FormField>
             <FormField label="Status">
-              <input className={inputClass} value={form.status} onChange={(e) => setField('status', e.target.value)} />
+              <select className={inputClass} value={form.status} onChange={(e) => setField('status', e.target.value)}>
+                <option value="">Select status</option>
+                {THIRD_PARTY_STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </FormField>
             <FormField label="Verified Status">
-              <input className={inputClass} value={form.verifiedStatus} onChange={(e) => setField('verifiedStatus', e.target.value)} />
+              <select className={inputClass} value={form.verifiedStatus} onChange={(e) => setField('verifiedStatus', e.target.value)}>
+                <option value="">Select verified status</option>
+                {THIRD_PARTY_VERIFIED_STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Remark">
+              <select className={inputClass} value={form.remarks} onChange={(e) => setField('remarks', e.target.value)}>
+                <option value="">Select remark</option>
+                {THIRD_PARTY_REMARK_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </FormField>
             <FormField label="Business Deposit">
-              <input className={inputClass} value={form.businessDeposit} onChange={(e) => setField('businessDeposit', e.target.value)} />
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                placeholder="Business deposit"
+                value={form.businessDeposit}
+                onChange={(e) => setField('businessDeposit', e.target.value)}
+              />
             </FormField>
-            <FormField label="Sharing Ratio (3P)">
-              <input className={inputClass} value={form.sharingThreeP} onChange={(e) => setField('sharingThreeP', e.target.value)} />
-            </FormField>
-            <FormField label="Sharing Ratio (Blaunk)">
-              <input className={inputClass} value={form.sharingBlaunk} onChange={(e) => setField('sharingBlaunk', e.target.value)} />
-            </FormField>
-
-            <FormField label="Remarks" className="sm:col-span-2 lg:col-span-4">
-              <input className={inputClass} value={form.remarks} onChange={(e) => setField('remarks', e.target.value)} />
+            <FormField label="Sharing Ratio (3P : Blaunk)" className="sm:col-span-2 lg:col-span-2">
+              <div className="grid grid-cols-[minmax(0,1fr),auto,minmax(0,1fr)] items-center gap-2">
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  placeholder="3P"
+                  maxLength={3}
+                  onKeyDown={onIntegerInputKeyDown}
+                  value={form.sharingThreeP}
+                  onChange={(e) => {
+                    const next = applySharingRatioEdit('threeP', e.target.value);
+                    setForm((p) => ({
+                      ...p,
+                      sharingThreeP: next.sharingThreeP,
+                      sharingBlaunk: next.sharingBlaunk,
+                    }));
+                  }}
+                />
+                <span className="px-1 text-center text-sm font-semibold text-slate-600">:</span>
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  placeholder="Blaunk"
+                  maxLength={3}
+                  onKeyDown={onIntegerInputKeyDown}
+                  value={form.sharingBlaunk}
+                  onChange={(e) => {
+                    const next = applySharingRatioEdit('blaunk', e.target.value);
+                    setForm((p) => ({
+                      ...p,
+                      sharingThreeP: next.sharingThreeP,
+                      sharingBlaunk: next.sharingBlaunk,
+                    }));
+                  }}
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Numbers only. The two values must add up to 100.</p>
             </FormField>
           </div>
 
@@ -402,7 +535,7 @@ export const ThirdPartyCredentials: React.FC = () => {
                       value={ref.name}
                       onChange={(e) => {
                         const next = [...form.references];
-                        next[idx] = { ...next[idx], name: e.target.value };
+                        next[idx] = { ...next[idx], name: titleCaseWords(e.target.value) };
                         setField('references', next);
                       }}
                     />
@@ -410,16 +543,22 @@ export const ThirdPartyCredentials: React.FC = () => {
                   <FormField label="Mobile No">
                     <input
                       className={inputClass}
+                      inputMode="numeric"
+                      maxLength={MOBILE_DIGITS_MAX}
+                      onKeyDown={onIntegerInputKeyDown}
                       value={ref.mobile}
                       onChange={(e) => {
                         const next = [...form.references];
-                        next[idx] = { ...next[idx], mobile: e.target.value };
+                        next[idx] = {
+                          ...next[idx],
+                          mobile: digitsOnlyMax(e.target.value, MOBILE_DIGITS_MAX),
+                        };
                         setField('references', next);
                       }}
                     />
                   </FormField>
                   <FormField label="Designation">
-                    <input
+                    <select
                       className={inputClass}
                       value={ref.designation}
                       onChange={(e) => {
@@ -427,7 +566,14 @@ export const ThirdPartyCredentials: React.FC = () => {
                         next[idx] = { ...next[idx], designation: e.target.value };
                         setField('references', next);
                       }}
-                    />
+                    >
+                      <option value="">Select Designation</option>
+                      {DESIGNATIONS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
                   </FormField>
                   <FormField label="City">
                     <input
@@ -435,7 +581,7 @@ export const ThirdPartyCredentials: React.FC = () => {
                       value={ref.city}
                       onChange={(e) => {
                         const next = [...form.references];
-                        next[idx] = { ...next[idx], city: e.target.value };
+                        next[idx] = { ...next[idx], city: titleCaseWords(e.target.value) };
                         setField('references', next);
                       }}
                     />
@@ -449,41 +595,59 @@ export const ThirdPartyCredentials: React.FC = () => {
             <h3 className="text-sm font-bold text-slate-800">Documents</h3>
             <div className="mt-3 flex flex-wrap gap-6">
               <ImageUploader
-                label="Employee Photo"
+                label="Address Proof"
+                maxSizeMB={200 / 1024}
                 currentPreview={form.employeePhotoUrl}
                 onFile={async (file) => {
+                  const bad = validateImageFileForUpload(file, 200 * 1024);
+                  if (bad) {
+                    toast.error(bad);
+                    return;
+                  }
                   try {
                     const url = await upload3pImage(file);
                     setField('employeePhotoUrl', url);
-                    toast.success('Photo uploaded');
+                    toast.success('Address proof uploaded');
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : 'Upload failed');
+                    toast.error(e instanceof Error ? e.message : 'Upload failed. Please try again.');
                   }
                 }}
               />
               <ImageUploader
                 label="CHQ Image"
+                maxSizeMB={200 / 1024}
                 currentPreview={form.chqImageUrl}
                 onFile={async (file) => {
+                  const bad = validateImageFileForUpload(file, 200 * 1024);
+                  if (bad) {
+                    toast.error(bad);
+                    return;
+                  }
                   try {
                     const url = await upload3pImage(file);
                     setField('chqImageUrl', url);
                     toast.success('CHQ image uploaded');
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : 'Upload failed');
+                    toast.error(e instanceof Error ? e.message : 'Upload failed. Please try again.');
                   }
                 }}
               />
               <ImageUploader
                 label="PAN Card"
+                maxSizeMB={200 / 1024}
                 currentPreview={form.panImageUrl}
                 onFile={async (file) => {
+                  const bad = validateImageFileForUpload(file, 200 * 1024);
+                  if (bad) {
+                    toast.error(bad);
+                    return;
+                  }
                   try {
                     const url = await upload3pImage(file);
                     setField('panImageUrl', url);
                     toast.success('PAN image uploaded');
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : 'Upload failed');
+                    toast.error(e instanceof Error ? e.message : 'Upload failed. Please try again.');
                   }
                 }}
               />

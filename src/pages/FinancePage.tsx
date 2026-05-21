@@ -5,6 +5,7 @@ import { Input } from '../components/Input';
 import { GenerateButton } from '../components/GenerateButton';
 import ReportFilters from '../components/ReportFilters';
 import { Select } from '../components/Select';
+import { onNumericInputKeyDown } from '../shared/utils/numericInput';
 
 const TABS = ['B2B - Payment', 'MIS', 'Upload'] as const;
 
@@ -374,6 +375,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.payinValue}
                           onChange={(e) => updateRow(row.id, { payinValue: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />
@@ -435,6 +437,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.invoiceValue}
                           onChange={(e) => updateRow(row.id, { invoiceValue: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />
@@ -476,6 +479,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.penalty}
                           onChange={(e) => updateRow(row.id, { penalty: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />
@@ -486,6 +490,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.govtLevies}
                           onChange={(e) => updateRow(row.id, { govtLevies: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />
@@ -496,6 +501,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.charges}
                           onChange={(e) => updateRow(row.id, { charges: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />
@@ -506,6 +512,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.tdsTcsCol}
                           onChange={(e) => updateRow(row.id, { tdsTcsCol: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />
@@ -516,6 +523,7 @@ export const FinancePage: React.FC = () => {
                           className={cellInputClass}
                           value={row.valueNett}
                           onChange={(e) => updateRow(row.id, { valueNett: e.target.value })}
+                          onKeyDown={onNumericInputKeyDown}
                           inputMode="decimal"
                           disabled={locked}
                         />

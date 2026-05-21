@@ -1,4 +1,5 @@
 import React from 'react';
+import { onNumericInputKeyDown } from '../shared/utils/numericInput';
 
 const TABS = ['MIS', 'Tax Code', 'Upload', 'Voucher', 'Values'] as const;
 
@@ -313,6 +314,7 @@ export const RetailManagementPage: React.FC = () => {
                       placeholder="in%"
                       min="0"
                       max="100"
+                      onKeyDown={onNumericInputKeyDown}
                       onChange={handlePercentageChange}
                       disabled={!isEditingVoucher}
                       className="h-8 w-[60px] rounded border border-[#0056b3] px-2 text-base outline-none focus:ring-1 focus:ring-[#0056b3] text-center disabled:bg-slate-100 disabled:opacity-70 disabled:cursor-not-allowed"
@@ -379,6 +381,7 @@ export const RetailManagementPage: React.FC = () => {
                     <input
                       type="number"
                       defaultValue="15"
+                      onKeyDown={onNumericInputKeyDown}
                       disabled={!isEditingValues}
                       className="h-8 w-[120px] rounded border border-[#0056b3] bg-transparent px-2 text-base outline-none focus:ring-1 focus:ring-[#0056b3] disabled:opacity-60 disabled:cursor-not-allowed"
                     />

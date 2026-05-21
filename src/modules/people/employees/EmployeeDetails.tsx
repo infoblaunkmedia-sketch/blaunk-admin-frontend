@@ -146,6 +146,7 @@ export const EmployeeDetails: React.FC = () => {
               <Field label="Bank Name" value={emp.bankName} />
               <Field label="Account No." value={emp.accountNumber} />
               <Field label="IFSC" value={emp.ifsc} />
+              <Field label="MICR code" value={emp.micrCode} />
               <Field label="Medical Insurance No." value={emp.medicalInsuranceNo} />
               <Field
                 label="Employee Photo"

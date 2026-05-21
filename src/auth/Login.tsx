@@ -188,12 +188,12 @@ export const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {tab !== 'admin' ? (
               <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-slate-700">Username</label>
+                <label className="block text-sm font-semibold text-slate-700">Employee Code</label>
                 <input
                   type="text"
                   autoComplete="username"
                   required
-                  placeholder="Enter your username"
+                  placeholder="Enter your code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   className={inputClass}

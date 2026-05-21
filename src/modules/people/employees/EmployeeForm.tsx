@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { Stepper } from '../../../shared/components/Stepper';
 import { SectionCard } from '../../../shared/components/SectionCard';
@@ -7,11 +7,33 @@ import { FormField } from '../../../shared/components/FormField';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import {
-  COUNTRIES, INDIAN_STATES, DEPARTMENTS, DESIGNATIONS,
-  GENDERS, MARITAL_STATUSES, EMPLOYEE_STATUSES,
+  BONUS_OPTIONS,
+  CONFIRMATION_STATUS_OPTIONS,
+  COUNTRIES,
+  CTC_DIVISOR_OPTIONS,
+  DESIGNATIONS,
+  EMPLOYEE_STATUSES,
+  GENDERS,
+  INDIAN_STATES,
+  JOB_GRADE_OPTIONS,
+  MARITAL_STATUSES,
+  MONTHLY_LEAVE_OPTIONS,
+  NORMAL_EMPLOYEE_DEPARTMENTS,
+  PF_REQUEST_OPTIONS,
 } from '../../../shared/constants/hrConstants';
 import type { Employee } from '../people.types';
 import { saveEmployee, uploadEmployeeDocument } from '../people.service';
+import { findReferenceContactIssue } from '../../../shared/validation/contactFormMessages';
+import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import {
+  digitsOnlyMax,
+  INDIAN_PINCODE_DIGITS_MAX,
+  isValidIndianPan,
+  MICR_DIGITS_MAX,
+  MOBILE_DIGITS_MAX,
+  sanitizePan,
+  titleCaseWords,
+} from '../../../utils/inputFormats';
 
 const DRAFT_KEY = 'blaunk_emp_draft';
 const STEPS = [
@@ -44,10 +66,10 @@ const SALARY_FIELDS: { key: keyof FormValues; label: string }[] = [
   { key: 'foodAllowance', label: 'Food Allowance' },
   { key: 'supplementaryAllowance', label: 'Supplementary' },
   { key: 'mea', label: 'MEA' },
-  { key: 'pfEmployee', label: 'PF (Employee)' },
-  { key: 'esi', label: 'ESI' },
+  { key: 'pfEmployee', label: 'PF (Employee) ( % )' },
+  { key: 'esi', label: 'ESI ( % )' },
   { key: 'healthInsurance', label: 'Health Insurance' },
-  { key: 'nps', label: 'NPS' },
+  { key: 'nps', label: 'NPS ( % )' },
   { key: 'professionalTax', label: 'Professional Tax' },
   { key: 'gratuity', label: 'Gratuity' },
   { key: 'roundOff', label: 'Round Off' },
@@ -64,11 +86,25 @@ function toAbsoluteUrl(urlOrPath: string) {
   return s;
 }
 
+const CTC_DIVISOR_NUMBERS = new Set(CTC_DIVISOR_OPTIONS.map((d) => Number(d)));
+
+function normalizeCtcDivisorDays(v: unknown): string {
+  const s = String(v ?? '').trim();
+  return (CTC_DIVISOR_OPTIONS as readonly string[]).includes(s) ? s : CTC_DIVISOR_OPTIONS[0];
+}
+
 function calcCtc(vals: Partial<FormValues>) {
   const monthly = SALARY_KEYS.reduce(
     (sum, k) => sum + (Number(vals[k]) || 0), 0,
   );
-  return { monthly, perDay: monthly > 0 ? +(monthly / 26).toFixed(2) : 0 };
+  const raw = Number(vals.ctcDivisorDays);
+  const fallback = Number(CTC_DIVISOR_OPTIONS[0]);
+  const divisor = CTC_DIVISOR_NUMBERS.has(raw) ? raw : fallback;
+  return {
+    monthly,
+    perDay: monthly > 0 ? +(monthly / divisor).toFixed(2) : 0,
+    divisor,
+  };
 }
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({
@@ -85,6 +121,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
 
   const {
     register,
+    control,
     handleSubmit,
     watch,
     trigger,
@@ -95,7 +132,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     defaultValues: (() => {
       try {
         const draft = sessionStorage.getItem(`${DRAFT_KEY}_${employeeCode}`);
-        if (draft) return { ...JSON.parse(draft), ...initial } as FormValues;
+        if (draft) {
+          const merged = { ...JSON.parse(draft), ...initial } as FormValues;
+          merged.ctcDivisorDays = normalizeCtcDivisorDays(merged.ctcDivisorDays);
+          return merged;
+        }
       } catch { /* empty */ }
       const base = (initial as FormValues) || ({} as FormValues);
       return {
@@ -114,11 +155,37 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
         npsEmployer: base.npsEmployer ?? '',
         npsEmployee: base.npsEmployee ?? '',
         medicalInsuranceNo: base.medicalInsuranceNo ?? '',
+        medicalInsurer: base.medicalInsurer ?? '',
+        gratuityNo: base.gratuityNo ?? '',
+        gratuityInsurer: base.gratuityInsurer ?? '',
+        bonus: base.bonus ?? '',
+        pfRequest: base.pfRequest ?? '',
+        esiInsuranceNo: base.esiInsuranceNo ?? '',
+        npsSubscriptionNo: base.npsSubscriptionNo ?? '',
+        ctcDivisorDays: normalizeCtcDivisorDays(base.ctcDivisorDays),
+        pfContributionEmployer: base.pfContributionEmployer ?? '',
+        bankArea: base.bankArea ?? '',
+        bankCity: base.bankCity ?? '',
+        micrCode: base.micrCode ?? '',
         nps: base.nps ?? '',
         esi: base.esi ?? '',
         pTax: base.pTax ?? '',
         employeeDocumentUrl: base.employeeDocumentUrl ?? '',
-        references: base.references ?? [],
+        references: (() => {
+          const raw = Array.isArray(base.references) ? base.references : [];
+          const pick = (i: number) => {
+            const r = raw[i] as
+              | { name?: string; mobile?: string; designation?: string; city?: string }
+              | undefined;
+            return {
+              name: r?.name ?? '',
+              mobile: r?.mobile ?? '',
+              designation: r?.designation ?? '',
+              city: r?.city ?? '',
+            };
+          };
+          return [pick(0), pick(1)];
+        })(),
       };
     })(),
   });
@@ -129,7 +196,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     sessionStorage.setItem(`${DRAFT_KEY}_${employeeCode}`, JSON.stringify(values));
   }, [values, employeeCode]);
 
-  const { monthly: monthlyCtc, perDay: perDayCtc } = calcCtc(values);
+  const { monthly: monthlyCtc, perDay: perDayCtc, divisor: ctcDivisor } = calcCtc(values);
 
   const nextStep = async () => {
     const fieldsPerStep: (keyof FormValues)[][] = [
@@ -143,17 +210,21 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     if (valid) setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
 
-  const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-
   const onSubmit = async (data: FormValues) => {
+    const refMsg = findReferenceContactIssue(data.references || []);
+    if (refMsg) {
+      toast.error(refMsg);
+      return;
+    }
     setSaving(true);
     try {
+      const { monthly: mCtc, perDay: pCtc } = calcCtc(data);
       const emp: Employee = {
         ...data,
         employeeCode,
         photoUrl,
-        monthlyCtc,
-        perDayCtc,
+        monthlyCtc: mCtc,
+        perDayCtc: pCtc,
         pTax: data.pTax || String(Number(data.professionalTax) || 0),
         basicSalary: Number(data.basicSalary) || 0,
         hra: Number(data.hra) || 0,
@@ -210,11 +281,25 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
       {step === 0 && (
         <SectionCard title="Personal Information">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <FormField label="Full Name" required error={errors.fullName?.message}>
-              <input className={inputClass} {...register('fullName', { required: 'Required' })} />
-            </FormField>
+            <Controller
+              name="fullName"
+              control={control}
+              rules={{ required: 'Please enter the employee’s full name.' }}
+              render={({ field }) => (
+                <FormField label="Full Name" required error={errors.fullName?.message}>
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="Gender" required error={errors.gender?.message}>
-              <select className={selectClass} {...register('gender', { required: 'Required' })}>
+              <select className={selectClass} {...register('gender', { required: 'Please select gender.' })}>
                 <option value="">Select</option>
                 {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -226,30 +311,73 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </select>
             </FormField> */}
             <FormField label="Email" required error={errors.email?.message}>
-              <input type="email" className={inputClass} {...register('email', { required: 'Required' })} />
-            </FormField>
-            <FormField label="Mobile" required error={errors.mobile?.message}>
-              <input className={inputClass} maxLength={10} {...register('mobile', { required: 'Required' })} />
-            </FormField>
-            <FormField label="PAN Number" required error={errors.panNumber?.message}>
               <input
+                type="email"
                 className={inputClass}
-                maxLength={10}
-                placeholder="ABCDE1234F"
-                {...register('panNumber', {
-                  required: 'Required',
-                  setValueAs: (v) => String(v || '').trim().toUpperCase(),
-                  validate: (v) => PAN_RE.test(String(v || '').trim().toUpperCase()) || 'Invalid PAN format',
-                })}
+                {...register('email', { required: 'Please enter an email address.' })}
               />
             </FormField>
+            <Controller
+              name="mobile"
+              control={control}
+              rules={{
+                required: 'Please enter a mobile number.',
+                validate: (v) =>
+                  !String(v || '').trim() ||
+                  String(v).length === MOBILE_DIGITS_MAX ||
+                  'Mobile number must be exactly 10 digits.',
+              }}
+              render={({ field }) => (
+                <FormField label="Mobile" required error={errors.mobile?.message}>
+                  <input
+                    className={inputClass}
+                    inputMode="numeric"
+                    maxLength={MOBILE_DIGITS_MAX}
+                    autoComplete="tel"
+                    onKeyDown={onIntegerInputKeyDown}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(digitsOnlyMax(e.target.value, MOBILE_DIGITS_MAX))}
+                  />
+                </FormField>
+              )}
+            />
+            <Controller
+              name="panNumber"
+              control={control}
+              rules={{
+                required: 'Please enter the PAN.',
+                validate: (v) =>
+                  !String(v || '').trim() ||
+                  isValidIndianPan(String(v)) ||
+                  'PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).',
+              }}
+              render={({ field }) => (
+                <FormField label="PAN Number" required error={errors.panNumber?.message}>
+                  <input
+                    className={inputClass}
+                    maxLength={10}
+                    placeholder="ABCDE1234F"
+                    autoComplete="off"
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(sanitizePan(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="Aadhaar Number">
-              <input
-                className={inputClass}
-                maxLength={12}
-                inputMode="numeric"
-                placeholder="12 digit Aadhaar"
-                {...register('aadhaarNumber', {
+                <input
+                  className={inputClass}
+                  maxLength={12}
+                  inputMode="numeric"
+                  placeholder="12 digit Aadhaar"
+                  onKeyDown={onIntegerInputKeyDown}
+                  {...register('aadhaarNumber', {
                   setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 12),
                   validate: (v) =>
                     !v || String(v).length === 12 || 'Aadhaar must be 12 digits',
@@ -259,9 +387,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             <FormField label="Address" className="sm:col-span-2">
               <input className={inputClass} {...register('address')} />
             </FormField>
-            <FormField label="City">
-              <input className={inputClass} {...register('city')} />
-            </FormField>
+            <Controller
+              name="city"
+              control={control}
+              render={({ field }) => (
+                <FormField label="City">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="State">
               <select className={selectClass} {...register('state')}>
                 <option value="">Select State</option>
@@ -274,9 +415,33 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </FormField>
-            <FormField label="PIN Code">
-              <input className={inputClass} maxLength={6} {...register('pincode')} />
-            </FormField>
+            <Controller
+              name="pincode"
+              control={control}
+              rules={{
+                validate: (v) =>
+                  !String(v || '').trim() ||
+                  String(v).length === INDIAN_PINCODE_DIGITS_MAX ||
+                  'PIN code must be exactly 6 digits.',
+              }}
+              render={({ field }) => (
+                <FormField label="PIN Code" error={errors.pincode?.message}>
+                  <input
+                    className={inputClass}
+                    inputMode="numeric"
+                    maxLength={INDIAN_PINCODE_DIGITS_MAX}
+                    onKeyDown={onIntegerInputKeyDown}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) =>
+                      field.onChange(digitsOnlyMax(e.target.value, INDIAN_PINCODE_DIGITS_MAX))
+                    }
+                  />
+                </FormField>
+              )}
+            />
           </div>
           <div className="mt-4">
             <p className="mb-2 text-xs font-semibold text-slate-600">
@@ -306,49 +471,95 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
       {/* Step 1 — Employment */}
       {step === 1 && (
         <SectionCard title="Employment Details">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <FormField label="Employee Code">
-              <input className={`${inputClass} bg-slate-100 text-slate-500`} value={employeeCode} readOnly />
-            </FormField>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <FormField label="Department" required error={errors.department?.message}>
-              <select className={selectClass} {...register('department', { required: 'Required' })}>
+              <select className={selectClass} {...register('department', { required: 'Please select a department.' })}>
                 <option value="">Select</option>
-                {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                {NORMAL_EMPLOYEE_DEPARTMENTS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
               </select>
             </FormField>
             <FormField label="Designation" required error={errors.designation?.message}>
-              <select className={selectClass} {...register('designation', { required: 'Required' })}>
-                <option value="">Select</option>
-                {DESIGNATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+              <select className={selectClass} {...register('designation', { required: 'Please select a designation.' })}>
+                <option value="">Select Designation</option>
+                {DESIGNATIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
               </select>
             </FormField>
             <FormField label="Date of Joining" required error={errors.dateOfJoining?.message}>
-              <input type="date" className={inputClass} {...register('dateOfJoining', { required: 'Required' })} />
+              <input
+                type="date"
+                className={inputClass}
+                {...register('dateOfJoining', { required: 'Please enter the date of joining.' })}
+              />
             </FormField>
-            <FormField label="Employee Status" required error={errors.status?.message}>
-              <select className={selectClass} {...register('status', { required: 'Required' })}>
+            <FormField label="Yearly CTC">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                onKeyDown={onNumericInputKeyDown}
+                {...register('yearlyCtc', {
+                  setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                })}
+              />
+            </FormField>
+            <FormField label="PF Request">
+              <select className={selectClass} {...register('pfRequest')}>
                 <option value="">Select</option>
-                {EMPLOYEE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {PF_REQUEST_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
               </select>
             </FormField>
-            <FormField label="Remarks" className="sm:col-span-2">
-              <input className={inputClass} {...register('remarks')} />
-            </FormField>
-
             <FormField label="Centre Name">
               <input className={inputClass} {...register('centreName')} />
             </FormField>
             <FormField label="Confirmation Status">
-              <input className={inputClass} {...register('confirmationStatus')} />
+              <select className={selectClass} {...register('confirmationStatus')}>
+                <option value="">Select</option>
+                {CONFIRMATION_STATUS_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
             </FormField>
             <FormField label="Date of Confirmation (DOC)">
               <input type="date" className={inputClass} {...register('doc')} />
             </FormField>
-            <FormField label="Monthly Leaves">
-              <input className={inputClass} {...register('monthlyLeaves')} />
-            </FormField>
             <FormField label="Job Grade">
-              <input className={inputClass} {...register('jobGrade')} />
+              <select className={selectClass} {...register('jobGrade')}>
+                <option value="">Select</option>
+                {JOB_GRADE_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Monthly Leaves">
+              <select className={selectClass} {...register('monthlyLeaves')}>
+                <option value="">Select</option>
+                {MONTHLY_LEAVE_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="ESI No.">
+              <input className={inputClass} {...register('esiInsuranceNo')} />
+            </FormField>
+            <FormField label="NPS No.">
+              <input className={inputClass} {...register('npsSubscriptionNo')} />
             </FormField>
             <FormField label="UAN">
               <input className={inputClass} {...register('uan')} />
@@ -356,8 +567,43 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             <FormField label="PF (ID/No.)">
               <input className={inputClass} {...register('pf')} />
             </FormField>
+            <FormField label="Medical Insurance No.">
+              <input className={inputClass} {...register('medicalInsuranceNo')} />
+            </FormField>
+            <FormField label="Insurer (Medical)">
+              <input className={inputClass} {...register('medicalInsurer')} />
+            </FormField>
+            <FormField label="Gratuity No.">
+              <input className={inputClass} {...register('gratuityNo')} />
+            </FormField>
+            <FormField label="Insurer (Gratuity)">
+              <input className={inputClass} {...register('gratuityInsurer')} />
+            </FormField>
+            <FormField label="Bonus">
+              <select className={selectClass} {...register('bonus')}>
+                <option value="">Select</option>
+                {BONUS_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </FormField>
             <FormField label="Exit Date">
               <input type="date" className={inputClass} {...register('exitDate')} />
+            </FormField>
+            <FormField label="Remarks">
+              <input className={inputClass} {...register('remarks')} />
+            </FormField>
+            <FormField label="Employee Status" required error={errors.status?.message}>
+              <select className={selectClass} {...register('status', { required: 'Please select employee status.' })}>
+                <option value="">Select</option>
+                {EMPLOYEE_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </FormField>
           </div>
         </SectionCard>
@@ -368,39 +614,83 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
         <SectionCard title="Salary Components">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {SALARY_FIELDS.map(({ key, label }) => (
-              <FormField key={key} label={label}>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  className={inputClass}
-                  {...register(key)}
-                />
-              </FormField>
+              <React.Fragment key={key}>
+                <FormField label={label}>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    className={inputClass}
+                    onKeyDown={onNumericInputKeyDown}
+                    {...register(key)}
+                  />
+                </FormField>
+                {key === 'roundOff' ? (
+                  <FormField label="ESI Salary ( % )">
+                    <input
+                      className={inputClass}
+                      inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
+                      {...register('esiSalary', {
+                        setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                      })}
+                    />
+                  </FormField>
+                ) : null}
+              </React.Fragment>
             ))}
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <FormField label="Yearly CTC">
-              <input className={inputClass} {...register('yearlyCtc')} />
+            <FormField label="PF Contribution (Employee) ( % )">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                onKeyDown={onNumericInputKeyDown}
+                {...register('pfContribution', {
+                  setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                })}
+              />
             </FormField>
-            <FormField label="ESI Salary">
-              <input className={inputClass} {...register('esiSalary')} />
+            <FormField label="PF Contribution (Employer) ( % )">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                onKeyDown={onNumericInputKeyDown}
+                {...register('pfContributionEmployer', {
+                  setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                })}
+              />
             </FormField>
-            <FormField label="PF Contribution">
-              <input className={inputClass} {...register('pfContribution')} />
+            <FormField label="NPS (Employer) ( % )">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                onKeyDown={onNumericInputKeyDown}
+                {...register('npsEmployer', {
+                  setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                })}
+              />
             </FormField>
-            <FormField label="NPS (Employer)">
-              <input className={inputClass} {...register('npsEmployer')} />
+            <FormField label="NPS (Employee) ( % )">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                onKeyDown={onNumericInputKeyDown}
+                {...register('npsEmployee', {
+                  setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                })}
+              />
             </FormField>
-            <FormField label="NPS (Employee)">
-              <input className={inputClass} {...register('npsEmployee')} />
-            </FormField>
-            <FormField label="NPS">
-              <input className={inputClass} {...register('nps')} />
-            </FormField>
-            <FormField label="ESI">
-              <input className={inputClass} {...register('esi')} />
+            <FormField label="Per-day CTC divisor (days)">
+              <select className={selectClass} {...register('ctcDivisorDays')}>
+                {CTC_DIVISOR_OPTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
             </FormField>
           </div>
 
@@ -410,7 +700,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               <p className="text-xl font-bold text-emerald-800">₹{monthlyCtc.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-emerald-700">Per Day CTC (÷ 26)</p>
+              <p className="text-xs font-semibold text-emerald-700">Per Day CTC (÷ {ctcDivisor})</p>
               <p className="text-xl font-bold text-emerald-800">₹{perDayCtc.toLocaleString()}</p>
             </div>
           </div>
@@ -420,24 +710,32 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
       {/* Step 3 — Bank */}
       {step === 3 && (
         <SectionCard title="Bank Details">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* <FormField label="Account Holder Name">
-              <input className={inputClass} {...register('accountHolderName')} />
-            </FormField> */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <FormField label="Bank Name">
+              <input className={inputClass} {...register('bankName')} />
+            </FormField>
             <FormField label="Account Number">
               <input className={inputClass} {...register('accountNumber')} />
             </FormField>
             <FormField label="IFSC Code">
               <input className={inputClass} {...register('ifsc')} />
             </FormField>
-            <FormField label="Bank Name">
-              <input className={inputClass} {...register('bankName')} />
+            <FormField label="MICR code">
+              <input
+                className={inputClass}
+                inputMode="numeric"
+                maxLength={MICR_DIGITS_MAX}
+                onKeyDown={onIntegerInputKeyDown}                
+                {...register('micrCode', {
+                  setValueAs: (v) => digitsOnlyMax(String(v ?? ''), MICR_DIGITS_MAX),
+                })}
+              />
             </FormField>
-            {/* <FormField label="Branch">
-              <input className={inputClass} {...register('branch')} />
-            </FormField> */}
-            <FormField label="Medical Insurance No.">
-              <input className={inputClass} {...register('medicalInsuranceNo')} />
+            <FormField label="Area">
+              <input className={inputClass} {...register('bankArea')} />
+            </FormField>
+            <FormField label="City">
+              <input className={inputClass} {...register('bankCity')} />
             </FormField>
           </div>
         </SectionCard>
@@ -462,7 +760,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     const file = e.target.files?.[0];
                     if (!file) return;
                     if (file.size > 200 * 1024) {
-                      toast.error('File too large. Max allowed size is 200KB.');
+                      toast.error('This file is too large. Maximum size is 200 KB.');
                       e.target.value = '';
                       return;
                     }
@@ -487,31 +785,144 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
 
           <SectionCard title="References">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <FormField label="Reference 1 Name">
-                <input className={inputClass} {...register('references.0.name')} />
-              </FormField>
-              <FormField label="Reference 1 Mobile">
-                <input className={inputClass} {...register('references.0.mobile')} />
-              </FormField>
-              <FormField label="Reference 1 Designation">
-                <input className={inputClass} {...register('references.0.designation')} />
-              </FormField>
-              <FormField label="Reference 1 City">
-                <input className={inputClass} {...register('references.0.city')} />
-              </FormField>
-
-              <FormField label="Reference 2 Name">
-                <input className={inputClass} {...register('references.1.name')} />
-              </FormField>
-              <FormField label="Reference 2 Mobile">
-                <input className={inputClass} {...register('references.1.mobile')} />
-              </FormField>
-              <FormField label="Reference 2 Designation">
-                <input className={inputClass} {...register('references.1.designation')} />
-              </FormField>
-              <FormField label="Reference 2 City">
-                <input className={inputClass} {...register('references.1.city')} />
-              </FormField>
+              <Controller
+                name="references.0.name"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="Name">
+                    <input
+                      className={inputClass}                      
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.0.mobile"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="Mobile">
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      maxLength={MOBILE_DIGITS_MAX}                      
+                      onKeyDown={onIntegerInputKeyDown}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) =>
+                        field.onChange(digitsOnlyMax(e.target.value, MOBILE_DIGITS_MAX))
+                      }
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.0.designation"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="Designation">
+                    <input
+                      className={inputClass}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.0.city"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="City">
+                    <input
+                      className={inputClass}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.1.name"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="Name">
+                    <input
+                      className={inputClass}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.1.mobile"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="Mobile">
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      maxLength={MOBILE_DIGITS_MAX}
+                      onKeyDown={onIntegerInputKeyDown}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) =>
+                        field.onChange(digitsOnlyMax(e.target.value, MOBILE_DIGITS_MAX))
+                      }
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.1.designation"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="Designation">
+                    <input
+                      className={inputClass}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                    />
+                  </FormField>
+                )}
+              />
+              <Controller
+                name="references.1.city"
+                control={control}
+                render={({ field }) => (
+                  <FormField label="City">
+                    <input
+                      className={inputClass}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                    />
+                  </FormField>
+                )}
+              />
             </div>
           </SectionCard>
         </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { onIntegerInputKeyDown } from '../shared/utils/numericInput';
 
 const PLANS = [
   { name: 'Standard', duration: '2M Validity', subscription: 300, renewal: 300, luxury: 300 },
@@ -162,6 +163,7 @@ export const PlanCharges: React.FC = () => {
                         min={0}
                         step={1}
                         value={draft.subscription}
+                        onKeyDown={onIntegerInputKeyDown}
                         onChange={(e) =>
                           setDraftCharges((prev) => ({
                             ...prev,
@@ -181,6 +183,7 @@ export const PlanCharges: React.FC = () => {
                         min={0}
                         step={1}
                         value={draft.renewal}
+                        onKeyDown={onIntegerInputKeyDown}
                         onChange={(e) =>
                           setDraftCharges((prev) => ({
                             ...prev,
@@ -200,6 +203,7 @@ export const PlanCharges: React.FC = () => {
                         min={0}
                         step={1}
                         value={draft.luxury}
+                        onKeyDown={onIntegerInputKeyDown}
                         onChange={(e) =>
                           setDraftCharges((prev) => ({
                             ...prev,

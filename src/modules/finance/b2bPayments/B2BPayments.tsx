@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { generateExcelReport } from '../../../shared/utils/reportGenerator';
 import type { B2BPayment, BankTransferStatus } from '../finance.types';
 import { fetchB2BPayments, saveB2BPayment, deleteB2BPayment } from '../finance.service';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -204,6 +205,7 @@ export const B2BPayments: React.FC = () => {
               <FormField key={key} label={label}>
                 <input type="number" min={0} step="0.01" className={inputClass}
                   value={(form[key] as number) || ''}
+                  onKeyDown={onNumericInputKeyDown}
                   onChange={(e) => setNum(key, e.target.value)} />
               </FormField>
             ))}

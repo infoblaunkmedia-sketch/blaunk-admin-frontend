@@ -90,7 +90,7 @@ export const Employees: React.FC = () => {
   React.useEffect(() => { load(); }, [load]);
 
   const handleNew = async () => {
-    const code = await generateEmployeeCode(employees);
+    const code = await generateEmployeeCode();
     setNewCode(code);
     setEditing(null);
     setView('form');

@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { BankDetailsFields } from '../shared/BankDetailsFields';
 import { COUNTRIES, INDIAN_STATES } from '../../../shared/constants/hrConstants';
 import type { DsaRecord, BankDetails } from '../channelPartners.types';
+import { onIntegerInputKeyDown } from '../../../shared/utils/numericInput';
 import {
   fetchDsaRecords, saveDsaRecord, deleteDsaRecord, generateDsaCode,
 } from '../channelPartners.service';
@@ -164,6 +165,7 @@ export const DsaNetwork: React.FC = () => {
               </FormField>
               <FormField label="Sharing Ratio (DSA %)" hint="DSA's share out of 100. e.g. 30 means 30:70">
                 <input type="number" min={0} max={100} className={inputClass} value={form.shareRatio}
+                  onKeyDown={onIntegerInputKeyDown}
                   onChange={(e) => setField('shareRatio', Number(e.target.value))} />
               </FormField>
               <FormField label="Status">

@@ -34,14 +34,30 @@ export interface Contest {
   status: ContestStatus;
 }
 
+export interface MediaSlotTabConfig {
+  mediaTab: string;
+  maxSlots: number;
+  updatedAt?: string | null;
+}
+
+export interface DsaSlotStatus {
+  mediaTab: string;
+  section: string;
+  country: string;
+  maxSlots: number;
+  usedSlots: number;
+}
+
 export interface DsaSlider {
   id: string;
   mediaTab: string;
   imageUrl: string;
   section: string;
   country: string;
+  category: string;
   plan: string;
   productId: string;
+  matchCode: string;
   planCharge: number;
   luxuryFees: number;
   discount: number;
@@ -52,4 +68,23 @@ export interface DsaSlider {
   expiryDate?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface DsaPayoutHistory {
+  id: string;
+  dsaCode: string;
+  dsaName: string;
+  submittedAmount: number;
+  currency: string;
+  currencyInr: number;
+  calculatedLimit: number;
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  submissionDate: string;
+  approvalNote?: string;
+  rejectionReason?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  createdAt?: string;
 }

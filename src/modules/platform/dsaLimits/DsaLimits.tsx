@@ -9,6 +9,7 @@ import { fetchDsaLimitConfig, saveDsaLimitConfig } from '../platform.service';
 import { fetchPendingPayouts, approvePayoutById, rejectPayoutById } from '../../finance/finance.service';
 import type { DsaLimitConfig, CurrencyRate } from '../platform.types';
 import type { DsaPayoutSubmission } from '../../finance/finance.types';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -106,6 +107,7 @@ export const DsaLimits: React.FC = () => {
             <FormField label="Global Credit Limit (₹)">
               <input type="number" min={0} className={`${inputClass} max-w-xs`}
                 value={config.globalCreditLimit || ''}
+                onKeyDown={onNumericInputKeyDown}
                 onChange={(e) => setConfig((p) => ({ ...p, globalCreditLimit: parseFloat(e.target.value) || 0 }))} />
             </FormField>
           </SectionCard>
@@ -138,6 +140,7 @@ export const DsaLimits: React.FC = () => {
                       <td className="border-b border-slate-100 px-4 py-2">
                         <input type="number" min={0} step="0.01" className={inputClass}
                           value={rate.rateToInr || ''}
+                          onKeyDown={onNumericInputKeyDown}
                           onChange={(e) => updateRate(i, 'rateToInr', e.target.value)} />
                       </td>
                     </tr>

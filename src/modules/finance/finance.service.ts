@@ -2,6 +2,7 @@ import type {
   B2BPayment, DsaPayoutSubmission, BgtBankAccounts,
   NeftAccount, WireAccount, QrEntry,
 } from './finance.types';
+import { api } from '../../shared/services/apiService';
 
 const B2B_KEY = 'blaunk_b2b_payments';
 const DSA_PAYOUTS_KEY = 'blaunk_dsa_payouts';
@@ -36,38 +37,35 @@ export async function deleteB2BPayment(id: string): Promise<void> {
 }
 
 // DSA Payouts
-export async function fetchDsaPayouts(): Promise<DsaPayoutSubmission[]> {
-  return load<DsaPayoutSubmission>(DSA_PAYOUTS_KEY);
+export async function fetchDsaPayouts(filters?: { dsaCode?: string; status?: string; limit?: number }): Promise<DsaPayoutSubmission[]> {
+  const q = new URLSearchParams();
+  if (filters?.dsaCode) q.set('dsaCode', filters.dsaCode);
+  if (filters?.status) q.set('status', filters.status);
+  if (typeof filters?.limit === 'number') q.set('limit', String(filters.limit));
+  const path = q.toString() ? `/api/dsa-payouts?${q.toString()}` : '/api/dsa-payouts';
+  const res = await api.get<{ records: Array<DsaPayoutSubmission & { _id?: string }> }>(path);
+  return (res.records || []).map((r) => ({
+    ...r,
+    id: String(r.id || r._id || ''),
+  }));
 }
 export async function saveDsaPayout(record: DsaPayoutSubmission): Promise<void> {
-  const all = load<DsaPayoutSubmission>(DSA_PAYOUTS_KEY);
-  const idx = all.findIndex((r) => r.id === record.id);
-  if (idx >= 0) all[idx] = record; else all.push(record);
-  persist(DSA_PAYOUTS_KEY, all);
+  await api.post<{ record: unknown }>('/api/dsa-payouts', record);
 }
 export async function fetchPendingPayouts(): Promise<DsaPayoutSubmission[]> {
-  return (await fetchDsaPayouts()).filter((r) => r.status === 'PENDING_APPROVAL');
+  const res = await api.get<{ records: Array<DsaPayoutSubmission & { _id?: string }> }>(
+    '/api/dsa-payouts?status=PENDING_APPROVAL',
+  );
+  return (res.records || []).map((r) => ({
+    ...r,
+    id: String(r.id || r._id || ''),
+  }));
 }
 export async function approvePayoutById(id: string, note: string): Promise<void> {
-  const all = load<DsaPayoutSubmission>(DSA_PAYOUTS_KEY);
-  const idx = all.findIndex((r) => r.id === id);
-  if (idx < 0) return;
-  const rec = all[idx];
-  all[idx] = {
-    ...rec,
-    status: 'APPROVED',
-    approvalNote: note,
-    availableBalance:
-      (rec.newAmount ?? 0) + (rec.bodBalance ?? 0) - (rec.usedValue ?? 0),
-  };
-  persist(DSA_PAYOUTS_KEY, all);
+  await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/approve`, { note });
 }
 export async function rejectPayoutById(id: string, reason: string): Promise<void> {
-  const all = load<DsaPayoutSubmission>(DSA_PAYOUTS_KEY);
-  const idx = all.findIndex((r) => r.id === id);
-  if (idx < 0) return;
-  all[idx] = { ...all[idx], status: 'REJECTED', rejectionReason: reason };
-  persist(DSA_PAYOUTS_KEY, all);
+  await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/reject`, { reason });
 }
 
 // BGT Bank Accounts

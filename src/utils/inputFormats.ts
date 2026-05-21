@@ -4,6 +4,8 @@ export function digitsOnlyMax(raw: string, maxLen: number): string {
 }
 
 export const MOBILE_DIGITS_MAX = 10;
+/** Indian bank MICR code (cheque processing), digits only. */
+export const MICR_DIGITS_MAX = 9;
 export const INDIAN_PINCODE_DIGITS_MAX = 6;
 export const AADHAAR_DIGITS_MAX = 12;
 
@@ -11,6 +13,23 @@ export const AADHAAR_DIGITS_MAX = 12;
 export const ZIP_DIGITS_MAX = 10;
 
 /** Indian PAN: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F). */
+export const INDIAN_PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+export function isValidIndianPan(raw: string): boolean {
+  return INDIAN_PAN_REGEX.test(sanitizePan(String(raw || '')));
+}
+
+/** Title-case each whitespace-delimited segment (names, cities). */
+export function titleCaseWords(raw: string): string {
+  return String(raw || '')
+    .split(/(\s+)/)
+    .map((part) => {
+      if (/^\s+$/.test(part) || part === '') return part;
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join('');
+}
+
 export function sanitizePan(raw: string): string {
   const u = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
   let out = '';

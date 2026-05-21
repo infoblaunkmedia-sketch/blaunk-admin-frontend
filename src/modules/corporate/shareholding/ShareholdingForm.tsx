@@ -8,6 +8,7 @@ import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Nominee, Shareholder } from '../corporate.types';
 import { fetchShareholderByPan, saveShareholder } from '../corporate.service';
+import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -38,6 +39,7 @@ const defaultValues: FormValues = {
   mode: '',
   isinCode: '',
   dpNumber: '',
+  beneficiaryDpId: '',
   folioNumber: '',
   distinctiveFrom: '',
   distinctiveTo: '',
@@ -230,17 +232,21 @@ export const ShareholdingForm: React.FC = () => {
           <SectionCard title="Personal Details">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormField label="Name" required error={errors.name?.message}>
-                <input className={inputClass} {...register('name', { required: 'Required' })} />
+                <input
+                  className={inputClass}
+                  {...register('name', { required: 'Please enter the shareholder’s name.' })}
+                />
               </FormField>
               <FormField label="Mobile No." required error={errors.mobile?.message}>
                 <input
                   className={inputClass}
                   maxLength={10}
                   inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
                   {...register('mobile', {
-                    required: 'Required',
+                    required: 'Please enter a 10-digit mobile number.',
                     setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 10),
-                    validate: (v) => String(v || '').length === 10 || 'Mobile must be 10 digits',
+                    validate: (v) => String(v || '').length === 10 || 'Mobile number must be exactly 10 digits.',
                   })}
                 />
               </FormField>
@@ -255,9 +261,11 @@ export const ShareholdingForm: React.FC = () => {
                   disabled={isEdit}
                   title={isEdit ? 'Unique shareholder key — add a new year/project under Share details instead.' : undefined}
                   {...register('pan', {
-                    required: 'Required',
+                    required: 'Please enter the PAN.',
                     setValueAs: (v) => String(v || '').trim().toUpperCase(),
-                    validate: (v) => PAN_RE.test(String(v || '').trim().toUpperCase()) || 'Invalid PAN format',
+                    validate: (v) =>
+                      PAN_RE.test(String(v || '').trim().toUpperCase()) ||
+                      'PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).',
                   })}
                 />
               </FormField>
@@ -266,9 +274,10 @@ export const ShareholdingForm: React.FC = () => {
                   className={inputClass}
                   maxLength={12}
                   inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
                   {...register('aadhaar', {
                     setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 12),
-                    validate: (v) => !v || String(v).length === 12 || 'Aadhaar must be 12 digits',
+                    validate: (v) => !v || String(v).length === 12 || 'Aadhaar number must be exactly 12 digits.',
                   })}
                 />
               </FormField>
@@ -353,9 +362,11 @@ export const ShareholdingForm: React.FC = () => {
 
           <SectionCard title="Share Details">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <FormField label="Holding (%)">
+              <FormField label="Holding ( % )">
                 <input
                   className={inputClass}
+                  inputMode="decimal"
+                  onKeyDown={onNumericInputKeyDown}
                   {...register('holdingPercent', {
                     setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
                     validate: (v) => {
@@ -379,10 +390,20 @@ export const ShareholdingForm: React.FC = () => {
                 </select>
               </FormField>
               <FormField label="Face Value">
-                <input className={inputClass} {...register('faceValue', { setValueAs: (v) => String(v || '').replace(/[^\d.]/g, '') })} />
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  onKeyDown={onNumericInputKeyDown}
+                  {...register('faceValue', { setValueAs: (v) => String(v || '').replace(/[^\d.]/g, '') })}
+                />
               </FormField>
               <FormField label="No. of Shares">
-                <input className={inputClass} {...register('numberOfShares', { setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 12) })} />
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
+                  {...register('numberOfShares', { setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 12) })}
+                />
               </FormField>
               <FormField label="Mode">
                 <select className={inputClass} {...register('mode')}>
@@ -397,8 +418,11 @@ export const ShareholdingForm: React.FC = () => {
               <FormField label="DP Number">
                 <input className={inputClass} {...register('dpNumber')} />
               </FormField>
-              <FormField label="Folio Number" required error={errors.folioNumber?.message}>
-                <input className={inputClass} {...register('folioNumber', { required: 'Required' })} />
+              <FormField label="Beneficiary DP ID">
+                <input className={inputClass} {...register('beneficiaryDpId')} />
+              </FormField>
+              <FormField label="Folio Number">
+                <input className={inputClass} {...register('folioNumber')} />
               </FormField>
               <FormField label="Distinctive No(s) From">
                 <input className={inputClass} {...register('distinctiveFrom')} />
@@ -455,7 +479,15 @@ export const ShareholdingForm: React.FC = () => {
                 <input className={inputClass} {...register('ifscCode')} />
               </FormField>
               <FormField label="Bank Account No.">
-                <input className={inputClass} {...register('bankAccountNumber')} />
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  onKeyDown={onIntegerInputKeyDown}
+                  {...register('bankAccountNumber', {
+                    setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 18),
+                  })}
+                />
               </FormField>
             </div>
           </SectionCard>
@@ -466,39 +498,43 @@ export const ShareholdingForm: React.FC = () => {
                 <div key={idx} className="rounded-card border border-slate-200 bg-white p-4 shadow-card">
                   <p className="text-sm font-bold text-primary">Nominee {idx + 1}</p>
                   <div className="mt-3 grid grid-cols-1 gap-3">
-                    <FormField label={`Nominee ${idx + 1} Name`}>
+                    <FormField label="Name">
                       <input className={inputClass} {...register(`nominees.${idx}.name` as const)} />
                     </FormField>
-                    <FormField label={`Nominee ${idx + 1} Mobile No.`}>
+                    <FormField label="Mobile No.">
                       <input
                         className={inputClass}
                         maxLength={10}
                         inputMode="numeric"
+                        onKeyDown={onIntegerInputKeyDown}
                         {...register(`nominees.${idx}.mobile` as const, {
                           setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 10),
                         })}
                       />
                     </FormField>
-                    <FormField label={`Nominee ${idx + 1} Relation`}>
+                    <FormField label="Relation">
                       <input className={inputClass} {...register(`nominees.${idx}.relation` as const)} />
                     </FormField>
-                    <FormField label={`Nominee ${idx + 1} Percentage`}>
+                    <FormField label="Percentage ( % )">
                       <input
                         className={inputClass}
+                        inputMode="numeric"
+                        maxLength={3}
+                        onKeyDown={onIntegerInputKeyDown}
                         {...register(`nominees.${idx}.percentage` as const, {
-                          setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
+                          setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 3),
                           validate: (v) => {
                             if (!v) return true;
                             const x = Number(v);
-                            if (!Number.isFinite(x)) return 'Invalid %';
-                            if (x < 0 || x > 100) return 'Must be between 0 and 100';
+                            if (!Number.isFinite(x)) return 'Enter a valid percentage.';
+                            if (x < 0 || x > 100) return 'Nominee percentage must be between 0 and 100.';
                             return true;
                           },
                         })}
                       />
                     </FormField>
                     <FormField
-                      label={`Nominee ${idx + 1} PAN`}
+                      label="PAN"
                       error={((errors.nominees as unknown as NomineeErrors[])?.[idx]?.pan?.message) as string | undefined}
                     >
                       <input
@@ -507,7 +543,10 @@ export const ShareholdingForm: React.FC = () => {
                         placeholder="ABCDE1234F"
                         {...register(`nominees.${idx}.pan` as const, {
                           setValueAs: (v) => String(v || '').trim().toUpperCase(),
-                          validate: (v) => !v || PAN_RE.test(String(v || '').trim().toUpperCase()) || 'Invalid PAN',
+                          validate: (v) =>
+                            !v ||
+                            PAN_RE.test(String(v || '').trim().toUpperCase()) ||
+                            'Nominee PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).',
                         })}
                       />
                     </FormField>

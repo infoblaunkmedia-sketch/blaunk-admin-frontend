@@ -99,6 +99,7 @@ const COLUMN_MAP: Record<string, { header: string; key: string; width?: number }
   ],
   'Shareholding Register': [
     { header: 'Name', key: 'name', width: 22 },
+    { header: 'Beneficiary DP ID', key: 'beneficiaryDpId', width: 16 },
     { header: 'Folio No.', key: 'folioNumber', width: 14 },
     { header: 'PAN', key: 'pan', width: 12 },
     { header: 'Share Type', key: 'shareType', width: 18 },

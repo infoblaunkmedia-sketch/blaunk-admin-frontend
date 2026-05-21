@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollContainer } from '../components/ScrollContainer';
+import { onIntegerInputKeyDown } from '../shared/utils/numericInput';
 
 const PLAN_COLUMNS = [
   'Silver - 3M',
@@ -147,6 +148,7 @@ export const VoucherPage: React.FC = () => {
                           pattern="[0-9]*"
                           className={`${inputPctClass} tabular-nums`}
                           placeholder="in%"
+                          onKeyDown={onIntegerInputKeyDown}
                           value={cell.pct}
                           disabled={!isEditing}
                           onChange={(e) =>

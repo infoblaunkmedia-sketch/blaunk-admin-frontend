@@ -9,6 +9,8 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Shareholder, Nominee } from '../corporate.types';
 import { fetchShareholders, saveShareholder, deleteShareholder } from '../corporate.service';
+import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { findNomineeContactIssue } from '../../../shared/validation/contactFormMessages';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -19,7 +21,7 @@ const emptyForm = (): Omit<Shareholder, 'id'> => ({
   name: '', pan: '', mobile: '', email: '', aadhaar: '',
   address: '', city: '', landmark: '', country: '', gender: '',
   holdingPercent: '', shareType: '', faceValue: '', numberOfShares: '',
-  mode: '', isinCode: '', dpNumber: '', folioNumber: '',
+  mode: '', isinCode: '', dpNumber: '', beneficiaryDpId: '', folioNumber: '',
   distinctiveFrom: '', distinctiveTo: '', yearOfIssuance: '',
   stakeholder: '', dateOfAllotment: '', remarks: '', exitDate: '',
   year: '', projectKey: '', bankName: '', ifscCode: '', bankAccountNumber: '',
@@ -66,8 +68,15 @@ export const Shareholding: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Shareholder name required'); return; }
-    if (!form.folioNumber.trim()) { toast.error('Folio number required'); return; }
+    if (!form.name.trim()) {
+      toast.error('Please enter the shareholder’s name.');
+      return;
+    }
+    const nomineeMsg = findNomineeContactIssue(form.nominees || []);
+    if (nomineeMsg) {
+      toast.error(nomineeMsg);
+      return;
+    }
     setSaving(true);
     try {
       await saveShareholder({ id: editId ?? crypto.randomUUID(), ...form });
@@ -75,7 +84,9 @@ export const Shareholding: React.FC = () => {
       setShowForm(false);
       setEditId(null);
       load();
-    } catch { toast.error('Save failed'); }
+    } catch {
+      toast.error('Could not save. Please check your connection and try again.');
+    }
     finally { setSaving(false); }
   };
 
@@ -88,12 +99,18 @@ export const Shareholding: React.FC = () => {
   };
 
   const columns: TableColumn<Shareholder>[] = [
-    { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2 },
-    { name: 'PAN', selector: (r) => r.pan, width: '120px' },
-    { name: 'Share Type', selector: (r) => r.shareType, width: '150px' },
-    { name: 'No. of Shares', selector: (r) => r.numberOfShares, width: '120px', sortable: true },
-    { name: 'Holding %', selector: (r) => r.holdingPercent, width: '100px' },
-    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, width: '125px' },
+    { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2, minWidth: '140px' },
+    { name: 'PAN', selector: (r) => r.pan, minWidth: '118px', width: '128px' },
+    { name: 'Share Type', selector: (r) => r.shareType, minWidth: '140px', width: '160px' },
+    {
+      name: 'No. of Shares',
+      selector: (r) => r.numberOfShares,
+      minWidth: '118px',
+      width: '132px',
+      sortable: true,
+    },
+    { name: 'Holding %', selector: (r) => r.holdingPercent, minWidth: '96px', width: '104px' },
+    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, minWidth: '132px', width: '148px' },
     {
       name: 'Actions',
       cell: (r) => (
@@ -174,7 +191,11 @@ export const Shareholding: React.FC = () => {
 
               <SectionCard title="Share Details">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <FormField label="Folio Number" required>
+                  <FormField label="Beneficiary DP ID">
+                    <input className={inputClass} maxLength={16} value={form.beneficiaryDpId}
+                      onChange={(e) => setField('beneficiaryDpId', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16))} />
+                  </FormField>
+                  <FormField label="Folio Number">
                     <input className={inputClass} maxLength={12} value={form.folioNumber}
                       onChange={(e) => setField('folioNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12))} />
                   </FormField>
@@ -186,16 +207,31 @@ export const Shareholding: React.FC = () => {
                     </select>
                   </FormField>
                   <FormField label="No. of Shares">
-                    <input className={inputClass} value={form.numberOfShares}
-                      onChange={(e) => setField('numberOfShares', e.target.value.replace(/\D/g, '').slice(0, 7))} />
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      onKeyDown={onIntegerInputKeyDown}
+                      value={form.numberOfShares}
+                      onChange={(e) => setField('numberOfShares', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    />
                   </FormField>
                   <FormField label="Face Value">
-                    <input className={inputClass} value={form.faceValue}
-                      onChange={(e) => setField('faceValue', e.target.value.replace(/\D/g, ''))} />
+                    <input
+                      className={inputClass}
+                      inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
+                      value={form.faceValue}
+                      onChange={(e) => setField('faceValue', e.target.value.replace(/[^\d.]/g, ''))}
+                    />
                   </FormField>
-                  <FormField label="Holding (%)">
-                    <input className={inputClass} value={form.holdingPercent}
-                      onChange={(e) => setField('holdingPercent', e.target.value)} />
+                  <FormField label="Holding ( % )">
+                    <input
+                      className={inputClass}
+                      inputMode="decimal"
+                      onKeyDown={onNumericInputKeyDown}
+                      value={form.holdingPercent}
+                      onChange={(e) => setField('holdingPercent', e.target.value.replace(/[^\d.]/g, ''))}
+                    />
                   </FormField>
                   <FormField label="Mode">
                     <select className={inputClass} value={form.mode} onChange={(e) => setField('mode', e.target.value as typeof form.mode)}>
@@ -275,20 +311,28 @@ export const Shareholding: React.FC = () => {
                       onChange={(e) => setField('ifscCode', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} />
                   </FormField>
                   <FormField label="Account Number">
-                    <input className={inputClass} value={form.bankAccountNumber}
-                      onChange={(e) => setField('bankAccountNumber', e.target.value)} />
+                    <input
+                      className={inputClass}
+                      inputMode="numeric"
+                      maxLength={18}
+                      value={form.bankAccountNumber}
+                      onKeyDown={onIntegerInputKeyDown}
+                      onChange={(e) => setField('bankAccountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                    />
                   </FormField>
                 </div>
               </SectionCard>
 
               <SectionCard title="Nominees">
                 {form.nominees.slice(0, 3).map((nom, i) => (
-                  <div key={i} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-5">
-                    <FormField label={`Nominee ${i + 1} — Name`}>
+                  <div key={i} className="mb-4">
+                    <p className="mb-2 text-sm font-bold text-primary">Nominee {i + 1}</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+                    <FormField label="Name">
                       <input className={inputClass} value={nom.name}
                         onChange={(e) => setNomineeField(i, 'name', e.target.value)} />
                     </FormField>
-                    <FormField label="Mobile">
+                    <FormField label="Mobile No.">
                       <input className={inputClass} maxLength={10} value={nom.mobile}
                         onChange={(e) => setNomineeField(i, 'mobile', e.target.value.replace(/\D/g, '').slice(0, 10))} />
                     </FormField>
@@ -296,14 +340,30 @@ export const Shareholding: React.FC = () => {
                       <input className={inputClass} value={nom.relation}
                         onChange={(e) => setNomineeField(i, 'relation', e.target.value)} />
                     </FormField>
-                    <FormField label="% Share">
-                      <input className={inputClass} value={nom.percentage}
-                        onChange={(e) => setNomineeField(i, 'percentage', e.target.value)} />
+                    <FormField label="Percentage ( % )">
+                      <input
+                        className={inputClass}
+                        inputMode="numeric"
+                        maxLength={3}
+                        onKeyDown={onIntegerInputKeyDown}
+                        value={nom.percentage}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '').slice(0, 3);
+                          if (raw === '') {
+                            setNomineeField(i, 'percentage', '');
+                            return;
+                          }
+                          const x = Number(raw);
+                          if (x > 100) return;
+                          setNomineeField(i, 'percentage', raw);
+                        }}
+                      />
                     </FormField>
                     <FormField label="PAN">
                       <input className={inputClass} maxLength={10} value={nom.pan}
                         onChange={(e) => setNomineeField(i, 'pan', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} />
                     </FormField>
+                    </div>
                   </div>
                 ))}
               </SectionCard>

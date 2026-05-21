@@ -37,6 +37,7 @@ export interface ThirdPartyCredential {
   sharingBlaunk: string;
 
   references: { name: string; mobile: string; designation: string; city: string }[];
+  /** Address proof image URL (persisted as employeePhotoUrl for API compatibility). */
   employeePhotoUrl: string;
   chqImageUrl: string;
   panImageUrl: string;

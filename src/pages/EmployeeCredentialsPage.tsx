@@ -6,11 +6,28 @@ import { GenerateButton } from '../components/GenerateButton';
 import {
   AADHAAR_DIGITS_MAX,
   digitsOnlyMax,
+  INDIAN_PINCODE_DIGITS_MAX,
+  isValidIndianPan,
   MOBILE_DIGITS_MAX,
   sanitizePan,
   sanitizeTan,
-  ZIP_DIGITS_MAX,
+  titleCaseWords,
 } from '../utils/inputFormats';
+import {
+  CTC_DIVISOR_OPTIONS,
+  DESIGNATIONS,
+  THIRD_PARTY_ENTITY_OPTIONS,
+  THIRD_PARTY_REMARK_OPTIONS,
+  THIRD_PARTY_STATUS_OPTIONS,
+  THIRD_PARTY_VERIFIED_STATUS_OPTIONS,
+} from '../shared/constants/hrConstants';
+import { onIntegerInputKeyDown } from '../shared/utils/numericInput';
+import {
+  applySharingRatioEdit,
+  findReferenceContactIssue,
+  validateImageFileForUpload,
+  validateSharingRatioStrings,
+} from '../shared/validation/contactFormMessages';
 
 const FIELD_CLASSES =
   'w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30';
@@ -66,6 +83,7 @@ type CredentialsForm = {
   ctcMonthly: string;
   ctcPerDay: string;
   gratuity: string;
+  ctcDivisorDays: string;
 };
 
 type ReferenceForm = {
@@ -164,6 +182,7 @@ const emptyCredentials: CredentialsForm = {
   ctcMonthly: '0.00',
   ctcPerDay: '',
   gratuity: '',
+  ctcDivisorDays: '28',
 };
 
 const emptyThirdPartyCredentials: ThirdPartyCredentialsForm = {
@@ -256,7 +275,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
     { name: '', mobile: '', designation: '', city: '' },
     { name: '', mobile: '', designation: '', city: '' },
   ]);
-  const [thirdPartyEmployeePhoto, setThirdPartyEmployeePhoto] = React.useState<string | null>(null);
+  const [thirdPartyAddressProofPhoto, setThirdPartyAddressProofPhoto] = React.useState<string | null>(null);
   const [thirdPartyChqImage, setThirdPartyChqImage] = React.useState<string | null>(null);
   const [thirdPartyPanImage, setThirdPartyPanImage] = React.useState<string | null>(null);
   const [isEditingThirdParty, setIsEditingThirdParty] = React.useState(false);
@@ -288,6 +307,13 @@ export const EmployeeCredentialsPage: React.FC = () => {
           return sum + val;
         }, 0);
         next.ctcMonthly = ctc.toString();
+      }
+
+      const divisorRaw = parseInt(String(next.ctcDivisorDays).replace(/\D/g, ''), 10);
+      const divisor = [28, 30, 31].includes(divisorRaw) ? divisorRaw : 28;
+      if (key !== 'ctcPerDay' && (ctcFields.includes(key as string) || key === 'ctcDivisorDays')) {
+        const monthly = parseFloat(next.ctcMonthly) || 0;
+        next.ctcPerDay = (monthly / divisor).toFixed(2);
       }
 
       return next;
@@ -353,6 +379,23 @@ export const EmployeeCredentialsPage: React.FC = () => {
   const handleSave = async () => {
     if (!form.pan) {
       setStatusMessage('PAN is required before saving.');
+      return;
+    }
+    if (!isValidIndianPan(form.pan)) {
+      setStatusMessage('PAN must be a valid 10-character format (e.g. ABCDE1234F).');
+      return;
+    }
+    if (String(form.mobile || '').trim() && String(form.mobile).length !== MOBILE_DIGITS_MAX) {
+      setStatusMessage('Mobile number must be exactly 10 digits.');
+      return;
+    }
+    if (String(form.zip || '').trim() && String(form.zip).length !== INDIAN_PINCODE_DIGITS_MAX) {
+      setStatusMessage('PIN code must be exactly 6 digits.');
+      return;
+    }
+    const refMsg = findReferenceContactIssue(references);
+    if (refMsg) {
+      setStatusMessage(refMsg);
       return;
     }
 
@@ -443,7 +486,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     className={FIELD_CLASSES}
                     placeholder="Employee Name"
                     value={form.employeeName}
-                    onChange={(event) => updateField('employeeName', event.target.value)}
+                    onChange={(event) =>
+                      updateField('employeeName', titleCaseWords(event.target.value))
+                    }
                   />
                 </div>
                 <div>
@@ -451,6 +496,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   <input
                     className={FIELD_CLASSES}
                     placeholder="Enter Mobile No."
+                    inputMode="numeric"
+                    maxLength={MOBILE_DIGITS_MAX}
+                    onKeyDown={onIntegerInputKeyDown}
                     value={form.mobile}
                     onChange={(event) =>
                       updateField('mobile', digitsOnlyMax(event.target.value, MOBILE_DIGITS_MAX))
@@ -471,6 +519,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   <input
                     className={FIELD_CLASSES}
                     placeholder="PAN Card No."
+                    maxLength={10}
                     value={form.pan}
                     onChange={(event) => updateField('pan', sanitizePan(event.target.value))}
                   />
@@ -503,7 +552,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     className={FIELD_CLASSES}
                     placeholder="City"
                     value={form.city}
-                    onChange={(event) => updateField('city', event.target.value)}
+                    onChange={(event) => updateField('city', titleCaseWords(event.target.value))}
                   />
                 </div>
                 <div>
@@ -522,9 +571,12 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   <input
                     className={FIELD_CLASSES}
                     placeholder="ZIP/PIN Code"
+                    inputMode="numeric"
+                    maxLength={INDIAN_PINCODE_DIGITS_MAX}
+                    onKeyDown={onIntegerInputKeyDown}
                     value={form.zip}
                     onChange={(event) =>
-                      updateField('zip', digitsOnlyMax(event.target.value, ZIP_DIGITS_MAX))
+                      updateField('zip', digitsOnlyMax(event.target.value, INDIAN_PINCODE_DIGITS_MAX))
                     }
                   />
                 </div>
@@ -612,32 +664,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     onChange={(event) => updateField('designation', event.target.value)}
                   >
                     <option value="">Select Designation</option>
-                    <option value="Chairman">Chairman</option>
-                    <option value="CMD">CMD</option>
-                    <option value="MD">MD</option>
-                    <option value="Director">Director</option>
-                    <option value="CEO">CEO</option>
-                    <option value="CFO">CFO</option>
-                    <option value="Country Head">Country Head</option>
-                    <option value="President">President</option>
-                    <option value="V.P">V.P</option>
-                    <option value="A.V.P">A.V.P</option>
-                    <option value="Zonal Head">Zonal Head</option>
-                    <option value="Sr. Manager">Sr. Manager</option>
-                    <option value="Manager">Manager</option>
-                    <option value="Branch Manager">Branch Manager</option>
-                    <option value="Sr. Executive">Sr. Executive</option>
-                    <option value="Executive">Executive</option>
-                    <option value="Clerical">Clerical</option>
-                    <option value="Team Leader">Team Leader</option>
-                    <option value="Field Staff">Field Staff</option>
-                    <option value="Security">Security</option>
-                    <option value="Outsourcing">Outsourcing</option>
-                    <option value="Office Peon">Office Peon</option>
-                    <option value="Front Desk">Front Desk</option>
-                    <option value="Reception">Reception</option>
-                    <option value="Housekeeping">Housekeeping</option>
-                    <option value="Area Manager">Area Manager</option>
+                    {DESIGNATIONS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -878,7 +909,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                         placeholder="Name"
                         value={references[index]?.name ?? ''}
                         onChange={(event) =>
-                          updateReferenceField(index, 'name', event.target.value)
+                          updateReferenceField(index, 'name', titleCaseWords(event.target.value))
                         }
                       />
                     </div>
@@ -889,6 +920,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
                       <input
                         className={FIELD_CLASSES}
                         placeholder="Mobile"
+                        inputMode="numeric"
+                        maxLength={MOBILE_DIGITS_MAX}
+                        onKeyDown={onIntegerInputKeyDown}
                         value={references[index]?.mobile ?? ''}
                         onChange={(event) =>
                           updateReferenceField(
@@ -911,8 +945,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                         }
                       >
                         <option value="">Select Designation</option>
-                        <option value="Manager">Manager</option>
-                        <option value="Executive">Executive</option>
+                        {DESIGNATIONS.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -924,7 +961,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                         placeholder="City"
                         value={references[index]?.city ?? ''}
                         onChange={(event) =>
-                          updateReferenceField(index, 'city', event.target.value)
+                          updateReferenceField(index, 'city', titleCaseWords(event.target.value))
                         }
                       />
                     </div>
@@ -1038,15 +1075,6 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-700">ESI</label>
-                    <input
-                      className={FIELD_CLASSES}
-                      placeholder="ESI"
-                      value={form.esiSalary}
-                      onChange={(event) => updateField('esiSalary', event.target.value)}
-                    />
-                  </div>
-                  <div>
                     <label className="mb-1 block text-xs font-semibold text-slate-700">PF Contribution</label>
                     <input
                       className={FIELD_CLASSES}
@@ -1078,6 +1106,15 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     />
                   </div>
                   <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">ESI Salary ( % )</label>
+                    <input
+                      className={FIELD_CLASSES}
+                      placeholder="ESI Salary"
+                      value={form.esiSalary}
+                      onChange={(event) => updateField('esiSalary', event.target.value)}
+                    />
+                  </div>
+                  <div>
                     <label className="mb-1 block text-xs font-semibold text-slate-700">CTC - Monthly</label>
                     <input
                       className={FIELD_CLASSES}
@@ -1085,15 +1122,6 @@ export const EmployeeCredentialsPage: React.FC = () => {
                       value={form.ctcMonthly}
                       readOnly
                       onChange={(event) => updateField('ctcMonthly', event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-700">CTC - Per Day</label>
-                    <input
-                      className={FIELD_CLASSES}
-                      placeholder="CTC - Per Day"
-                      value={form.ctcPerDay}
-                      onChange={(event) => updateField('ctcPerDay', event.target.value)}
                     />
                   </div>
 
@@ -1107,6 +1135,31 @@ export const EmployeeCredentialsPage: React.FC = () => {
                       placeholder="NPS Employee amount"
                       value={form.npsEmployee}
                       onChange={(event) => updateField('npsEmployee', event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
+                      Per-day CTC divisor (days)
+                    </label>
+                    <select
+                      className={FIELD_CLASSES}
+                      value={form.ctcDivisorDays}
+                      onChange={(event) => updateField('ctcDivisorDays', event.target.value)}
+                    >
+                      {CTC_DIVISOR_OPTIONS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">CTC - Per Day</label>
+                    <input
+                      className={FIELD_CLASSES}
+                      placeholder="CTC - Per Day"
+                      value={form.ctcPerDay}
+                      onChange={(event) => updateField('ctcPerDay', event.target.value)}
                     />
                   </div>
                   <div>
@@ -1563,6 +1616,37 @@ export const EmployeeCredentialsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
+                  if (
+                    String(thirdPartyForm.mobileNo || '').trim() &&
+                    String(thirdPartyForm.mobileNo).length !== MOBILE_DIGITS_MAX
+                  ) {
+                    setStatusMessageThirdParty('Mobile number must be exactly 10 digits.');
+                    return;
+                  }
+                  if (String(thirdPartyForm.panNo || '').trim() && !isValidIndianPan(thirdPartyForm.panNo)) {
+                    setStatusMessageThirdParty('PAN must be a valid 10-character format (e.g. ABCDE1234F).');
+                    return;
+                  }
+                  if (
+                    String(thirdPartyForm.zip || '').trim() &&
+                    String(thirdPartyForm.zip).length !== INDIAN_PINCODE_DIGITS_MAX
+                  ) {
+                    setStatusMessageThirdParty('PIN code must be exactly 6 digits.');
+                    return;
+                  }
+                  const sharingErr = validateSharingRatioStrings(
+                    thirdPartyForm.sharingThreeP,
+                    thirdPartyForm.sharingBlaunk,
+                  );
+                  if (sharingErr) {
+                    setStatusMessageThirdParty(sharingErr);
+                    return;
+                  }
+                  const ref3p = findReferenceContactIssue(thirdPartyReferences);
+                  if (ref3p) {
+                    setStatusMessageThirdParty(ref3p);
+                    return;
+                  }
                   setIsEditingThirdParty(false);
                   setStatusMessageThirdParty('3P credentials saved (front-end only).');
                 }}
@@ -1604,7 +1688,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     className={FIELD_CLASSES}
                     placeholder="Name"
                     value={thirdPartyForm.name}
-                    onChange={(event) => updateThirdPartyField('name', event.target.value)}
+                    onChange={(event) =>
+                      updateThirdPartyField('name', titleCaseWords(event.target.value))
+                    }
                   />
                 </div>
                 <div>
@@ -1612,8 +1698,16 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   <input
                     className={FIELD_CLASSES}
                     placeholder="Enter Mobile No."
+                    inputMode="numeric"
+                    maxLength={MOBILE_DIGITS_MAX}
+                    onKeyDown={onIntegerInputKeyDown}
                     value={thirdPartyForm.mobileNo}
-                    onChange={(event) => updateThirdPartyField('mobileNo', event.target.value)}
+                    onChange={(event) =>
+                      updateThirdPartyField(
+                        'mobileNo',
+                        digitsOnlyMax(event.target.value, MOBILE_DIGITS_MAX),
+                      )
+                    }
                   />
                 </div>
                 <div>
@@ -1655,6 +1749,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   <input
                     className={FIELD_CLASSES}
                     placeholder="PAN Card No."
+                    maxLength={10}
                     value={thirdPartyForm.panNo}
                     onChange={(event) =>
                       updateThirdPartyField('panNo', sanitizePan(event.target.value))
@@ -1711,7 +1806,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     className={FIELD_CLASSES}
                     placeholder="City"
                     value={thirdPartyForm.city}
-                    onChange={(event) => updateThirdPartyField('city', event.target.value)}
+                    onChange={(event) =>
+                      updateThirdPartyField('city', titleCaseWords(event.target.value))
+                    }
                   />
                 </div>
 
@@ -1721,9 +1818,15 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   <input
                     className={FIELD_CLASSES}
                     placeholder="ZIP/PIN Code"
+                    inputMode="numeric"
+                    maxLength={INDIAN_PINCODE_DIGITS_MAX}
+                    onKeyDown={onIntegerInputKeyDown}
                     value={thirdPartyForm.zip}
                     onChange={(event) =>
-                      updateThirdPartyField('zip', digitsOnlyMax(event.target.value, ZIP_DIGITS_MAX))
+                      updateThirdPartyField(
+                        'zip',
+                        digitsOnlyMax(event.target.value, INDIAN_PINCODE_DIGITS_MAX),
+                      )
                     }
                   />
                 </div>
@@ -1796,7 +1899,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   />
                 </div>
 
-                {/* 5 row :3PC - Company Name, 3PC - Entity, GST/TAX No., Bank Name */}
+                {/* 5 row : 3PC - Company Name, 3PC - Entity, GST/TAX No., Bank Name */}
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">3PC - Company Name</label>
                   <input
@@ -1814,13 +1917,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     onChange={(event) => updateThirdPartyField('threePEntity', event.target.value)}
                   >
                     <option value="">Select entity</option>
-                    <option value="Individual">Individual</option>
-                    <option value="Proprietorship">Proprietorship</option>
-                    <option value="Partnership">Partnership</option>
-                    <option value="LLP">LLP</option>
-                    <option value="LTD">LTD</option>
-                    <option value="Pvt Ltd">Pvt Ltd</option>
-                    <option value="Cooperative">Cooperative</option>
+                    {THIRD_PARTY_ENTITY_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1884,7 +1985,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                   />
                 </div>
 
-                {/* 7 row :D.O.J, IRA, … */}
+                {/* D.O.J, IRA, Exit Date */}
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">D.O.J</label>
                   <input
@@ -1903,36 +2004,6 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     onChange={(event) => updateThirdPartyField('ira', event.target.value)}
                   />
                 </div>
-
-                {/* 8 row : Remarks */}
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-700">Remarks</label>
-                  <select
-                    className={FIELD_CLASSES}
-                    value={thirdPartyForm.remarks}
-                    onChange={(event) => updateThirdPartyField('remarks', event.target.value)}
-                  >
-                    <option value="">Select Remarks</option>
-                    <option value="FNF">FNF</option>
-                    <option value="On Hold">On Hold</option>
-                    <option value="Issue Pending">Issue Pending</option>
-                  </select>
-                </div>
-
-                {/* 9 row : Status,Exit Date,Business Deposit,Sharing Ratio (3P : Blaunk) */}
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-700">Status</label>
-                  <select
-                    className={FIELD_CLASSES}
-                    value={thirdPartyForm.status}
-                    onChange={(event) => updateThirdPartyField('status', event.target.value)}
-                  >
-                    <option value="">Select Status</option>
-                    <option value="Active">Active</option>
-                    <option value="Exit">Exit</option>
-                    <option value="On Hold">On Hold</option>
-                  </select>
-                </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">Exit Date</label>
                   <input
@@ -1943,48 +2014,104 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     onChange={(event) => updateThirdPartyField('exitDate', event.target.value)}
                   />
                 </div>
+                <div className="hidden lg:block" aria-hidden="true" />
+
+                {/* Status, Verified Status, Remark, Business Deposit */}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">Status</label>
+                  <select
+                    className={FIELD_CLASSES}
+                    value={thirdPartyForm.status}
+                    onChange={(event) => updateThirdPartyField('status', event.target.value)}
+                  >
+                    <option value="">Select status</option>
+                    {THIRD_PARTY_STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">Verified Status</label>
+                  <select
+                    className={FIELD_CLASSES}
+                    value={thirdPartyForm.verifiedStatus}
+                    onChange={(event) => updateThirdPartyField('verifiedStatus', event.target.value)}
+                  >
+                    <option value="">Select verified status</option>
+                    {THIRD_PARTY_VERIFIED_STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">Remark</label>
+                  <select
+                    className={FIELD_CLASSES}
+                    value={thirdPartyForm.remarks}
+                    onChange={(event) => updateThirdPartyField('remarks', event.target.value)}
+                  >
+                    <option value="">Select remark</option>
+                    {THIRD_PARTY_REMARK_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">Business Deposit</label>
                   <input
                     className={FIELD_CLASSES}
-                    placeholder="Enter Business Deposit"
+                    inputMode="decimal"
+                    placeholder="Enter business deposit"
                     value={thirdPartyForm.businessDeposit}
                     onChange={(event) => updateThirdPartyField('businessDeposit', event.target.value)}
                   />
                 </div>
-                <div>
+                <div className="lg:col-span-2">
                   <label className="mb-1 block text-xs font-semibold text-slate-700">
                     Sharing Ratio (3P : Blaunk)
                   </label>
                   <div className="grid grid-cols-[minmax(0,1fr),24px,minmax(0,1fr)] items-center gap-2">
                     <input
                       className={FIELD_CLASSES}
+                      inputMode="numeric"
+                      maxLength={3}
+                      onKeyDown={onIntegerInputKeyDown}
+                      placeholder="3P"
                       value={thirdPartyForm.sharingThreeP}
-                      onChange={(event) => updateThirdPartyField('sharingThreeP', event.target.value)}
+                      onChange={(event) => {
+                        const next = applySharingRatioEdit('threeP', event.target.value);
+                        setThirdPartyForm((p) => ({
+                          ...p,
+                          sharingThreeP: next.sharingThreeP,
+                          sharingBlaunk: next.sharingBlaunk,
+                        }));
+                      }}
                     />
                     <span className="text-center text-sm font-semibold text-slate-700">:</span>
                     <input
                       className={FIELD_CLASSES}
+                      inputMode="numeric"
+                      maxLength={3}
+                      onKeyDown={onIntegerInputKeyDown}
+                      placeholder="Blaunk"
                       value={thirdPartyForm.sharingBlaunk}
-                      onChange={(event) => updateThirdPartyField('sharingBlaunk', event.target.value)}
+                      onChange={(event) => {
+                        const next = applySharingRatioEdit('blaunk', event.target.value);
+                        setThirdPartyForm((p) => ({
+                          ...p,
+                          sharingThreeP: next.sharingThreeP,
+                          sharingBlaunk: next.sharingBlaunk,
+                        }));
+                      }}
                     />
                   </div>
-                </div>
-
-                {/* 10 row : Verified Status & Document */}
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-700">
-                    Verified Status &amp; Document
-                  </label>
-                  <select
-                    className={FIELD_CLASSES}
-                    value={thirdPartyForm.verifiedStatus}
-                    onChange={(event) => updateThirdPartyField('verifiedStatus', event.target.value)}
-                  >
-                    <option value="">Select Verified Status</option>
-                    <option value="Verified">Verified</option>
-                    <option value="Not Verified">Not Verified</option>
-                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500">Numbers only. The two values must add up to 100.</p>
                 </div>
               </div>
             </fieldset>
@@ -2005,7 +2132,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                       placeholder="Name"
                       value={thirdPartyReferences[index]?.name ?? ''}
                       onChange={(event) =>
-                        updateThirdPartyReferenceField(index, 'name', event.target.value)
+                        updateThirdPartyReferenceField(
+                          index,
+                          'name',
+                          titleCaseWords(event.target.value),
+                        )
                       }
                     />
                   </div>
@@ -2016,6 +2147,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     <input
                       className={FIELD_CLASSES}
                       placeholder="Mobile"
+                      inputMode="numeric"
+                      maxLength={MOBILE_DIGITS_MAX}
+                      onKeyDown={onIntegerInputKeyDown}
                       value={thirdPartyReferences[index]?.mobile ?? ''}
                       onChange={(event) =>
                         updateThirdPartyReferenceField(
@@ -2038,8 +2172,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                       }
                     >
                       <option value="">Select Designation</option>
-                      <option value="Manager">Manager</option>
-                      <option value="Executive">Executive</option>
+                      {DESIGNATIONS.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -2049,7 +2186,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                       placeholder="City"
                       value={thirdPartyReferences[index]?.city ?? ''}
                       onChange={(event) =>
-                        updateThirdPartyReferenceField(index, 'city', event.target.value)
+                        updateThirdPartyReferenceField(
+                          index,
+                          'city',
+                          titleCaseWords(event.target.value),
+                        )
                       }
                     />
                   </div>
@@ -2063,9 +2204,9 @@ export const EmployeeCredentialsPage: React.FC = () => {
               <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
                 {[
                   {
-                    label: 'Employee Photo',
-                    preview: thirdPartyEmployeePhoto,
-                    setPreview: setThirdPartyEmployeePhoto,
+                    label: 'Address Proof',
+                    preview: thirdPartyAddressProofPhoto,
+                    setPreview: setThirdPartyAddressProofPhoto,
                   },
                   {
                     label: 'CHQ Image',
@@ -2105,8 +2246,10 @@ export const EmployeeCredentialsPage: React.FC = () => {
                         onChange={(event) => {
                           const file = event.target.files?.[0];
                           if (!file) return;
-                          if (file.size > 200 * 1024) {
-                            alert('Please select an image smaller than 200KB.');
+                          const err = validateImageFileForUpload(file, 200 * 1024);
+                          if (err) {
+                            setStatusMessageThirdParty(err);
+                            event.target.value = '';
                             return;
                           }
                           const reader = new FileReader();

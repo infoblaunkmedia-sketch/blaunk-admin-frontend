@@ -1,4 +1,5 @@
 import { api } from '../../../shared/services/apiService';
+import { parseApiErrorBody } from '../../../shared/utils/apiErrorMessage';
 import type { ThirdPartyCredential } from './thirdPartyCredentials.types';
 
 type RecordDto = {
@@ -139,9 +140,17 @@ export async function upload3pImage(file: File): Promise<string> {
     },
     body: form,
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
   const json = (await res.json()) as { url?: string };
   if (!json.url) throw new Error('Upload failed (missing url)');
   return String(json.url);
+}
+
+export async function fetchNextThreePcEmployeeCode(): Promise<string> {
+  const res = await api.get<{ code?: string }>('/api/employees/next-code?type=3pc');
+  return String(res.code || '').trim().toUpperCase();
 }
 

@@ -8,6 +8,7 @@ import {
   sanitizeCin,
   sanitizePan,
 } from '../utils/inputFormats';
+import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../shared/utils/numericInput';
 
 type CompanyForm = {
   companyName: string;
@@ -96,6 +97,13 @@ function TextField({
         className={inputClass}
         value={value}
         disabled={disabled}
+        onKeyDown={
+          inputMode === 'numeric'
+            ? onIntegerInputKeyDown
+            : inputMode === 'decimal'
+              ? onNumericInputKeyDown
+              : undefined
+        }
         onChange={(e) => onChange(sanitize ? sanitize(e.target.value) : e.target.value)}
       />
     </div>

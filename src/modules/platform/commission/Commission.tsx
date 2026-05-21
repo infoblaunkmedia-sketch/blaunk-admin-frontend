@@ -6,6 +6,7 @@ import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { CommissionConfig } from '../platform.types';
 import { fetchCommission, saveCommission } from '../platform.service';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -93,7 +94,7 @@ export const Commission: React.FC = () => {
             <FormField key={key} label={`${label} (%)`}>
               {editingPortal ? (
                 <input type="number" min={0} max={100} step="0.01" className={inputClass}
-                  value={config[key] || ''} onChange={(e) => set(key, e.target.value)} />
+                  value={config[key] || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => set(key, e.target.value)} />
               ) : (
                 <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
                   {config[key]}%
@@ -119,7 +120,7 @@ export const Commission: React.FC = () => {
           <FormField label="GST Rate (%)">
             {editingRates ? (
               <input type="number" min={0} max={100} step="0.01" className={inputClass}
-                value={config.gstRate || ''} onChange={(e) => set('gstRate', e.target.value)} />
+                value={config.gstRate || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => set('gstRate', e.target.value)} />
             ) : (
               <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
                 {config.gstRate}%
@@ -129,7 +130,7 @@ export const Commission: React.FC = () => {
           <FormField label="BGT Commission Rate (%)">
             {editingRates ? (
               <input type="number" min={0} max={100} step="0.01" className={inputClass}
-                value={config.bgtRate || ''} onChange={(e) => set('bgtRate', e.target.value)} />
+                value={config.bgtRate || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => set('bgtRate', e.target.value)} />
             ) : (
               <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
                 {config.bgtRate}%

@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { CustomerIssue, IssueStatus } from '../customers.types';
 import { fetchIssues, saveIssue, deleteIssue } from '../customers.service';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -213,6 +214,7 @@ export const Issues: React.FC = () => {
             </FormField>
             <FormField label="Penalty Amount (₹)">
               <input type="number" min={0} className={inputClass} value={form.penaltyAmount}
+                onKeyDown={onNumericInputKeyDown}
                 onChange={(e) => setField('penaltyAmount', Number(e.target.value))} />
             </FormField>
             <FormField label="Country">

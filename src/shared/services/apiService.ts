@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger';
+import { parseApiErrorBody } from '../utils/apiErrorMessage';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -26,8 +27,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
+    const message = parseApiErrorBody(text, res.status);
     logger.error(`API ${method} ${path} → ${res.status}`, text);
-    throw new Error(text || `Request failed with status ${res.status}`);
+    throw new Error(message);
   }
 
   if (res.status === 204) return undefined as T;

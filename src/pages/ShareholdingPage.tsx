@@ -5,6 +5,8 @@ import {
   MOBILE_DIGITS_MAX,
   sanitizePan,
 } from '../utils/inputFormats';
+import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../shared/utils/numericInput';
+import { findNomineeContactIssue } from '../shared/validation/contactFormMessages';
 
 const FIELD_CLASSES =
   'w-full rounded-md border border-slate-300 pl-3 pr-10 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30';
@@ -29,6 +31,7 @@ type ShareholdingForm = {
   mode: string;
   isinCode: string;
   dpNumber: string;
+  beneficiaryDpId: string;
   folioNumber: string;
   distinctiveFrom: string;
   distinctiveTo: string;
@@ -70,6 +73,7 @@ const emptyShareholding: ShareholdingForm = {
   mode: '',
   isinCode: '',
   dpNumber: '',
+  beneficiaryDpId: '',
   folioNumber: '',
   distinctiveFrom: '',
   distinctiveTo: '',
@@ -184,27 +188,10 @@ export const ShareholdingPage: React.FC = () => {
       return;
     }
 
-    for (let i = 0; i < nominees.length; i += 1) {
-      const nominee = nominees[i];
-      const hasAnyNomineeValue =
-        Boolean(nominee.name?.trim()) ||
-        Boolean(nominee.mobile?.trim()) ||
-        Boolean(nominee.relation?.trim()) ||
-        Boolean(nominee.pan?.trim()) ||
-        Boolean(nominee.percentage?.trim());
-
-      if (!hasAnyNomineeValue) continue;
-
-      if (nominee.mobile?.trim() && !MOBILE_REGEX.test(nominee.mobile.trim())) {
-        setStatusMessage(`Nominee ${i + 1} mobile number must be exactly 10 digits.`);
-        return;
-      }
-      if (nominee.pan?.trim() && !PAN_REGEX.test(nominee.pan.trim().toUpperCase())) {
-        setStatusMessage(
-          `Nominee ${i + 1} PAN format is invalid. Use 5 letters, 4 digits, 1 letter.`,
-        );
-        return;
-      }
+    const nomineeMsg = findNomineeContactIssue(nominees);
+    if (nomineeMsg) {
+      setStatusMessage(nomineeMsg);
+      return;
     }
 
     setSaving(true);
@@ -437,13 +424,17 @@ export const ShareholdingPage: React.FC = () => {
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Holding (%)
+              Holding ( % )
             </label>
             <input
               className={FIELD_CLASSES}
               placeholder="Holding Percentage"
+              inputMode="decimal"
+              onKeyDown={onNumericInputKeyDown}
               value={form.holdingPercent}
-              onChange={(event) => updateField('holdingPercent', event.target.value)}
+              onChange={(event) =>
+                updateField('holdingPercent', event.target.value.replace(/[^\d.]/g, ''))
+              }
             />
           </div>
           <div>
@@ -472,8 +463,10 @@ export const ShareholdingPage: React.FC = () => {
             <input
               className={FIELD_CLASSES}
               placeholder="Face Value"
+              inputMode="decimal"
+              onKeyDown={onNumericInputKeyDown}
               value={form.faceValue}
-              onChange={(event) => updateField('faceValue', event.target.value.replace(/\D/g, ''))}
+              onChange={(event) => updateField('faceValue', event.target.value.replace(/[^\d.]/g, ''))}
             />
           </div>
           <div>
@@ -483,8 +476,10 @@ export const ShareholdingPage: React.FC = () => {
             <input
               className={FIELD_CLASSES}
               placeholder="No. of Shares"
+              inputMode="numeric"
+              onKeyDown={onIntegerInputKeyDown}
               value={form.numberOfShares}
-              onChange={(event) => updateField('numberOfShares', digitsOnlyMax(event.target.value, 7))}
+              onChange={(event) => updateField('numberOfShares', digitsOnlyMax(event.target.value, 12))}
             />
           </div>
           <div>
@@ -524,6 +519,20 @@ export const ShareholdingPage: React.FC = () => {
               value={form.dpNumber}
               maxLength={16}
               onChange={(event) => updateField('dpNumber', event.target.value.replace(/[^A-Za-z0-9]/g, ''))}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-700">
+              Beneficiary DP ID
+            </label>
+            <input
+              className={FIELD_CLASSES}
+              placeholder="Beneficiary DP ID"
+              value={form.beneficiaryDpId}
+              maxLength={16}
+              onChange={(event) =>
+                updateField('beneficiaryDpId', event.target.value.replace(/[^A-Za-z0-9]/g, ''))
+              }
             />
           </div>
           <div>
@@ -678,8 +687,13 @@ export const ShareholdingPage: React.FC = () => {
             <input
               className={FIELD_CLASSES}
               placeholder="Bank Account No."
+              inputMode="numeric"
+              maxLength={18}
               value={form.bankAccountNumber}
-              onChange={(event) => updateField('bankAccountNumber', event.target.value)}
+              onKeyDown={onIntegerInputKeyDown}
+              onChange={(event) =>
+                updateField('bankAccountNumber', event.target.value.replace(/\D/g, '').slice(0, 18))
+              }
             />
           </div>
           <div>
@@ -752,15 +766,23 @@ export const ShareholdingPage: React.FC = () => {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-700">
-                  (%)
+                  Percentage ( % )
                 </label>
                 <input
                   className={FIELD_CLASSES}
-                  placeholder="%"
+                  inputMode="numeric"
+                  maxLength={3}
+                  onKeyDown={onIntegerInputKeyDown}
                   value={nominees[index - 1]?.percentage ?? ''}
-                  onChange={(event) =>
-                    updateNomineeField(index - 1, 'percentage', event.target.value)
-                  }
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/\D/g, '').slice(0, 3);
+                    if (raw === '') {
+                      updateNomineeField(index - 1, 'percentage', '');
+                      return;
+                    }
+                    if (Number(raw) > 100) return;
+                    updateNomineeField(index - 1, 'percentage', raw);
+                  }}
                 />
               </div>
               <div>

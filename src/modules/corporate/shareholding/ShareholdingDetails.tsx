@@ -121,7 +121,8 @@ export const ShareholdingDetails: React.FC = () => {
                   <thead>
                     <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                       <th className="py-2 pr-3">Year</th>
-                      <th className="py-2 pr-3">Project</th>
+                      <th className="py-2 pr-3">Share Type</th>
+                      <th className="py-2 pr-3">Face Value</th>
                       <th className="py-2 pr-3">Folio</th>
                       <th className="py-2 pr-3">Shares</th>
                       <th className="py-2 pr-3">Holding %</th>
@@ -133,7 +134,8 @@ export const ShareholdingDetails: React.FC = () => {
                     {history.map((row) => (
                       <tr key={row.historyId} className="border-b border-slate-100">
                         <td className="py-2 pr-3 font-semibold text-slate-800">{row.year || '—'}</td>
-                        <td className="py-2 pr-3 text-slate-700">{row.projectKey || '—'}</td>
+                        <td className="py-2 pr-3 text-slate-700">{row.shareType || '—'}</td>
+                        <td className="py-2 pr-3">{row.faceValue || '—'}</td>
                         <td className="py-2 pr-3">{row.folioNumber || '—'}</td>
                         <td className="py-2 pr-3">{row.numberOfShares || '—'}</td>
                         <td className="py-2 pr-3">{row.holdingPercent || '—'}</td>

@@ -96,13 +96,19 @@ export const ShareholdingList: React.FC = () => {
   };
 
   const columns: TableColumn<Shareholder>[] = [
-    { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2 },
-    { name: 'Year', selector: (r) => r.year || '—', width: '100px' },
-    { name: 'PAN', selector: (r) => r.pan, width: '120px' },
-    { name: 'Share Type', selector: (r) => r.shareType as string, width: '150px' },
-    { name: 'No. of Shares', selector: (r) => r.numberOfShares, width: '120px', sortable: true },
-    { name: 'Holding %', selector: (r) => r.holdingPercent, width: '100px' },
-    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, width: '125px' },
+    { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2, minWidth: '140px' },
+    { name: 'Year', selector: (r) => r.year || '—', minWidth: '88px', width: '96px' },
+    { name: 'PAN', selector: (r) => r.pan, minWidth: '118px', width: '128px' },
+    { name: 'Share Type', selector: (r) => r.shareType as string, minWidth: '140px', width: '160px' },
+    {
+      name: 'No. of Shares',
+      selector: (r) => r.numberOfShares,
+      minWidth: '118px',
+      width: '132px',
+      sortable: true,
+    },
+    { name: 'Holding %', selector: (r) => r.holdingPercent, minWidth: '96px', width: '104px' },
+    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, minWidth: '132px', width: '148px' },
     {
       name: 'Actions',
       cell: (r) => (

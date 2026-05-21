@@ -1,5 +1,6 @@
 import type { Shareholder, CompanyProfile, Nominee } from './corporate.types';
 import { logger } from '../../shared/utils/logger';
+import { parseApiErrorBody } from '../../shared/utils/apiErrorMessage';
 
 const SHAREHOLDERS_KEY = 'blaunk_shareholders';
 const COMPANY_PROFILE_KEY = 'blaunk_company_profile';
@@ -29,7 +30,10 @@ export async function fetchShareholders(): Promise<Shareholder[]> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
   const json = (await res.json()) as { records: any[] };
   return (json.records || []).map(toShareholder);
 }
@@ -56,7 +60,7 @@ export async function saveShareholder(sh: Shareholder): Promise<void> {
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     logger.error('saveShareholder failed', text);
-    throw new Error(text || 'Failed to save shareholder');
+    throw new Error(parseApiErrorBody(text, res.status) || 'Failed to save shareholder');
   }
   await res.json().catch(() => ({}));
 }
@@ -70,7 +74,10 @@ export async function deleteShareholder(pan: string): Promise<void> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
 }
 
 export async function deleteShareholdingHistory(pan: string, historyId: string): Promise<void> {
@@ -86,7 +93,10 @@ export async function deleteShareholdingHistory(pan: string, historyId: string):
       },
     },
   );
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
 }
 
 export async function fetchShareholderByPan(pan: string): Promise<ShareholderByPanResponse> {
@@ -99,7 +109,10 @@ export async function fetchShareholderByPan(pan: string): Promise<ShareholderByP
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const t = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(t, res.status));
+  }
   const json = (await res.json()) as {
     shareholder?: any;
     record: any;
@@ -157,6 +170,7 @@ function toShareholder(r: any): Shareholder {
     mode: (r?.mode || '') as any,
     isinCode: String(r?.isinCode || ''),
     dpNumber: String(r?.dpNumber || ''),
+    beneficiaryDpId: String(r?.beneficiaryDpId || ''),
     folioNumber: String(r?.folioNumber || ''),
     distinctiveFrom: String(r?.distinctiveFrom || ''),
     distinctiveTo: String(r?.distinctiveTo || ''),
@@ -195,6 +209,7 @@ function toPayload(sh: Shareholder) {
     mode: sh.mode || '',
     isinCode: sh.isinCode,
     dpNumber: sh.dpNumber,
+    beneficiaryDpId: sh.beneficiaryDpId,
     folioNumber: sh.folioNumber,
     distinctiveFrom: sh.distinctiveFrom,
     distinctiveTo: sh.distinctiveTo,

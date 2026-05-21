@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { DEPARTMENTS } from '../../../shared/constants/hrConstants';
 import type { Vacancy } from '../people.types';
 import { fetchVacancies, saveVacancy, deleteVacancy } from '../people.service';
+import { onIntegerInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -124,6 +125,7 @@ export const Vacancies: React.FC = () => {
             </FormField>
             <FormField label="Number of Openings">
               <input type="number" min={1} className={inputClass} value={form.numberOfOpenings}
+                onKeyDown={onIntegerInputKeyDown}
                 onChange={(e) => setField('numberOfOpenings', parseInt(e.target.value) || 1)} />
             </FormField>
             <FormField label="Required Experience">

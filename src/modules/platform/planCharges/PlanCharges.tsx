@@ -5,6 +5,7 @@ import { SectionCard } from '../../../shared/components/SectionCard';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { SubscriptionPlan, AdPlan } from '../platform.types';
 import { fetchSubscriptionPlans, saveSubscriptionPlans, fetchAdPlans, saveAdPlans } from '../platform.service';
+import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -98,7 +99,7 @@ export const PlanCharges: React.FC = () => {
                   <td className="border-b border-slate-100 px-4 py-2 text-right">
                     {editingSub ? (
                       <input type="number" min={0} step="0.01" className={`${inputClass} text-right`}
-                        value={plan.mrp || ''} onChange={(e) => updateSub(i, 'mrp', e.target.value)} />
+                        value={plan.mrp || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => updateSub(i, 'mrp', e.target.value)} />
                     ) : (
                       <span className="font-semibold">₹{plan.mrp.toLocaleString()}</span>
                     )}
@@ -106,7 +107,7 @@ export const PlanCharges: React.FC = () => {
                   <td className="border-b border-slate-100 px-4 py-2 text-right">
                     {editingSub ? (
                       <input type="number" min={0} step="0.01" className={`${inputClass} text-right`}
-                        value={plan.offerPrice || ''} onChange={(e) => updateSub(i, 'offerPrice', e.target.value)} />
+                        value={plan.offerPrice || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => updateSub(i, 'offerPrice', e.target.value)} />
                     ) : (
                       <span className="font-semibold text-primary">₹{plan.offerPrice.toLocaleString()}</span>
                     )}
@@ -156,7 +157,7 @@ export const PlanCharges: React.FC = () => {
                   <td className="border-b border-slate-100 px-4 py-2 text-right">
                     {editingAd ? (
                       <input type="number" min={0} step="0.01" className={`${inputClass} text-right`}
-                        value={plan.price || ''} onChange={(e) => updateAd(i, e.target.value)} />
+                        value={plan.price || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => updateAd(i, e.target.value)} />
                     ) : (
                       <span className="font-semibold">₹{plan.price.toLocaleString()}</span>
                     )}
