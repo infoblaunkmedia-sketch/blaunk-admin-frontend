@@ -8,8 +8,10 @@ import type { ModulePermission } from '../../../shared/types/auth.types';
 import {
   MODULE_RIGHTS_TREE,
   childKeysForModule,
+  hasModuleAccess,
   hasSectionAccess,
   normalizeSectionList,
+  parseSectionPermission,
   sectionPermissionKey,
 } from '../../../shared/constants/moduleRights';
 import { PRESET_ROLES, type PresetRole, type PermissionsMap } from '../settings.types';
@@ -416,7 +418,14 @@ export const UserRights: React.FC = () => {
                   allKeys.push(sectionPermissionKey(node.key, child.key));
                 }
               }
-              const allChecked = allKeys.every((k) => perms.includes(k) || hasModuleAccess(perms, k as ModulePermission));
+              const allChecked = allKeys.every((k) => {
+                if (perms.includes(k)) return true;
+                const parsed = parseSectionPermission(k);
+                if (parsed) {
+                  return hasSectionAccess(perms, parsed.module as ModulePermission, parsed.child);
+                }
+                return hasModuleAccess(perms, k as ModulePermission);
+              });
               return (
                 <div key={code} className="rounded-lg border border-slate-200 p-4">
                   <div className="mb-3 flex flex-wrap items-center gap-2">

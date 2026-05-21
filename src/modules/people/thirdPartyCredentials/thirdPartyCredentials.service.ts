@@ -112,6 +112,14 @@ export async function fetchThirdPartyCredentials(): Promise<ThirdPartyCredential
   return (res.records || []).map(toRecord);
 }
 
+export async function fetchThirdPartyCredentialById(id: string): Promise<ThirdPartyCredential> {
+  const res = await api.get<{ record: RecordDto }>(
+    `/api/3p-credentials/${encodeURIComponent(id)}`,
+  );
+  if (!res.record) throw new Error('3P credential not found.');
+  return toRecord(res.record);
+}
+
 export async function saveThirdPartyCredential(payload: Omit<ThirdPartyCredential, 'createdAt' | 'updatedAt'>) {
   const body = {
     ...(payload.id ? { id: payload.id } : {}),

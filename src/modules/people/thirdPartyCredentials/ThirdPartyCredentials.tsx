@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
@@ -156,6 +157,7 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
 });
 
 export const ThirdPartyCredentials: React.FC = () => {
+  const navigate = useNavigate();
   const [view, setView] = React.useState<'list' | 'form'>('list');
   const [readOnly, setReadOnly] = React.useState(false);
   const [records, setRecords] = React.useState<ThirdPartyCredential[]>([]);
@@ -213,7 +215,10 @@ export const ThirdPartyCredentials: React.FC = () => {
     setView('form');
   };
 
-  const handleView = (r: ThirdPartyCredential) => openForm(r, true);
+  const handleView = (r: ThirdPartyCredential) => {
+    if (!r.id) return;
+    navigate(`/people/3p-credentials/${encodeURIComponent(r.id)}`);
+  };
 
   const handleEdit = (r: ThirdPartyCredential) => openForm(r, false);
 
@@ -301,7 +306,8 @@ export const ThirdPartyCredentials: React.FC = () => {
           <button
             type="button"
             onClick={() => handleView(r)}
-            className="rounded border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
+            disabled={!r.id}
+            className="rounded border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             title="View details"
             aria-label="View credential details"
           >

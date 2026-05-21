@@ -8,6 +8,7 @@ import { EmployeeDetails } from './employees/EmployeeDetails';
 import { Payroll } from './payroll/Payroll';
 import { Vacancies } from './vacancies/Vacancies';
 import { ThirdPartyCredentials } from './thirdPartyCredentials/ThirdPartyCredentials';
+import { ThirdPartyCredentialDetails } from './thirdPartyCredentials/ThirdPartyCredentialDetails';
 
 const TABS = [
   { label: 'Employees', path: '/people/employees', section: 'employees' },
@@ -25,6 +26,7 @@ export const PeoplePage: React.FC = () => (
         <Route path="employees/new" element={<EmployeeNew />} />
         <Route path="employees/:pan" element={<EmployeeDetails />} />
         <Route path="3p-credentials" element={<ThirdPartyCredentials />} />
+        <Route path="3p-credentials/:id" element={<ThirdPartyCredentialDetails />} />
         <Route path="payroll" element={<Payroll />} />
         <Route path="vacancies" element={<Vacancies />} />
       </Routes>
