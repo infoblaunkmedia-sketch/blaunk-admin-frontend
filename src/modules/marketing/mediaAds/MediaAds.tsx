@@ -22,6 +22,9 @@ import {
 } from '../marketing.service';
 import { parseApiErrorBody } from '../../../shared/utils/apiErrorMessage';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { resolveAdPlanFees } from '../../platform/platform.service';
+import { StatusBadge } from '../../../shared/components/StatusBadge';
+import { isNegativePayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
 
 const SECTIONS = ['HOMEPAGE', 'BGT', 'TOUR', 'STORE', 'CAKE', 'BOUTIQUE', 'LOGISTIC'];
 const MEDIA_TABS = ['Slider', 'Explore', 'Trendy Star', 'Global Store', 'Exclusive', 'New Launch', 'GIFF', 'Tour Package'];
@@ -45,7 +48,6 @@ const emptyForm = (section = 'HOMEPAGE') => ({
   country: 'India',
   category: CATEGORIES[0],
   plan: 'Standard (2M)',
-  productId: '',
   matchCode: '',
   planCharge: 0,
   luxuryFees: 0,
@@ -149,6 +151,20 @@ export const MediaAds: React.FC = () => {
   );
 
   React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const fees = await resolveAdPlanFees(activeTab, form.plan);
+      if (cancelled) return;
+      setForm((p) => ({
+        ...p,
+        planCharge: fees.basicFees,
+        luxuryFees: 0,
+      }));
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, form.plan]);
+
+  React.useEffect(() => {
     setForm((p) => ({ ...p, toPay: Number((Number(p.planCharge || 0) + Number(p.luxuryFees || 0) - Number(p.discount || 0)).toFixed(2)) }));
   }, [form.planCharge, form.luxuryFees, form.discount]);
 
@@ -176,7 +192,6 @@ export const MediaAds: React.FC = () => {
     if (!form.country) return toast.error('Country is required');
     if (!form.category) return toast.error('Category is required');
     if (!form.plan) return toast.error('Plan is required');
-    if (!form.productId.trim()) return toast.error('Product ID is required');
     if (!String(form.matchCode || '').trim()) return toast.error('Match Code is required');
     if (!activeMatchDoeCode) return toast.error('Match Code is not matching active code.');
     const isValidCode = await validateMatchDoe(String(form.matchCode || '').trim());
@@ -186,6 +201,7 @@ export const MediaAds: React.FC = () => {
     try {
       const payload = {
         ...form,
+        productId: '',
         mediaTab: activeTab,
         dsaCode,
       };
@@ -289,9 +305,8 @@ export const MediaAds: React.FC = () => {
                 </select>
               </FormField>
               <FormField label="Plan" required><select className={inputClass} value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}>{PLANS.map((p1) => <option key={p1} value={p1}>{p1}</option>)}</select></FormField>
-              <FormField label="Product ID" required><input className={inputClass} value={form.productId} onChange={(e) => setForm((p) => ({ ...p, productId: e.target.value }))} /></FormField>
-              <FormField label="Plan Charge"><input type="number" min={0} className={inputClass} value={form.planCharge} onKeyDown={onNumericInputKeyDown} onChange={(e) => setForm((p) => ({ ...p, planCharge: Number(e.target.value || 0) }))} /></FormField>
-              <FormField label="Luxury Fees"><input type="number" min={0} className={inputClass} value={form.luxuryFees} onKeyDown={onNumericInputKeyDown} onChange={(e) => setForm((p) => ({ ...p, luxuryFees: Number(e.target.value || 0) }))} /></FormField>
+              <FormField label="Plan Charge"><input type="number" min={0} className={`${inputClass} bg-slate-50`} value={form.planCharge} readOnly title="From Platform & Products → Plan Charges" /></FormField>
+              <FormField label="Luxury Fees"><input type="number" min={0} className={`${inputClass} bg-slate-50`} value={form.luxuryFees} readOnly title="Defaults to 0; optional assurance fees are not auto-applied" /></FormField>
             </div>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
                 <FormField label="To Pay">
@@ -421,14 +436,13 @@ export const MediaAds: React.FC = () => {
             {filtered.map((r) => (
               <div key={r.id} className="rounded border border-slate-200 bg-white p-3">
                 <div className="flex gap-3">
-                  <img src={toAbsoluteUrl(r.imageUrl)} alt={r.productId} className="h-20 w-24 rounded bg-slate-100 object-cover" />
+                  <img src={toAbsoluteUrl(r.imageUrl)} alt={r.plan} className="h-20 w-24 rounded bg-slate-100 object-cover" />
                   <div className="text-sm font-semibold text-slate-700">
                     <p>Plan: {r.plan}</p>
                     <p>Upload Date: {(r.uploadDate || r.createdAt || '').slice(0, 10) || '-'}</p>
                     <p>Expiry Date: {(r.expiryDate || addMonths(String(r.uploadDate || r.createdAt || new Date()), PLAN_MONTHS[r.plan] || 2)).slice(0, 10)}</p>
                     <p>Amount: {Number(r.toPay || 0).toFixed(2)}</p>
                     <p>DSA ID: {r.dsaCode || '-'}</p>
-                    <p>Product ID: {r.productId}</p>
                     <p>Category: {r.category || '-'}</p>
                     <p>Match Code: {r.matchCode || '-'}</p>
                     <p>Status: {r.status}</p>
@@ -444,7 +458,6 @@ export const MediaAds: React.FC = () => {
                         country: r.country,
                         category: r.category || CATEGORIES[0],
                         plan: r.plan,
-                        productId: r.productId,
                         matchCode: r.matchCode || '',
                         planCharge: Number(r.planCharge || 0),
                         luxuryFees: Number(r.luxuryFees || 0),
@@ -482,7 +495,9 @@ export const MediaAds: React.FC = () => {
                 <tr className="bg-primary text-white">
                   <th className="px-3 py-2 text-left">Date</th>
                   <th className="px-3 py-2 text-left">DSA</th>
-                  <th className="px-3 py-2 text-left">Submitted</th>
+                  <th className="px-3 py-2 text-left">Mode</th>
+                  <th className="px-3 py-2 text-left">Curr</th>
+                  <th className="px-3 py-2 text-left">Amount Pay-in</th>
                   <th className="px-3 py-2 text-left">INR</th>
                   <th className="px-3 py-2 text-left">Calculated Limit</th>
                   <th className="px-3 py-2 text-left">Status</th>
@@ -494,27 +509,22 @@ export const MediaAds: React.FC = () => {
                   <tr key={row.id} className={idx % 2 ? 'bg-slate-50' : 'bg-white'}>
                     <td className="border-b px-3 py-2">{row.submissionDate || (row.createdAt || '').slice(0, 10) || '-'}</td>
                     <td className="border-b px-3 py-2 font-semibold">{row.dsaCode}</td>
-                    <td className="border-b px-3 py-2">{row.currency} {Number(row.submittedAmount || 0).toLocaleString()}</td>
+                    <td className="border-b px-3 py-2">{row.mode || '-'}</td>
+                    <td className="border-b px-3 py-2">{row.currency}</td>
+                    <td className="border-b px-3 py-2">{Number(row.submittedAmount || 0).toLocaleString()}</td>
                     <td className="border-b px-3 py-2">₹{Number(row.currencyInr || 0).toLocaleString()}</td>
                     <td className="border-b px-3 py-2">₹{Number(row.calculatedLimit || 0).toLocaleString()}</td>
                     <td className="border-b px-3 py-2">
-                      <span className={[
-                        'rounded px-2 py-0.5 text-xs font-bold',
-                        row.status === 'APPROVED'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : row.status === 'REJECTED'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-amber-100 text-amber-700',
-                      ].join(' ')}>
-                        {row.status}
-                      </span>
+                      <StatusBadge status={row.status} />
                     </td>
                     <td className="border-b px-3 py-2 text-xs text-slate-700">
                       {row.status === 'APPROVED'
                         ? `Approved by ${row.approvedBy || '-'}${row.approvedAt ? ` on ${String(row.approvedAt).slice(0, 10)}` : ''}${row.approvalNote ? ` • ${row.approvalNote}` : ''}`
-                        : row.status === 'REJECTED'
-                          ? `Rejected by ${row.rejectedBy || '-'}${row.rejectedAt ? ` on ${String(row.rejectedAt).slice(0, 10)}` : ''}${row.rejectionReason ? ` • ${row.rejectionReason}` : ''}`
-                          : '-'}
+                        : isNegativePayoutStatus(row.status)
+                          ? `${payoutStatusLabel(row.status)} by ${row.rejectedBy || '-'}${row.rejectedAt ? ` on ${String(row.rejectedAt).slice(0, 10)}` : ''}${row.rejectionReason ? ` • ${row.rejectionReason}` : ''}`
+                          : row.approvalNote
+                            ? `${payoutStatusLabel(row.status)} • ${row.approvalNote}`
+                            : payoutStatusLabel(row.status)}
                     </td>
                   </tr>
                 ))}

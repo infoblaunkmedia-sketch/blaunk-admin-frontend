@@ -8,13 +8,13 @@ import { ShareholdingDetails } from './shareholding/ShareholdingDetails';
 import { CompanyProfile } from './companyProfile/CompanyProfile';
 
 const TABS = [
-  { label: 'Shareholding', path: '/corporate/shareholding' },
-  { label: 'Company Profile', path: '/corporate/profile' },
+  { label: 'Shareholding', path: '/corporate/shareholding', section: 'shareholding' },
+  { label: 'Company Profile', path: '/corporate/profile', section: 'profile' },
 ];
 
 export const CorporatePage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="corporate">
       <Routes>
         <Route index element={<Navigate to="shareholding" replace />} />
         <Route path="shareholding" element={<ShareholdingList />} />

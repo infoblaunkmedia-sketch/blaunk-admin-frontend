@@ -7,14 +7,14 @@ import { DsaPayouts } from './dsaPayouts/DsaPayouts';
 import { BgtBankAccounts } from './bankAccounts/BgtBankAccounts';
 
 const TABS = [
-  { label: 'B2B Payments', path: '/finance/b2b' },
-  { label: 'DSA Payouts', path: '/finance/dsa-payouts' },
-  { label: 'BGT Bank Accounts', path: '/finance/bank-accounts' },
+  { label: 'B2B Payments', path: '/finance/b2b', section: 'b2b' },
+  { label: 'DSA Payouts', path: '/finance/dsa-payouts', section: 'dsa-payouts' },
+  { label: 'BGT Bank Accounts', path: '/finance/bank-accounts', section: 'bank-accounts' },
 ];
 
 export const FinancePage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="finance">
       <Routes>
         <Route index element={<Navigate to="b2b" replace />} />
         <Route path="b2b" element={<B2BPayments />} />

@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { EmployeeForm } from './EmployeeForm';
 import type { Employee } from '../people.types';
-import { fetchEmployees, deleteEmployee, generateEmployeeCode } from '../people.service';
+import { fetchEmployees, deleteEmployee } from '../people.service';
 
 function IconEye({ className }: { className?: string }) {
   return (
@@ -89,11 +89,8 @@ export const Employees: React.FC = () => {
 
   React.useEffect(() => { load(); }, [load]);
 
-  const handleNew = async () => {
-    const code = await generateEmployeeCode();
-    setNewCode(code);
-    setEditing(null);
-    setView('form');
+  const handleNew = () => {
+    navigate('/people/employees/new');
   };
 
   const handleEdit = (emp: Employee) => {
@@ -135,7 +132,12 @@ export const Employees: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate(`/people/employees/${encodeURIComponent(r.panNumber)}`)}
+            onClick={() => {
+              const pan = String(r.panNumber || '').trim();
+              if (!pan) return;
+              navigate(`/people/employees/${encodeURIComponent(pan)}`);
+            }}
+            disabled={!String(r.panNumber || '').trim()}
             className="rounded border border-slate-200 p-1.5 text-slate-700 transition hover:bg-slate-50"
             title="View"
             aria-label="View employee"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -9,11 +9,12 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Nominee, Shareholder } from '../corporate.types';
 import { fetchShareholderByPan, saveShareholder } from '../corporate.service';
 import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { BankNameInput } from '../../../shared/components/BankNameInput';
+import { PanNumberInput } from '../../../shared/components/PanNumberInput';
+import { isValidIndianPan } from '../../../utils/inputFormats';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
-
-const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 type FormValues = Omit<Shareholder, 'id'>;
 type NomineeErrors = { pan?: { message?: string } };
@@ -131,6 +132,7 @@ export const ShareholdingForm: React.FC = () => {
 
   const {
     register,
+    control,
     handleSubmit,
     setValue,
     watch,
@@ -254,19 +256,26 @@ export const ShareholdingForm: React.FC = () => {
                 <input type="email" className={inputClass} {...register('email')} />
               </FormField>
               <FormField label="PAN Card No." required error={errors.pan?.message}>
-                <input
-                  className={inputClass}
-                  maxLength={10}
-                  placeholder="ABCDE1234F"
-                  disabled={isEdit}
-                  title={isEdit ? 'Unique shareholder key — add a new year/project under Share details instead.' : undefined}
-                  {...register('pan', {
+                <Controller
+                  name="pan"
+                  control={control}
+                  rules={{
                     required: 'Please enter the PAN.',
-                    setValueAs: (v) => String(v || '').trim().toUpperCase(),
                     validate: (v) =>
-                      PAN_RE.test(String(v || '').trim().toUpperCase()) ||
+                      isValidIndianPan(String(v || '')) ||
                       'PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).',
-                  })}
+                  }}
+                  render={({ field }) => (
+                    <PanNumberInput
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      inputRef={field.ref}
+                      name={field.name}
+                      onChange={field.onChange}
+                      disabled={isEdit}
+                      className={isEdit ? `${inputClass} cursor-not-allowed bg-slate-50` : inputClass}
+                    />
+                  )}
                 />
               </FormField>
               <FormField label="Aadhaar No." error={errors.aadhaar?.message}>
@@ -473,7 +482,10 @@ export const ShareholdingForm: React.FC = () => {
           <SectionCard title="Bank Details">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormField label="Bank Name">
-                <input className={inputClass} {...register('bankName')} />
+                <BankNameInput
+                  value={watch('bankName') ?? ''}
+                  onChange={(v) => setValue('bankName', v, { shouldDirty: true })}
+                />
               </FormField>
               <FormField label="IFSC Code">
                 <input className={inputClass} {...register('ifscCode')} />
@@ -537,17 +549,24 @@ export const ShareholdingForm: React.FC = () => {
                       label="PAN"
                       error={((errors.nominees as unknown as NomineeErrors[])?.[idx]?.pan?.message) as string | undefined}
                     >
-                      <input
-                        className={inputClass}
-                        maxLength={10}
-                        placeholder="ABCDE1234F"
-                        {...register(`nominees.${idx}.pan` as const, {
-                          setValueAs: (v) => String(v || '').trim().toUpperCase(),
+                      <Controller
+                        name={`nominees.${idx}.pan`}
+                        control={control}
+                        rules={{
                           validate: (v) =>
-                            !v ||
-                            PAN_RE.test(String(v || '').trim().toUpperCase()) ||
+                            !String(v || '').trim() ||
+                            isValidIndianPan(String(v)) ||
                             'Nominee PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).',
-                        })}
+                        }}
+                        render={({ field }) => (
+                          <PanNumberInput
+                            value={field.value ?? ''}
+                            onBlur={field.onBlur}
+                            inputRef={field.ref}
+                            name={field.name}
+                            onChange={field.onChange}
+                          />
+                        )}
                       />
                     </FormField>
                   </div>

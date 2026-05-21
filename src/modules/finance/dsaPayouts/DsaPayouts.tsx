@@ -12,8 +12,16 @@ import { fetchDsaRecords } from '../../channelPartners/channelPartners.service';
 import { fetchEmployees } from '../../people/people.service';
 import { fetchThirdPartyCredentials } from '../../people/thirdPartyCredentials/thirdPartyCredentials.service';
 import { fetchDsaLimitConfig } from '../../platform/platform.service';
-import { approvePayoutById, fetchDsaPayouts, rejectPayoutById, saveDsaPayout } from '../finance.service';
+import { fetchDsaPayouts, saveDsaPayout, updatePayoutStatusById } from '../finance.service';
 import type { DsaPayoutSubmission, PaymentMode } from '../finance.types';
+import { PayoutStatusSelect } from '../../../shared/components/PayoutStatusSelect';
+import {
+  PAYOUT_STATUS_OPTIONS,
+  isPendingPayoutStatus,
+  isNegativePayoutStatus,
+  normalizePayoutStatus,
+  type PayoutStatus,
+} from '../../../shared/constants/payoutStatus';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
@@ -179,13 +187,13 @@ export const DsaPayouts: React.FC = () => {
       approvedAvailable: 0,
     };
     for (const row of records) {
-      if (row.status === 'PENDING_APPROVAL') totals.pending += 1;
-      if (row.status === 'APPROVED') {
+      if (isPendingPayoutStatus(row.status)) totals.pending += 1;
+      if (normalizePayoutStatus(row.status) === 'APPROVED') {
         totals.approved += 1;
         totals.approvedLimit += Number(row.calculatedLimit || 0);
         totals.approvedAvailable += Number(row.availableBalance || 0);
       }
-      if (row.status === 'REJECTED') totals.rejected += 1;
+      if (isNegativePayoutStatus(row.status)) totals.rejected += 1;
     }
     return totals;
   }, [records]);
@@ -215,7 +223,7 @@ export const DsaPayouts: React.FC = () => {
         id: crypto.randomUUID(),
         currencyInr,
         calculatedLimit,
-        status: 'PENDING_APPROVAL',
+        status: 'PENDING',
       };
       await saveDsaPayout(record);
       toast.success('Submission sent for approval');
@@ -228,11 +236,13 @@ export const DsaPayouts: React.FC = () => {
 
   const exportCsv = () => {
     const header = [
-      'Submission Date',
+      'Entry Date',
       'DSA Code',
       'DSA Name',
-      'Submitted Amount',
-      'Currency',
+      'Country',
+      'Mode',
+      'Curr',
+      'Amount Pay-in',
       'INR',
       'Calculated Limit',
       'Available Balance',
@@ -248,8 +258,10 @@ export const DsaPayouts: React.FC = () => {
       r.submissionDate || '',
       r.dsaCode || '',
       r.dsaName || '',
-      String(r.submittedAmount ?? 0),
+      r.country || '',
+      r.mode || '',
       r.currency || '',
+      String(r.submittedAmount ?? 0),
       String(r.currencyInr ?? 0),
       String(r.calculatedLimit ?? 0),
       String(r.availableBalance ?? 0),
@@ -273,47 +285,47 @@ export const DsaPayouts: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleAdminApprove = async (row: DsaPayoutSubmission) => {
-    const note = window.prompt('Approval note (optional):', row.approvalNote || '') ?? '';
-    try {
-      setActioningId(row.id);
-      await approvePayoutById(row.id, note);
-      toast.success('Payout approved');
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to approve payout');
-    } finally {
-      setActioningId(null);
-    }
-  };
+  const handleAdminStatusChange = async (row: DsaPayoutSubmission, nextStatus: PayoutStatus) => {
+    const current = normalizePayoutStatus(row.status);
+    if (nextStatus === current) return;
 
-  const handleAdminReject = async (row: DsaPayoutSubmission) => {
-    const reason = window.prompt('Rejection reason:', row.rejectionReason || '');
-    if (!reason || !reason.trim()) {
-      toast.error('Rejection reason is required.');
-      return;
+    let note = '';
+    if (isNegativePayoutStatus(nextStatus)) {
+      const reason = window.prompt('Note / reason (required):', row.rejectionReason || '');
+      if (!reason || !reason.trim()) {
+        toast.error('Note / reason is required for this status.');
+        return;
+      }
+      note = reason.trim();
+    } else if (nextStatus === 'APPROVED') {
+      note = window.prompt('Approval note (optional):', row.approvalNote || '') ?? '';
+    } else {
+      note = window.prompt('Note (optional):', row.approvalNote || '') ?? '';
     }
+
     try {
       setActioningId(row.id);
-      await rejectPayoutById(row.id, reason.trim());
-      toast.success('Payout rejected');
+      await updatePayoutStatusById(row.id, nextStatus, note);
+      toast.success('Status updated');
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to reject payout');
+      toast.error(e instanceof Error ? e.message : 'Failed to update status');
     } finally {
       setActioningId(null);
     }
   };
 
   const columns: TableColumn<DsaPayoutSubmission>[] = [
+    { name: 'Entry Date', selector: (r) => r.submissionDate, sortable: true, width: '110px' },
     { name: 'DSA Code', selector: (r) => r.dsaCode, sortable: true, width: '110px' },
-    { name: 'DSA Name', selector: (r) => r.dsaName, sortable: true, grow: 2 },
-    { name: 'Amount', selector: (r) => r.submittedAmount, format: (r) => `${r.currency} ${r.submittedAmount.toLocaleString()}` },
+    { name: 'Country', selector: (r) => r.country, sortable: true, width: '100px' },
+    { name: 'Mode', selector: (r) => r.mode, sortable: true, width: '90px' },
+    { name: 'Curr', selector: (r) => r.currency, sortable: true, width: '70px' },
+    { name: 'Amount Pay-in', selector: (r) => r.submittedAmount, format: (r) => r.submittedAmount.toLocaleString(), width: '120px' },
     { name: 'INR', selector: (r) => r.currencyInr, format: (r) => `₹${r.currencyInr.toLocaleString()}` },
     { name: 'Share %', selector: (r) => r.shareRatio, format: (r) => `${r.shareRatio}:${100 - r.shareRatio}`, width: '90px' },
     { name: 'Limit (₹)', selector: (r) => r.calculatedLimit, format: (r) => `₹${r.calculatedLimit.toLocaleString()}` },
     { name: 'Available (₹)', selector: (r) => Number(r.availableBalance || 0), format: (r) => `₹${Number(r.availableBalance || 0).toLocaleString()}` },
-    { name: 'Date', selector: (r) => r.submissionDate, width: '110px' },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '150px' },
     { name: 'Approval Note', selector: (r) => r.approvalNote || '-', grow: 2 },
     { name: 'Rejection Reason', selector: (r) => r.rejectionReason || '-', grow: 2 },
@@ -322,26 +334,13 @@ export const DsaPayouts: React.FC = () => {
     ...(isAdmin
       ? [{
           name: 'Actions',
-          width: '220px',
+          width: '200px',
           cell: (r: DsaPayoutSubmission) => (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={r.status !== 'PENDING_APPROVAL' || actioningId === r.id}
-                onClick={() => handleAdminApprove(r)}
-                className="rounded border border-emerald-300 px-2 py-1 text-xs font-semibold text-emerald-700 disabled:opacity-50"
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                disabled={r.status !== 'PENDING_APPROVAL' || actioningId === r.id}
-                onClick={() => handleAdminReject(r)}
-                className="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 disabled:opacity-50"
-              >
-                Reject
-              </button>
-            </div>
+            <PayoutStatusSelect
+              value={r.status}
+              disabled={actioningId === r.id}
+              onChange={(status) => handleAdminStatusChange(r, status)}
+            />
           ),
           ignoreRowClick: true,
         }]
@@ -389,9 +388,9 @@ export const DsaPayouts: React.FC = () => {
           <FormField label="Filter by Status">
             <select className={inputClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All</option>
-              <option value="PENDING_APPROVAL">Pending Approval</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
+              {PAYOUT_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </FormField>
           <div className="flex items-end gap-2">
@@ -469,7 +468,7 @@ export const DsaPayouts: React.FC = () => {
             <FormField label="Mode">
               <select className={inputClass} value={form.mode}
                 onChange={(e) => setField('mode', e.target.value as PaymentMode)}>
-                {['Cash', 'QR', 'Swift', 'RTGS', 'NEFT'].map((m) => <option key={m} value={m}>{m}</option>)}
+                {['Cash', 'QR', 'UPI', 'Swift', 'RTGS', 'NEFT'].map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </FormField>
             <FormField label="Transaction Reference">

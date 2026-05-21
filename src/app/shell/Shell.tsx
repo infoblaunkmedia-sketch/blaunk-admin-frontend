@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import type { ModulePermission } from '../../shared/types/auth.types';
 import { useAuth } from '../../auth/useAuth';
-import { getWorkspaceHomePath, modulePermissionForPath } from '../../auth/homePath';
+import { canAccessPath, getWorkspaceHomePath } from '../../auth/homePath';
 import { api } from '../../shared/services/apiService';
 
 type MeMinimal = {
@@ -22,7 +22,7 @@ export const Shell: React.FC = () => {
   const [isDesktop, setIsDesktop] = React.useState<boolean>(() =>
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)').matches : false,
   );
-  const { user, updatePermissions, patchUserFields, hasPermission, logout } = useAuth();
+  const { user, updatePermissions, patchUserFields, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -42,11 +42,10 @@ export const Shell: React.FC = () => {
 
   React.useEffect(() => {
     if (!user || user.role === 'admin') return;
-    const mod = modulePermissionForPath(location.pathname);
-    if (mod !== null && !hasPermission(mod)) {
+    if (!canAccessPath(user, location.pathname)) {
       navigate(getWorkspaceHomePath(user), { replace: true });
     }
-  }, [user, user?.permissions, location.pathname, navigate, hasPermission]);
+  }, [user, user?.permissions, location.pathname, navigate]);
 
   React.useEffect(() => {
     // Keep rights in sync for non-admin users without forcing logout/login.
@@ -84,21 +83,7 @@ export const Shell: React.FC = () => {
         }
 
         // Update only when changed to avoid extra renders.
-        const next = (res.sections || []).filter((s): s is ModulePermission =>
-          [
-            'dashboard',
-            'cms',
-            'people',
-            'channelPartners',
-            'finance',
-            'platform',
-            'marketing',
-            'customers',
-            'reports',
-            'corporate',
-            'settings',
-          ].includes(s),
-        );
+        const next = res.sections || [];
         const cur = user.permissions || [];
         const same =
           cur.length === next.length &&

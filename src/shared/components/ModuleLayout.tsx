@@ -1,23 +1,45 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import type { ModulePermission } from '../types/auth.types';
+import { useAuth } from '../../auth/useAuth';
 
 export type ModuleTab = {
   label: string;
   path: string;
+  /** Section slug for rights, e.g. `media-ads` → `marketing:media-ads` */
+  section?: string;
 };
 
 interface ModuleLayoutProps {
   tabs: ModuleTab[];
+  moduleKey?: ModulePermission;
   children?: React.ReactNode;
 }
 
-export const ModuleLayout: React.FC<ModuleLayoutProps> = ({ tabs, children }) => {
+export const ModuleLayout: React.FC<ModuleLayoutProps> = ({ tabs, moduleKey, children }) => {
   const location = useLocation();
+  const { hasSection, user } = useAuth();
+
+  const visibleTabs = React.useMemo(() => {
+    if (!moduleKey || user?.role === 'admin') return tabs;
+    return tabs.filter((tab) => {
+      if (!tab.section) return true;
+      return hasSection(moduleKey, tab.section);
+    });
+  }, [tabs, moduleKey, hasSection, user?.role]);
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+        You do not have access to any sections in this module.
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
       <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-0">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive =
             location.pathname === tab.path ||
             location.pathname.startsWith(`${tab.path}/`);

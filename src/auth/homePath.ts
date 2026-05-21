@@ -1,4 +1,5 @@
 import type { AuthUser, ModulePermission } from '../shared/types/auth.types';
+import { hasModuleAccess, hasSectionAccess } from '../shared/constants/moduleRights';
 
 /** Default landing route for authenticated users by role / employee type (not module permissions). */
 export function getWorkspaceHomePath(user: AuthUser | null): '/dashboard' | '/home/employee' | '/home/contractor' {
@@ -27,4 +28,25 @@ export function modulePermissionForPath(pathname: string): ModulePermission | nu
   if (pathname.startsWith('/home/')) return null;
   const hit = MODULE_BY_PREFIX.find((m) => pathname === m.prefix || pathname.startsWith(`${m.prefix}/`));
   return hit ? hit.permission : null;
+}
+
+/** First path segment after module prefix, e.g. `/marketing/media-ads` → `media-ads`. */
+export function sectionKeyForPath(pathname: string): string | null {
+  const mod = modulePermissionForPath(pathname);
+  if (!mod) return null;
+  const hit = MODULE_BY_PREFIX.find((m) => m.permission === mod);
+  if (!hit) return null;
+  const rest = pathname.slice(hit.prefix.length).replace(/^\//, '');
+  if (!rest) return null;
+  return rest.split('/')[0] || null;
+}
+
+export function canAccessPath(user: AuthUser | null, pathname: string): boolean {
+  if (!user || user.role === 'admin') return true;
+  const mod = modulePermissionForPath(pathname);
+  if (!mod) return true;
+  if (!hasModuleAccess(user.permissions, mod)) return false;
+  const section = sectionKeyForPath(pathname);
+  if (!section) return true;
+  return hasSectionAccess(user.permissions, mod, section);
 }

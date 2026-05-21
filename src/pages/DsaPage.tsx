@@ -280,6 +280,7 @@ export const DsaPage: React.FC = () => {
                     <select className={editableRowClass} value={dsaMode} onChange={(e) => setDsaMode(e.target.value)} disabled={!dsaRowChecked}>
                       <option value="Cash">Cash</option>
                       <option value="QR">QR</option>
+                      <option value="UPI">UPI</option>
                       <option value="Swift">Swift</option>
                       <option value="RTGS">RTGS</option>
                       <option value="NEFT">NEFT</option>
@@ -342,6 +343,11 @@ export const DsaPage: React.FC = () => {
                       <option value="Pending">Pending</option>
                       <option value="Approved">Approved</option>
                       <option value="Rejected">Rejected</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Reverse Back">Reverse Back</option>
+                      <option value="On Hold">On Hold</option>
+                      <option value="Double entry">Double entry</option>
+                      <option value="Entry Missing">Entry Missing</option>
                     </select>
                   </td>
                 </tr>

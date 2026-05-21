@@ -1,8 +1,10 @@
 export const SUBSCRIPTION_PLAN_NAMES = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'] as const;
 export type SubscriptionPlanName = typeof SUBSCRIPTION_PLAN_NAMES[number];
 
-export const AD_PLAN_TYPES = ['Slider', 'Banner', 'Business Card', 'Trendy Star', 'Exclusive Videos'] as const;
-export type AdPlanType = typeof AD_PLAN_TYPES[number];
+import { MARKETING_AD_PLAN_OPTIONS } from '../../shared/constants/marketingAdPlans';
+
+export const AD_PLAN_TYPES = MARKETING_AD_PLAN_OPTIONS;
+export type AdPlanType = (typeof MARKETING_AD_PLAN_OPTIONS)[number];
 
 export interface SubscriptionPlan {
   name: SubscriptionPlanName;
@@ -13,6 +15,32 @@ export interface SubscriptionPlan {
 export interface AdPlan {
   adType: AdPlanType;
   price: number;
+}
+
+export interface ProductPlanChargeRow {
+  name: string;
+  duration: string;
+  subscription: number;
+  renewalFees: number;
+  maxMrp: number;
+  offer: string;
+}
+
+export interface AdPlanChargeRow {
+  name: string;
+  duration: string;
+  basicFees: number;
+  assuranceFees: number;
+}
+
+export interface ProductPlanChargesConfig {
+  productPlan: string;
+  rows: ProductPlanChargeRow[];
+}
+
+export interface AdPlanChargesConfig {
+  adPlan: string;
+  rows: AdPlanChargeRow[];
 }
 
 export interface CommissionConfig {

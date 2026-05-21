@@ -4,6 +4,7 @@ import {
   digitsOnlyMax,
   MOBILE_DIGITS_MAX,
   sanitizePan,
+  formatBankName,
 } from '../utils/inputFormats';
 import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../shared/utils/numericInput';
 import { findNomineeContactIssue } from '../shared/validation/contactFormMessages';
@@ -665,7 +666,7 @@ export const ShareholdingPage: React.FC = () => {
               className={FIELD_CLASSES}
               placeholder="Enter Bank Name"
               value={form.bankName}
-              onChange={(event) => updateField('bankName', event.target.value.replace(/[^A-Za-z\s]/g, ''))}
+              onChange={(event) => updateField('bankName', formatBankName(event.target.value))}
             />
           </div>
           <div>

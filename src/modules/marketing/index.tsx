@@ -8,15 +8,15 @@ import { MatchDoe } from './matchDoe/MatchDoe';
 import { Contests } from './contests/Contests';
 
 const TABS = [
-  { label: 'Media Ads', path: '/marketing/media-ads' },
-  { label: 'Slot Settings', path: '/marketing/slot-settings' },
-  { label: 'Match Code', path: '/marketing/match-doe' },
-  { label: 'Contests', path: '/marketing/contests' },
+  { label: 'Media Ads', path: '/marketing/media-ads', section: 'media-ads' },
+  { label: 'Slot Settings', path: '/marketing/slot-settings', section: 'slot-settings' },
+  { label: 'Match Code', path: '/marketing/match-doe', section: 'match-doe' },
+  { label: 'Contests', path: '/marketing/contests', section: 'contests' },
 ];
 
 export const MarketingPage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="marketing">
       <Routes>
         <Route index element={<Navigate to="media-ads" replace />} />
         <Route path="media-ads" element={<MediaAds />} />

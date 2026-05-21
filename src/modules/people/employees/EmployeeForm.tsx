@@ -31,9 +31,10 @@ import {
   isValidIndianPan,
   MICR_DIGITS_MAX,
   MOBILE_DIGITS_MAX,
-  sanitizePan,
   titleCaseWords,
 } from '../../../utils/inputFormats';
+import { BankNameInput } from '../../../shared/components/BankNameInput';
+import { PanNumberInput } from '../../../shared/components/PanNumberInput';
 
 const DRAFT_KEY = 'blaunk_emp_draft';
 const STEPS = [
@@ -350,22 +351,17 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               rules={{
                 required: 'Please enter the PAN.',
                 validate: (v) =>
-                  !String(v || '').trim() ||
-                  isValidIndianPan(String(v)) ||
+                  isValidIndianPan(String(v || '')) ||
                   'PAN is not valid. Use 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).',
               }}
               render={({ field }) => (
                 <FormField label="PAN Number" required error={errors.panNumber?.message}>
-                  <input
-                    className={inputClass}
-                    maxLength={10}
-                    placeholder="ABCDE1234F"
-                    autoComplete="off"
+                  <PanNumberInput
                     value={field.value ?? ''}
                     onBlur={field.onBlur}
-                    ref={field.ref}
+                    inputRef={field.ref}
                     name={field.name}
-                    onChange={(e) => field.onChange(sanitizePan(e.target.value))}
+                    onChange={field.onChange}
                   />
                 </FormField>
               )}
@@ -712,7 +708,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
         <SectionCard title="Bank Details">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <FormField label="Bank Name">
-              <input className={inputClass} {...register('bankName')} />
+              <BankNameInput
+                className={inputClass}
+                value={watch('bankName') ?? ''}
+                onChange={(v) => setValue('bankName', v, { shouldDirty: true })}
+              />
             </FormField>
             <FormField label="Account Number">
               <input className={inputClass} {...register('accountNumber')} />

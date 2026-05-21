@@ -7,14 +7,14 @@ import { Security } from './security/Security';
 import { IpManagement } from './ipManagement/IpManagement';
 
 const TABS = [
-  { label: 'User Rights', path: '/settings/rights' },
-  { label: 'Security', path: '/settings/security' },
-  { label: 'IP Management', path: '/settings/ip-management' },
+  { label: 'User Rights', path: '/settings/rights', section: 'rights' },
+  { label: 'Security', path: '/settings/security', section: 'security' },
+  { label: 'IP Management', path: '/settings/ip-management', section: 'ip-management' },
 ];
 
 export const SettingsPage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="settings">
       <Routes>
         <Route index element={<Navigate to="rights" replace />} />
         <Route path="rights" element={<UserRights />} />

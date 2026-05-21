@@ -114,9 +114,7 @@ export const Login: React.FC = () => {
         Authorization: `Bearer ${result.token}`,
       });
 
-      const granted = (myRights.sections || []).filter((s): s is ModulePermission =>
-        (ALL_PERMISSIONS as string[]).includes(s),
-      );
+      const granted = myRights.sections || [];
 
       const username = me.user.username ?? result.user.username ?? code.trim();
       const empCode = String(me.user.employeeCode || username).trim();

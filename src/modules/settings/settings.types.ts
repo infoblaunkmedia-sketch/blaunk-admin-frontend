@@ -1,6 +1,6 @@
 import type { ModulePermission } from '../../shared/types/auth.types';
 
-export type PermissionsMap = Record<string, ModulePermission[]>;
+export type PermissionsMap = Record<string, string[]>;
 
 export type PresetRole = 'superAdmin' | 'hrManager' | 'financeManager' | 'operations';
 

@@ -30,6 +30,30 @@ export function titleCaseWords(raw: string): string {
     .join('');
 }
 
+/** Lowercase words kept small in bank names (e.g. State Bank of India). */
+const BANK_NAME_MINOR_WORDS = new Set(['of', 'and', 'the', 'for', 'in', 'at', 'to', 'a', 'an']);
+
+/** Format bank name: letters/spaces only, title case with minor words lowercase after the first word. */
+export function formatBankName(raw: string): string {
+  const cleaned = String(raw || '')
+    .replace(/[^a-zA-Z\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trimStart();
+  if (!cleaned) return '';
+  const trailingSpace = cleaned.endsWith(' ') ? ' ' : '';
+  const core = cleaned.trimEnd();
+  if (!core) return trailingSpace;
+  const words = core.split(' ').filter(Boolean);
+  const formatted = words
+    .map((word, index) => {
+      const lower = word.toLowerCase();
+      if (index > 0 && BANK_NAME_MINOR_WORDS.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ');
+  return formatted + trailingSpace;
+}
+
 export function sanitizePan(raw: string): string {
   const u = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
   let out = '';

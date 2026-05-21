@@ -6,13 +6,13 @@ import { DsaNetwork } from './dsa/DsaNetwork';
 import { Verifiers } from './verifiers/Verifiers';
 
 const TABS = [
-  { label: 'DSA Network', path: '/channel-partners/dsa' },
-  { label: 'Verifiers', path: '/channel-partners/verifiers' },  
+  { label: 'DSA Network', path: '/channel-partners/dsa', section: 'dsa' },
+  { label: 'Verifiers', path: '/channel-partners/verifiers', section: 'verifiers' },
 ];
 
 export const ChannelPartnersPage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="channelPartners">
       <Routes>
         <Route index element={<Navigate to="dsa" replace />} />
         <Route path="dsa" element={<DsaNetwork />} />

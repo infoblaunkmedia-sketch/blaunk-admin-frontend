@@ -4,6 +4,7 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { FormField } from '../../../shared/components/FormField';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { formatBankName } from '../../../utils/inputFormats';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { COUNTRIES } from '../../../shared/constants/hrConstants';
 import { fetchBgtBankAccounts, saveBgtBankAccounts } from '../finance.service';
@@ -132,7 +133,7 @@ export const BgtBankAccounts: React.FC = () => {
           ] as [keyof BgtBankAccountsType['wire'], string][]).map(([key, label]) => (
             <FormField key={key} label={label}>
               <input className={inputClass} value={data.wire[key]}
-                onChange={(e) => setWire(key, e.target.value)} />
+                onChange={(e) => setWire(key, key === 'bankName' ? formatBankName(e.target.value) : e.target.value)} />
             </FormField>
           ))}
         </div>

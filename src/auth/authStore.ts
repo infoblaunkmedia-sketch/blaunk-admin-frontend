@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AuthUser, ModulePermission } from '../shared/types/auth.types';
+import { hasModuleAccess, hasSectionAccess } from '../shared/constants/moduleRights';
 
 const TOKEN_KEY = 'authToken';
 const USER_KEY = 'authUser';
@@ -24,13 +25,14 @@ type AuthStore = {
   isLocked: boolean;
 
   login: (token: string, user: AuthUser) => void;
-  updatePermissions: (permissions: ModulePermission[]) => void;
+  updatePermissions: (permissions: string[]) => void;
   /** Keeps identifier / routing fields aligned with `/api/auth/me` (no permissions). */
   patchUserFields: (patch: Partial<Pick<AuthUser, 'employeeType' | 'email' | 'code'>>) => void;
   logout: () => void;
   incrementAttempts: () => void;
   resetAttempts: () => void;
   hasPermission: (module: ModulePermission) => boolean;
+  hasSection: (module: ModulePermission, sectionKey: string) => boolean;
 };
 
 const { token: initialToken, user: initialUser } = loadFromSession();
@@ -86,6 +88,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const { user } = get();
     if (!user) return false;
     if (user.role === 'admin') return true;
-    return user.permissions.includes(module);
+    return hasModuleAccess(user.permissions, module);
+  },
+
+  hasSection(module, sectionKey) {
+    const { user } = get();
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return hasSectionAccess(user.permissions, module, sectionKey);
   },
 }));

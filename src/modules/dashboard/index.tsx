@@ -77,7 +77,7 @@ export const DashboardPage: React.FC = () => {
             : 0,
         pendingDsaPayments:
           payouts.status === 'fulfilled'
-            ? payouts.value.filter((p) => p.status === 'PENDING_APPROVAL').length
+            ? payouts.value.filter((p) => p.status === 'PENDING' || p.status === 'PENDING_APPROVAL').length
             : 0,
         pendingVerifications: 0,
       });

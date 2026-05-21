@@ -6,7 +6,8 @@ import { ApprovalWorkflow } from '../../../shared/components/ApprovalWorkflow';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { fetchDsaLimitConfig, saveDsaLimitConfig } from '../platform.service';
-import { fetchPendingPayouts, approvePayoutById, rejectPayoutById } from '../../finance/finance.service';
+import { fetchPendingPayouts, updatePayoutStatusById } from '../../finance/finance.service';
+import type { PayoutStatus } from '../../../shared/constants/payoutStatus';
 import type { DsaLimitConfig, CurrencyRate } from '../platform.types';
 import type { DsaPayoutSubmission } from '../../finance/finance.types';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
@@ -35,15 +36,8 @@ export const DsaLimits: React.FC = () => {
 
   React.useEffect(() => { loadQueue(); }, [loadQueue]);
 
-  const handleApprove = async (id: string, note: string) => {
-    await approvePayoutById(id, note);
-    toast.success('Payout approved');
-    loadQueue();
-  };
-
-  const handleReject = async (id: string, reason: string) => {
-    await rejectPayoutById(id, reason);
-    toast.success('Payout rejected');
+  const handleStatusChange = async (id: string, status: PayoutStatus, note: string) => {
+    await updatePayoutStatusById(id, status, note);
     loadQueue();
   };
 
@@ -65,13 +59,15 @@ export const DsaLimits: React.FC = () => {
   };
 
   const approvalColumns = [
+    { header: 'Entry Date', render: (r: DsaPayoutSubmission) => r.submissionDate },
     { header: 'DSA Code', render: (r: DsaPayoutSubmission) => <span className="font-bold text-primary">{r.dsaCode}</span> },
-    { header: 'DSA Name', render: (r: DsaPayoutSubmission) => r.dsaName },
-    { header: 'Amount', render: (r: DsaPayoutSubmission) => `${r.currency} ${r.submittedAmount.toLocaleString()}` },
-    { header: 'INR Equiv.', render: (r: DsaPayoutSubmission) => `₹${r.currencyInr.toLocaleString()}` },
+    { header: 'Country', render: (r: DsaPayoutSubmission) => r.country },
+    { header: 'Mode', render: (r: DsaPayoutSubmission) => r.mode },
+    { header: 'Curr', render: (r: DsaPayoutSubmission) => r.currency },
+    { header: 'Amount Pay-in', render: (r: DsaPayoutSubmission) => r.submittedAmount.toLocaleString() },
+    { header: 'INR', render: (r: DsaPayoutSubmission) => `₹${r.currencyInr.toLocaleString()}` },
     { header: 'Share %', render: (r: DsaPayoutSubmission) => `${r.shareRatio}:${100 - r.shareRatio}` },
-    { header: 'Calc. Limit', render: (r: DsaPayoutSubmission) => <span className="font-bold text-amber-700">₹{r.calculatedLimit.toLocaleString()}</span> },
-    { header: 'Submitted', render: (r: DsaPayoutSubmission) => r.submissionDate },
+    { header: 'Limit (₹)', render: (r: DsaPayoutSubmission) => <span className="font-bold text-amber-700">₹{r.calculatedLimit.toLocaleString()}</span> },
   ];
 
   return (
@@ -95,8 +91,7 @@ export const DsaLimits: React.FC = () => {
         <ApprovalWorkflow
           items={pending as (DsaPayoutSubmission & { id: string; status: string })[]}
           columns={approvalColumns as Parameters<typeof ApprovalWorkflow>[0]['columns']}
-          onApprove={handleApprove}
-          onReject={handleReject}
+          onStatusChange={handleStatusChange}
           loading={loadingQueue}
         />
       )}

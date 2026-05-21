@@ -1,6 +1,15 @@
 import React from 'react';
+import { toast } from 'react-toastify';
 import { StatusBadge } from './StatusBadge';
 import { EmptyState } from './EmptyState';
+import {
+  PAYOUT_STATUS_OPTIONS,
+  isPendingPayoutStatus,
+  isNegativePayoutStatus,
+  normalizePayoutStatus,
+  payoutStatusLabel,
+  type PayoutStatus,
+} from '../constants/payoutStatus';
 
 export interface ApprovalItem {
   id: string;
@@ -15,28 +24,38 @@ interface Column<T> {
 interface ApprovalWorkflowProps<T extends ApprovalItem> {
   items: T[];
   columns: Column<T>[];
-  onApprove: (id: string, note: string) => Promise<void>;
-  onReject: (id: string, reason: string) => Promise<void>;
+  onStatusChange: (id: string, status: PayoutStatus, note: string) => Promise<void>;
   loading?: boolean;
 }
 
+const selectClass =
+  'h-8 w-full min-w-[10rem] rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold outline-none focus:border-primary';
+
 export function ApprovalWorkflow<T extends ApprovalItem>({
-  items, columns, onApprove, onReject, loading = false,
+  items, columns, onStatusChange, loading = false,
 }: ApprovalWorkflowProps<T>) {
   const [noteMap, setNoteMap] = React.useState<Record<string, string>>({});
+  const [statusMap, setStatusMap] = React.useState<Record<string, PayoutStatus>>({});
   const [processing, setProcessing] = React.useState<string | null>(null);
 
   const setNote = (id: string, val: string) =>
     setNoteMap((p) => ({ ...p, [id]: val }));
 
-  const handle = async (id: string, action: 'approve' | 'reject') => {
-    setProcessing(id);
+  const handleApply = async (item: T) => {
+    const nextStatus = statusMap[item.id] ?? normalizePayoutStatus(item.status);
+    const note = noteMap[item.id] ?? '';
+    if (isNegativePayoutStatus(nextStatus) && !note.trim()) {
+      toast.error('Note / reason is required for this status.');
+      return;
+    }
+    setProcessing(item.id);
     try {
-      if (action === 'approve') await onApprove(id, noteMap[id] ?? '');
-      else await onReject(id, noteMap[id] ?? '');
+      await onStatusChange(item.id, nextStatus, note.trim());
+      toast.success(`Status updated to ${payoutStatusLabel(nextStatus)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update status');
     } finally {
       setProcessing(null);
-      setNoteMap((p) => { const n = { ...p }; delete n[id]; return n; });
     }
   };
 
@@ -48,7 +67,7 @@ export function ApprovalWorkflow<T extends ApprovalItem>({
     );
   }
 
-  const pending = items.filter((i) => i.status === 'PENDING_APPROVAL');
+  const pending = items.filter((i) => isPendingPayoutStatus(i.status));
 
   if (pending.length === 0) {
     return <EmptyState message="No pending approvals." />;
@@ -62,52 +81,60 @@ export function ApprovalWorkflow<T extends ApprovalItem>({
             {columns.map((c) => (
               <th key={c.header} className="px-4 py-3 text-left font-bold">{c.header}</th>
             ))}
-            <th className="px-4 py-3 text-left font-bold">Status</th>
+            <th className="px-4 py-3 text-left font-bold">Current Status</th>
             <th className="min-w-[220px] px-4 py-3 text-left font-bold">Note / Reason</th>
             <th className="px-4 py-3 text-left font-bold">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {pending.map((item, i) => (
-            <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-surface'}>
-              {columns.map((c) => (
-                <td key={c.header} className="border-b border-slate-100 px-4 py-3">
-                  {c.render(item)}
+          {pending.map((item, i) => {
+            const current = normalizePayoutStatus(item.status);
+            const selected = statusMap[item.id] ?? current;
+            return (
+              <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-surface'}>
+                {columns.map((c) => (
+                  <td key={c.header} className="border-b border-slate-100 px-4 py-3">
+                    {c.render(item)}
+                  </td>
+                ))}
+                <td className="border-b border-slate-100 px-4 py-3">
+                  <StatusBadge status={item.status} />
                 </td>
-              ))}
-              <td className="border-b border-slate-100 px-4 py-3">
-                <StatusBadge status={item.status} />
-              </td>
-              <td className="border-b border-slate-100 px-4 py-3">
-                <input
-                  className="h-8 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-primary"
-                  placeholder="Add note or rejection reason…"
-                  value={noteMap[item.id] ?? ''}
-                  onChange={(e) => setNote(item.id, e.target.value)}
-                />
-              </td>
-              <td className="border-b border-slate-100 px-4 py-3">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={processing === item.id}
-                    onClick={() => handle(item.id, 'approve')}
-                    className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
-                  >
-                    {processing === item.id ? '…' : 'Approve'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={processing === item.id}
-                    onClick={() => handle(item.id, 'reject')}
-                    className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-600 disabled:opacity-60"
-                  >
-                    {processing === item.id ? '…' : 'Reject'}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+                <td className="border-b border-slate-100 px-4 py-3">
+                  <input
+                    className="h-8 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-primary"
+                    placeholder="Add note or reason…"
+                    value={noteMap[item.id] ?? ''}
+                    onChange={(e) => setNote(item.id, e.target.value)}
+                  />
+                </td>
+                <td className="border-b border-slate-100 px-4 py-3">
+                  <div className="flex min-w-[14rem] flex-col gap-2 sm:flex-row sm:items-center">
+                    <select
+                      className={selectClass}
+                      value={selected}
+                      disabled={processing === item.id}
+                      onChange={(e) =>
+                        setStatusMap((p) => ({ ...p, [item.id]: e.target.value as PayoutStatus }))
+                      }
+                    >
+                      {PAYOUT_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={processing === item.id}
+                      onClick={() => handleApply(item)}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-dark disabled:opacity-60"
+                    >
+                      {processing === item.id ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

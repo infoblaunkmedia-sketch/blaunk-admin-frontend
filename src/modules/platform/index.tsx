@@ -8,15 +8,15 @@ import { Vouchers } from './vouchers/Vouchers';
 import { DsaLimits } from './dsaLimits/DsaLimits';
 
 const TABS = [
-  { label: 'Plan Charges', path: '/platform/plan-charges' },
-  { label: 'Commission', path: '/platform/commission' },
-  { label: 'Vouchers', path: '/platform/vouchers' },
-  { label: 'DSA Limits', path: '/platform/dsa-limits' },
+  { label: 'Plan Charges', path: '/platform/plan-charges', section: 'plan-charges' },
+  { label: 'Commission', path: '/platform/commission', section: 'commission' },
+  { label: 'Vouchers', path: '/platform/vouchers', section: 'vouchers' },
+  { label: 'DSA Limits', path: '/platform/dsa-limits', section: 'dsa-limits' },
 ];
 
 export const PlatformPage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="platform">
       <Routes>
         <Route index element={<Navigate to="plan-charges" replace />} />
         <Route path="plan-charges" element={<PlanCharges />} />

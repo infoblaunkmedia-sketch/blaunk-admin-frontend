@@ -191,11 +191,12 @@ type DsaPayoutDto = {
   _id: string;
   dsaCode?: string;
   dsaName?: string;
+  mode?: string;
   submittedAmount?: number;
   currency?: string;
   currencyInr?: number;
   calculatedLimit?: number;
-  status?: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  status?: string;
   submissionDate?: string;
   approvalNote?: string;
   rejectionReason?: string;
@@ -216,11 +217,12 @@ export async function fetchDsaPayoutHistory(params?: { dsaCode?: string; status?
     id: String(r._id || ''),
     dsaCode: String(r.dsaCode || ''),
     dsaName: String(r.dsaName || ''),
+    mode: String(r.mode || ''),
     submittedAmount: Number(r.submittedAmount || 0),
     currency: String(r.currency || ''),
     currencyInr: Number(r.currencyInr || 0),
     calculatedLimit: Number(r.calculatedLimit || 0),
-    status: (r.status || 'PENDING_APPROVAL'),
+    status: String(r.status || 'PENDING'),
     submissionDate: String(r.submissionDate || ''),
     approvalNote: String(r.approvalNote || ''),
     rejectionReason: String(r.rejectionReason || ''),

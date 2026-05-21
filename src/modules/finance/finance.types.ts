@@ -1,6 +1,7 @@
 export type BankTransferStatus = 'Pending' | 'Completed' | 'Failed';
-export type PayoutStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
-export type PaymentMode = 'Cash' | 'QR' | 'Swift' | 'RTGS' | 'NEFT';
+import type { PayoutStatus } from '../../shared/constants/payoutStatus';
+export type { PayoutStatus };
+export type PaymentMode = 'Cash' | 'QR' | 'UPI' | 'Swift' | 'RTGS' | 'NEFT';
 
 export interface B2BPayment {
   id: string;

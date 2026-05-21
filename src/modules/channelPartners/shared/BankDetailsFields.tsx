@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormField } from '../../../shared/components/FormField';
 import type { BankDetails } from '../channelPartners.types';
+import { BankNameInput } from '../../../shared/components/BankNameInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -29,8 +30,11 @@ export const BankDetailsFields: React.FC<BankDetailsFieldsProps> = ({ value, onC
           onChange={(e) => set('ifsc', e.target.value.toUpperCase())} />
       </FormField>
       <FormField label="Bank Name">
-        <input className={inputClass} value={value.bankName}
-          onChange={(e) => set('bankName', e.target.value)} />
+        <BankNameInput
+          className={inputClass}
+          value={value.bankName}
+          onChange={(v) => set('bankName', v)}
+        />
       </FormField>
       {/* <FormField label="Branch">
         <input className={inputClass} value={value.branch}

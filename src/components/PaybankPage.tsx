@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatBankName } from '../utils/inputFormats';
 
 const headingClass = 'text-xl font-bold text-primary sm:text-2xl';
 const tableHeaderClass =
@@ -214,7 +215,7 @@ export const PaybankPage: React.FC = () => {
                       className={inputClass}
                       value={row.bankNameUpi}
                       onChange={(e) =>
-                        updateBank(row.id, { bankNameUpi: e.target.value })
+                        updateBank(row.id, { bankNameUpi: formatBankName(e.target.value) })
                       }
                     />
                   </td>
@@ -317,7 +318,7 @@ export const PaybankPage: React.FC = () => {
                       className={inputClass}
                       value={row.bankName}
                       onChange={(e) =>
-                        updateSwift(row.id, { bankName: e.target.value })
+                        updateSwift(row.id, { bankName: formatBankName(e.target.value) })
                       }
                     />
                   </td>

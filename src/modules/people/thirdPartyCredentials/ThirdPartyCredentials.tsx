@@ -8,6 +8,7 @@ import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { BankNameInput } from '../../../shared/components/BankNameInput';
 import {
   DEPARTMENTS,
   DESIGNATIONS,
@@ -59,6 +60,26 @@ function IconEdit({ className }: { className?: string }) {
     >
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function IconEye({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -136,6 +157,7 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
 
 export const ThirdPartyCredentials: React.FC = () => {
   const [view, setView] = React.useState<'list' | 'form'>('list');
+  const [readOnly, setReadOnly] = React.useState(false);
   const [records, setRecords] = React.useState<ThirdPartyCredential[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [form, setForm] = React.useState(emptyForm());
@@ -163,6 +185,7 @@ export const ThirdPartyCredentials: React.FC = () => {
 
   const handleNew = async () => {
     try {
+      setReadOnly(false);
       setEditId(null);
       const nextCode = await fetchNextThreePcEmployeeCode();
       setForm({ ...emptyForm(), threePEmplCode: nextCode });
@@ -173,7 +196,9 @@ export const ThirdPartyCredentials: React.FC = () => {
     }
   };
 
-  const handleEdit = (r: ThirdPartyCredential) => {
+  const openForm = (r: ThirdPartyCredential, viewOnly: boolean) => {
+    setReadOnly(viewOnly);
+    setEditId(r.id);
     setForm({
       ...emptyForm(),
       ...r,
@@ -185,9 +210,12 @@ export const ThirdPartyCredentials: React.FC = () => {
             ]
           : emptyForm().references,
     });
-    setEditId(r.id);
     setView('form');
   };
+
+  const handleView = (r: ThirdPartyCredential) => openForm(r, true);
+
+  const handleEdit = (r: ThirdPartyCredential) => openForm(r, false);
 
   const handleSave = async () => {
     if (!form.name.trim()) {
@@ -272,6 +300,15 @@ export const ThirdPartyCredentials: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => handleView(r)}
+            className="rounded border border-slate-200 p-1.5 text-slate-600 transition hover:bg-slate-50"
+            title="View details"
+            aria-label="View credential details"
+          >
+            <IconEye />
+          </button>
+          <button
+            type="button"
             onClick={() => handleEdit(r)}
             className="rounded border border-slate-200 p-1.5 text-primary transition hover:bg-slate-50"
             title="Edit"
@@ -290,7 +327,7 @@ export const ThirdPartyCredentials: React.FC = () => {
           </button>
         </div>
       ),
-      width: '110px',
+      width: '140px',
       ignoreRowClick: true,
     },
   ];
@@ -299,10 +336,11 @@ export const ThirdPartyCredentials: React.FC = () => {
     return (
       <ErrorBoundary>
         <PageHeader
-          title={editId ? 'Edit 3P Credential' : 'New 3P Credential'}
-          subtitle="Add or update 3P credential details."
+          title={readOnly ? '3P Credential Details' : editId ? 'Edit 3P Credential' : 'New 3P Credential'}
+          subtitle={readOnly ? 'View-only details for this 3PC record.' : 'Add or update 3P credential details.'}
         />
-        <SectionCard title={editId ? 'Edit Credential' : 'New Credential'}>
+        <SectionCard title={readOnly ? 'Credential Details' : editId ? 'Edit Credential' : 'New Credential'}>
+          <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="Department">
               <select className={inputClass} value={form.department} onChange={(e) => setField('department', e.target.value)}>
@@ -421,7 +459,12 @@ export const ThirdPartyCredentials: React.FC = () => {
             </FormField>
 
             <FormField label="Bank Name">
-              <input className={inputClass} value={form.bankName} onChange={(e) => setField('bankName', e.target.value)} />
+              <BankNameInput
+                className={inputClass}
+                value={form.bankName}
+                onChange={(v) => setField('bankName', v)}
+                disabled={readOnly}
+              />
             </FormField>
             <FormField label="IFSC Code">
               <input className={inputClass} value={form.ifscCode} onChange={(e) => setField('ifscCode', e.target.value.toUpperCase())} />
@@ -653,26 +696,30 @@ export const ThirdPartyCredentials: React.FC = () => {
               />
             </div>
           </div>
+          </fieldset>
 
           <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={handleSave}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
-            >
-              {saving ? 'Saving…' : editId ? 'Update' : 'Add Credential'}
-            </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleSave}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+              >
+                {saving ? 'Saving…' : editId ? 'Update' : 'Add Credential'}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => {
                 setView('list');
                 setForm(emptyForm());
                 setEditId(null);
+                setReadOnly(false);
               }}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
-              Cancel
+              {readOnly ? 'Back to list' : 'Cancel'}
             </button>
           </div>
         </SectionCard>

@@ -54,18 +54,21 @@ export async function saveDsaPayout(record: DsaPayoutSubmission): Promise<void> 
 }
 export async function fetchPendingPayouts(): Promise<DsaPayoutSubmission[]> {
   const res = await api.get<{ records: Array<DsaPayoutSubmission & { _id?: string }> }>(
-    '/api/dsa-payouts?status=PENDING_APPROVAL',
+    '/api/dsa-payouts?status=PENDING',
   );
   return (res.records || []).map((r) => ({
     ...r,
     id: String(r.id || r._id || ''),
   }));
 }
+export async function updatePayoutStatusById(id: string, status: string, note = ''): Promise<void> {
+  await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/status`, { status, note });
+}
 export async function approvePayoutById(id: string, note: string): Promise<void> {
-  await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/approve`, { note });
+  await updatePayoutStatusById(id, 'APPROVED', note);
 }
 export async function rejectPayoutById(id: string, reason: string): Promise<void> {
-  await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/reject`, { reason });
+  await updatePayoutStatusById(id, 'REJECTED', reason);
 }
 
 // BGT Bank Accounts

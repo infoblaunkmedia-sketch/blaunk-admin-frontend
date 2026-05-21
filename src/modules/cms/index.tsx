@@ -6,13 +6,13 @@ import { ImageLibrary } from './images/ImageLibrary';
 import { PageContent } from './pages/PageContent';
 
 const TABS = [
-  { label: 'Image Library', path: '/cms/images' },
-  { label: 'Page Content', path: '/cms/pages' },
+  { label: 'Image Library', path: '/cms/images', section: 'images' },
+  { label: 'Page Content', path: '/cms/pages', section: 'pages' },
 ];
 
 export const CmsPage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="cms">
       <Routes>
         <Route index element={<Navigate to="images" replace />} />
         <Route path="images" element={<ImageLibrary />} />

@@ -12,6 +12,7 @@ import {
   sanitizePan,
   sanitizeTan,
   titleCaseWords,
+  formatBankName,
 } from '../utils/inputFormats';
 import {
   CTC_DIVISOR_OPTIONS,
@@ -687,7 +688,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     className={FIELD_CLASSES}
                     placeholder="Enter Bank Name"
                     value={form.bankName}
-                    onChange={(event) => updateField('bankName', event.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                    onChange={(event) => updateField('bankName', formatBankName(event.target.value))}
                   />
                 </div>
 
@@ -1939,7 +1940,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     className={FIELD_CLASSES}
                     placeholder="Enter Bank Name"
                     value={thirdPartyForm.bankName}
-                    onChange={(event) => updateThirdPartyField('bankName', event.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                    onChange={(event) => updateThirdPartyField('bankName', formatBankName(event.target.value))}
                   />
                 </div>
 

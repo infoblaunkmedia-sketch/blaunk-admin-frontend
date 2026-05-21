@@ -8,15 +8,15 @@ import { Reviews } from './reviews/Reviews';
 import { Vendors } from '../channelPartners/vendors/Vendors';
 
 const TABS = [
-  { label: 'Individuals', path: '/customers/individuals' },
-  { label: 'Vendors', path: '/customers/vendors' },
-  { label: 'Issues', path: '/customers/issues' },
-  { label: 'Reviews', path: '/customers/reviews' },
+  { label: 'Individuals', path: '/customers/individuals', section: 'individuals' },
+  { label: 'Vendors', path: '/customers/vendors', section: 'vendors' },
+  { label: 'Issues', path: '/customers/issues', section: 'issues' },
+  { label: 'Reviews', path: '/customers/reviews', section: 'reviews' },
 ];
 
 export const CustomersPage: React.FC = () => (
   <ErrorBoundary>
-    <ModuleLayout tabs={TABS}>
+    <ModuleLayout tabs={TABS} moduleKey="customers">
       <Routes>
         <Route index element={<Navigate to="individuals" replace />} />
         <Route path="individuals" element={<Individuals />} />

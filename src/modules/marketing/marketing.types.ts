@@ -74,11 +74,12 @@ export interface DsaPayoutHistory {
   id: string;
   dsaCode: string;
   dsaName: string;
+  mode?: string;
   submittedAmount: number;
   currency: string;
   currencyInr: number;
   calculatedLimit: number;
-  status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  status: string;
   submissionDate: string;
   approvalNote?: string;
   rejectionReason?: string;

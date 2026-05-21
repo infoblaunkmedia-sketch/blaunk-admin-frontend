@@ -4,6 +4,7 @@ import { SectionCard } from '../../shared/components/SectionCard';
 import { useAuth } from '../../auth/useAuth';
 import { api } from '../../shared/services/apiService';
 import type { ModulePermission } from '../../shared/types/auth.types';
+import { hasModuleAccess } from '../../shared/constants/moduleRights';
 
 const MODULE_LABELS: Partial<Record<ModulePermission, string>> = {
   dashboard: 'Home',
@@ -49,22 +50,12 @@ export const EmployeeWorkspacePage: React.FC = () => {
     };
   }, []);
 
-  const modules =
-    user?.permissions.filter((p) =>
-      ([
-        'dashboard',
-        'cms',
-        'people',
-        'channelPartners',
-        'finance',
-        'platform',
-        'marketing',
-        'customers',
-        'reports',
-        'corporate',
-        'settings',
-      ] satisfies ModulePermission[]).includes(p),
-    ) || [];
+  const modules = (
+    [
+      'dashboard', 'cms', 'people', 'channelPartners', 'finance', 'platform',
+      'marketing', 'customers', 'reports', 'corporate', 'settings',
+    ] as ModulePermission[]
+  ).filter((m) => hasModuleAccess(user?.permissions ?? [], m));
 
   return (
     <>

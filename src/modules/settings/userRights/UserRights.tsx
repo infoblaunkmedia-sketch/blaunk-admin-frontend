@@ -5,6 +5,13 @@ import { SectionCard } from '../../../shared/components/SectionCard';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { ModulePermission } from '../../../shared/types/auth.types';
+import {
+  MODULE_RIGHTS_TREE,
+  childKeysForModule,
+  hasSectionAccess,
+  normalizeSectionList,
+  sectionPermissionKey,
+} from '../../../shared/constants/moduleRights';
 import { PRESET_ROLES, type PresetRole, type PermissionsMap } from '../settings.types';
 import {
   fetchEmployeeOptions,
@@ -17,20 +24,6 @@ import {
   type UserAdminInfo,
 } from '../settings.service';
 import { useAuthStore } from '../../../auth/authStore';
-
-const ALL_MODULES: { key: ModulePermission; label: string }[] = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'cms', label: 'CMS' },
-  { key: 'people', label: 'People' },
-  { key: 'channelPartners', label: 'Channel Partners' },
-  { key: 'finance', label: 'Finance' },
-  { key: 'platform', label: 'Platform' },
-  { key: 'marketing', label: 'Marketing' },
-  { key: 'customers', label: 'Customers' },
-  { key: 'reports', label: 'Reports' },
-  { key: 'corporate', label: 'Corporate' },
-  { key: 'settings', label: 'Settings' },
-];
 
 const ROLE_LABELS: Record<PresetRole, string> = {
   superAdmin: 'Super Admin',
@@ -54,6 +47,7 @@ export const UserRights: React.FC = () => {
   const [loadingSelection, setLoadingSelection] = React.useState(false);
   const [statusSaving, setStatusSaving] = React.useState(false);
   const [pwSaving, setPwSaving] = React.useState(false);
+  const [expandedModules, setExpandedModules] = React.useState<Record<string, boolean>>({});
   const [confirmAction, setConfirmAction] = React.useState<null | {
     title: string;
     message: string;
@@ -80,15 +74,40 @@ export const UserRights: React.FC = () => {
       .finally(() => setLoadingOptions(false));
   }, [kind]);
 
-  const getPerms = (code: string): ModulePermission[] =>
+  const getPerms = (code: string): string[] =>
     permissionsMap[code] ?? [];
 
-  const toggle = (code: string, mod: ModulePermission) => {
+  const setPerms = (code: string, next: string[]) => {
+    setPermissionsMap((prev) => ({ ...prev, [code]: normalizeSectionList(next) }));
+  };
+
+  const toggleModule = (code: string, mod: ModulePermission, checked: boolean) => {
     const current = getPerms(code);
-    const next = current.includes(mod)
-      ? current.filter((m) => m !== mod)
-      : [...current, mod];
-    setPermissionsMap((prev) => ({ ...prev, [code]: next }));
+    const children = childKeysForModule(mod);
+    const without = current.filter((p) => p !== mod && !p.startsWith(`${mod}:`));
+    if (!checked) {
+      setPerms(code, without);
+      return;
+    }
+    const added = [mod, ...children.map((c) => sectionPermissionKey(mod, c))];
+    setPerms(code, [...without, ...added]);
+  };
+
+  const toggleSection = (code: string, mod: ModulePermission, childKey: string, checked: boolean) => {
+    const key = sectionPermissionKey(mod, childKey);
+    const current = getPerms(code);
+    const without = current.filter((p) => p !== key);
+    setPerms(code, checked ? [...without, key] : without);
+  };
+
+  const moduleCheckState = (code: string, mod: ModulePermission): 'checked' | 'indeterminate' | 'unchecked' => {
+    const perms = getPerms(code);
+    const children = childKeysForModule(mod);
+    if (!children.length) return perms.includes(mod) ? 'checked' : 'unchecked';
+    const selected = children.filter((c) => hasSectionAccess(perms, mod, c));
+    if (perms.includes(mod) || selected.length === children.length) return 'checked';
+    if (selected.length > 0) return 'indeterminate';
+    return 'unchecked';
   };
 
   const applyPreset = (code: string, role: PresetRole) => {
@@ -96,16 +115,24 @@ export const UserRights: React.FC = () => {
   };
 
   const selectAll = (code: string, checked: boolean) => {
-    setPermissionsMap((prev) => ({
-      ...prev,
-      [code]: checked ? ALL_MODULES.map((m) => m.key) : [],
-    }));
+    if (!checked) {
+      setPerms(code, []);
+      return;
+    }
+    const all: string[] = [];
+    for (const node of MODULE_RIGHTS_TREE) {
+      all.push(node.key);
+      for (const child of node.children ?? []) {
+        all.push(sectionPermissionKey(node.key, child.key));
+      }
+    }
+    setPerms(code, all);
   };
 
   const handleSave = async (code: string) => {
     setSaving(code);
     try {
-      await saveRightsForEmployee(code, getPerms(code), kind);
+      await saveRightsForEmployee(code, normalizeSectionList(getPerms(code)), kind);
       // If editing the currently logged-in user, update their live session
       if (currentUser && currentUser.code === code && currentToken) {
         loginAction(currentToken, { ...currentUser, permissions: getPerms(code) });
@@ -180,7 +207,7 @@ export const UserRights: React.FC = () => {
                 setLoadingSelection(true);
                 try {
                   const sections = await fetchRightsForEmployee(selectedCode, kind);
-                  setPermissionsMap((prev) => ({ ...prev, [selectedCode]: sections as ModulePermission[] }));
+                  setPermissionsMap((prev) => ({ ...prev, [selectedCode]: normalizeSectionList(sections) }));
                   try {
                     const info = await fetchUserAdminInfo(selectedCode, kind);
                     setUserInfo(info);
@@ -382,7 +409,14 @@ export const UserRights: React.FC = () => {
           <SectionCard title="Rights">
             {codes.map((code) => {
               const perms = getPerms(code);
-              const allChecked = perms.length === ALL_MODULES.length;
+              const allKeys: string[] = [];
+              for (const node of MODULE_RIGHTS_TREE) {
+                allKeys.push(node.key);
+                for (const child of node.children ?? []) {
+                  allKeys.push(sectionPermissionKey(node.key, child.key));
+                }
+              }
+              const allChecked = allKeys.every((k) => perms.includes(k) || hasModuleAccess(perms, k as ModulePermission));
               return (
                 <div key={code} className="rounded-lg border border-slate-200 p-4">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -418,18 +452,66 @@ export const UserRights: React.FC = () => {
                       Select all rights
                     </label>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {ALL_MODULES.map((m) => (
-                      <label key={m.key} className="inline-flex items-center gap-2 rounded border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={perms.includes(m.key)}
-                          onChange={() => toggle(code, m.key)}
-                          className="h-4 w-4 accent-primary"
-                        />
-                        {m.label}
-                      </label>
-                    ))}
+                  <div className="space-y-2">
+                    {MODULE_RIGHTS_TREE.map((mod) => {
+                      const state = moduleCheckState(code, mod.key);
+                      const hasChildren = Boolean(mod.children?.length);
+                      const isOpen = expandedModules[mod.key] ?? false;
+                      return (
+                        <div key={mod.key} className="rounded border border-slate-200">
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                aria-label={isOpen ? 'Collapse' : 'Expand'}
+                                onClick={() =>
+                                  setExpandedModules((p) => ({ ...p, [mod.key]: !isOpen }))
+                                }
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-100"
+                              >
+                                <span className="text-xs">{isOpen ? '▼' : '▶'}</span>
+                              </button>
+                            ) : (
+                              <span className="w-6" />
+                            )}
+                            <label className="inline-flex flex-1 cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800">
+                              <input
+                                type="checkbox"
+                                checked={state === 'checked'}
+                                ref={(el) => {
+                                  if (el) el.indeterminate = state === 'indeterminate';
+                                }}
+                                onChange={(e) => toggleModule(code, mod.key, e.target.checked)}
+                                className="h-4 w-4 accent-primary"
+                              />
+                              {mod.label}
+                            </label>
+                          </div>
+                          {hasChildren && isOpen ? (
+                            <div className="border-t border-slate-100 bg-slate-50/80 px-3 py-2 pl-10">
+                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                                {mod.children!.map((child) => (
+                                  <label
+                                    key={child.key}
+                                    className="inline-flex items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-700"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={hasSectionAccess(perms, mod.key, child.key)}
+                                      onChange={(e) =>
+                                        toggleSection(code, mod.key, child.key, e.target.checked)
+                                      }
+                                      className="h-4 w-4 accent-primary"
+                                    />
+                                    {child.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="mt-4">
                     <button

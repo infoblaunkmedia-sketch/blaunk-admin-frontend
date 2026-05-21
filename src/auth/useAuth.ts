@@ -16,5 +16,6 @@ export function useAuth() {
     incrementAttempts: store.incrementAttempts,
     resetAttempts: store.resetAttempts,
     hasPermission: (module: ModulePermission) => store.hasPermission(module),
+    hasSection: (module: ModulePermission, sectionKey: string) => store.hasSection(module, sectionKey),
   };
 }

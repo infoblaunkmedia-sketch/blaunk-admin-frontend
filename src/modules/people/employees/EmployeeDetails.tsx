@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
@@ -31,16 +31,22 @@ function Field({ label, value }: { label: string; value?: React.ReactNode }) {
   );
 }
 
+const RESERVED_PAN_SLUGS = new Set(['new', 'add', 'create']);
+
 export const EmployeeDetails: React.FC = () => {
   const { pan } = useParams();
+  const panNorm = String(pan || '').trim();
+  const isReservedSlug = RESERVED_PAN_SLUGS.has(panNorm.toLowerCase());
+
   const [emp, setEmp] = React.useState<Employee | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (isReservedSlug) return;
     let mounted = true;
     async function run() {
-      if (!pan) {
+      if (!panNorm) {
         setLoading(false);
         setError('Missing PAN in URL.');
         return;
@@ -48,7 +54,7 @@ export const EmployeeDetails: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchEmployeeByPan(pan);
+        const data = await fetchEmployeeByPan(panNorm);
         if (mounted) setEmp(data);
       } catch (e) {
         if (mounted) setError(e instanceof Error ? e.message : 'Failed to load employee.');
@@ -58,13 +64,17 @@ export const EmployeeDetails: React.FC = () => {
     }
     run();
     return () => { mounted = false; };
-  }, [pan]);
+  }, [panNorm, isReservedSlug]);
+
+  if (isReservedSlug) {
+    return <Navigate to="/people/employees/new" replace />;
+  }
 
   return (
     <ErrorBoundary>
       <PageHeader
         title="Employee details"
-        subtitle={pan ? `PAN: ${pan}` : 'Employee record'}
+        subtitle={panNorm ? `PAN: ${panNorm}` : 'Employee record'}
         actions={[
           {
             label: 'Back to Employees',

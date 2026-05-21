@@ -28,7 +28,8 @@ export interface AuthUser {
   username?: string;
   /** Email returned from /api/auth/me (if available). */
   email?: string;
-  permissions: ModulePermission[];
+  /** Top-level modules and optional `module:tab` section keys. */
+  permissions: string[];
   status: string;
 }
 

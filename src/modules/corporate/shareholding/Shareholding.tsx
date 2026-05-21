@@ -5,6 +5,8 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { FormField } from '../../../shared/components/FormField';
+import { BankNameInput } from '../../../shared/components/BankNameInput';
+import { sanitizePan } from '../../../utils/inputFormats';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Shareholder, Nominee } from '../corporate.types';
@@ -162,7 +164,7 @@ export const Shareholding: React.FC = () => {
                   </FormField>
                   <FormField label="PAN">
                     <input className={inputClass} maxLength={10} value={form.pan}
-                      onChange={(e) => setField('pan', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} />
+                      onChange={(e) => setField('pan', sanitizePan(e.target.value))} />
                   </FormField>
                   <FormField label="Aadhaar">
                     <input className={inputClass} maxLength={12} value={form.aadhaar}
@@ -303,8 +305,11 @@ export const Shareholding: React.FC = () => {
               <SectionCard title="Bank Details">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <FormField label="Bank Name">
-                    <input className={inputClass} value={form.bankName}
-                      onChange={(e) => setField('bankName', e.target.value.replace(/[^A-Za-z\s]/g, ''))} />
+                    <BankNameInput
+                      className={inputClass}
+                      value={form.bankName}
+                      onChange={(v) => setField('bankName', v)}
+                    />
                   </FormField>
                   <FormField label="IFSC Code">
                     <input className={inputClass} maxLength={11} value={form.ifscCode}
@@ -361,7 +366,7 @@ export const Shareholding: React.FC = () => {
                     </FormField>
                     <FormField label="PAN">
                       <input className={inputClass} maxLength={10} value={nom.pan}
-                        onChange={(e) => setNomineeField(i, 'pan', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))} />
+                        onChange={(e) => setNomineeField(i, 'pan', sanitizePan(e.target.value))} />
                     </FormField>
                     </div>
                   </div>
