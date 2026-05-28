@@ -10,13 +10,29 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { BankDetailsFields } from '../shared/BankDetailsFields';
 import { COUNTRIES, INDIAN_STATES } from '../../../shared/constants/hrConstants';
-import type { VendorRecord, BankDetails } from '../channelPartners.types';
+import type { VendorRecord, BankDetails, ApprovalStatus } from '../channelPartners.types';
 import {
-  fetchVendors, saveVendor, deleteVendor, generateVendorCode,
-} from '../channelPartners.service';
+  fetchVendors,
+  fetchVendorById,
+  fetchVendorDocuments,
+  saveVendor,
+  deleteVendor,
+  generateVendorCode,
+  approveVendor,
+  rejectVendor,
+  uploadKycDocument,
+  kycDocumentUrl,
+  type KycDocument,
+} from '../../customers/vendors.service';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+const APPROVAL_LABEL: Record<ApprovalStatus, string> = {
+  pending: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
 
 const emptyBank = (): BankDetails => ({
   accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', branch: '',
@@ -26,7 +42,7 @@ const emptyForm = (code: string): VendorRecord => ({
   vendorCode: code, businessName: '', ownerName: '', mobile: '', email: '',
   address: '', city: '', state: '', country: 'India',
   productCategories: '', bank: emptyBank(),
-  kycStatus: 'Pending', status: 'Active',
+  kycStatus: 'Pending', status: 'Active', approvalStatus: 'pending',
   joiningDate: new Date().toISOString().slice(0, 10),
 });
 
@@ -36,21 +52,71 @@ export const Vendors: React.FC = () => {
   const [view, setView] = React.useState<'list' | 'form'>('list');
   const [form, setForm] = React.useState<VendorRecord | null>(null);
   const [saving, setSaving] = React.useState(false);
-  const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = React.useState<VendorRecord | null>(null);
   const [tableSearch, setTableSearch] = React.useState('');
+  const [approvalFilter, setApprovalFilter] = React.useState<ApprovalStatus | ''>('');
+  const [total, setTotal] = React.useState(0);
+
+  const [detail, setDetail] = React.useState<VendorRecord | null>(null);
+  const [documents, setDocuments] = React.useState<KycDocument[]>([]);
+  const [docsLoading, setDocsLoading] = React.useState(false);
+  const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [rejectReason, setRejectReason] = React.useState('');
+  const [actionLoading, setActionLoading] = React.useState(false);
+  const [kycUploading, setKycUploading] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    setRecords(await fetchVendors());
-    setLoading(false);
-  }, []);
+    try {
+      const { records: rows, pagination } = await fetchVendors({
+        q: tableSearch.trim() || undefined,
+        status: approvalFilter || undefined,
+        limit: 200,
+      });
+      setRecords(rows);
+      setTotal(pagination.total);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load vendors');
+      setRecords([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [tableSearch, approvalFilter]);
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => { load(); }, 300);
+    return () => window.clearTimeout(t);
+  }, [load]);
+
+  const openDetail = async (row: VendorRecord) => {
+    if (!row.id) return;
+    setDocsLoading(true);
+    setDetail(row);
+    try {
+      const [fresh, docs] = await Promise.all([
+        fetchVendorById(row.id),
+        fetchVendorDocuments(row.id),
+      ]);
+      setDetail(fresh);
+      setDocuments(docs);
+    } catch {
+      toast.error('Failed to load vendor detail');
+      setDetail(null);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
 
   const handleNew = async () => {
-    const code = await generateVendorCode(records);
-    setForm(emptyForm(code));
-    setView('form');
+    try {
+      const code = await generateVendorCode();
+      setForm(emptyForm(code));
+      setView('form');
+    } catch {
+      toast.error('Failed to generate vendor code');
+    }
   };
 
   const handleEdit = (r: VendorRecord) => { setForm({ ...r }); setView('form'); };
@@ -65,17 +131,77 @@ export const Vendors: React.FC = () => {
     try {
       await saveVendor(form);
       toast.success(`Vendor ${form.vendorCode} saved`);
-      setView('list'); load();
-    } catch { toast.error('Save failed'); }
-    finally { setSaving(false); }
+      setView('list');
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
-    if (!confirmDel) return;
-    await deleteVendor(confirmDel);
-    setConfirmDel(null);
-    load();
-    toast.success('Vendor deleted');
+    if (!confirmDel?.id) return;
+    try {
+      await deleteVendor(confirmDel.id);
+      setConfirmDel(null);
+      load();
+      toast.success('Vendor deleted');
+    } catch {
+      toast.error('Delete failed');
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!detail?.id) return;
+    setActionLoading(true);
+    try {
+      const { email } = await approveVendor(detail.id);
+      toast.success(email.sent ? 'Vendor approved — email sent' : 'Vendor approved (email stub — configure SMTP)');
+      setDetail(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Approve failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!detail?.id || !rejectReason.trim()) {
+      toast.error('Rejection reason is required');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const { email } = await rejectVendor(detail.id, rejectReason.trim());
+      toast.success(email.sent ? 'Vendor rejected — email sent' : 'Vendor rejected (email stub — configure SMTP)');
+      setRejectOpen(false);
+      setRejectReason('');
+      setDetail(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Reject failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleKycUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !detail?.id) return;
+    setKycUploading(true);
+    try {
+      await uploadKycDocument(detail.id, file);
+      const docs = await fetchVendorDocuments(detail.id);
+      setDocuments(docs);
+      toast.success('KYC document uploaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setKycUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
   };
 
   const columns: TableColumn<VendorRecord>[] = [
@@ -84,19 +210,29 @@ export const Vendors: React.FC = () => {
     { name: 'Owner', selector: (r) => r.ownerName },
     { name: 'Country', selector: (r) => r.country, width: '100px' },
     { name: 'Categories', selector: (r) => r.productCategories },
-    { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
+    {
+      name: 'Approval',
+      cell: (r) => <StatusBadge status={APPROVAL_LABEL[r.approvalStatus || 'pending']} />,
+      width: '110px',
+    },
     { name: 'KYC', cell: (r) => <StatusBadge status={r.kycStatus} />, width: '90px' },
     {
       name: 'Actions',
       cell: (r) => (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-1">
+          <button type="button" onClick={() => openDetail(r)}
+            className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10">
+            Review
+          </button>
           <button type="button" onClick={() => handleEdit(r)}
-            className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10">Edit</button>
-          <button type="button" onClick={() => setConfirmDel(r.vendorCode)}
-            className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+            className="rounded px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
+          {r.id ? (
+            <button type="button" onClick={() => setConfirmDel(r)}
+              className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+          ) : null}
         </div>
       ),
-      width: '120px', ignoreRowClick: true,
+      width: '160px', ignoreRowClick: true,
     },
   ];
 
@@ -104,9 +240,9 @@ export const Vendors: React.FC = () => {
     return (
       <ErrorBoundary>
         <PageHeader
-          title={form.createdAt ? `Edit Vendor: ${form.vendorCode}` : `New Vendor — ${form.vendorCode}`}
+          title={form.id ? `Edit Vendor: ${form.vendorCode}` : `New Vendor — ${form.vendorCode}`}
           actions={[
-            { label: 'Save', onClick: handleSave, variant: 'primary' },
+            { label: saving ? 'Saving…' : 'Save', onClick: handleSave, variant: 'primary' },
             { label: 'Cancel', onClick: () => setView('list'), variant: 'secondary' },
           ]}
         />
@@ -161,22 +297,6 @@ export const Vendors: React.FC = () => {
                 <input className={inputClass} placeholder="e.g. Tour, Cake, Store" value={form.productCategories}
                   onChange={(e) => setField('productCategories', e.target.value)} />
               </FormField>
-              <FormField label="Status">
-                <select className={inputClass} value={form.status}
-                  onChange={(e) => setField('status', e.target.value as VendorRecord['status'])}>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Suspended">Suspended</option>
-                </select>
-              </FormField>
-              <FormField label="KYC Status">
-                <select className={inputClass} value={form.kycStatus}
-                  onChange={(e) => setField('kycStatus', e.target.value as VendorRecord['kycStatus'])}>
-                  <option value="Pending">Pending</option>
-                  <option value="Verified">Verified</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </FormField>
             </div>
           </SectionCard>
           <SectionCard title="Bank Details">
@@ -189,13 +309,122 @@ export const Vendors: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title="Vendors" subtitle="Manage BGT vendor accounts."
-        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
+      <PageHeader title="Vendors" subtitle={`BGT vendor onboarding — ${total} total.`}
+        beforeActions={
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary"
+              value={approvalFilter}
+              onChange={(e) => setApprovalFilter(e.target.value as ApprovalStatus | '')}
+            >
+              <option value="">All approvals</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <ListTableSearchInput value={tableSearch} onChange={setTableSearch} />
+          </div>
+        }
         actions={[{ label: '+ New Vendor', onClick: handleNew }]} />
+
       <DataTableWrapper columns={columns} data={records} loading={loading} searchable
         filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
+
+      {detail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h3 className="text-base font-bold text-primary">{detail.businessName}</h3>
+                <p className="text-xs text-slate-500">{detail.vendorCode} · {detail.email}</p>
+              </div>
+              <button type="button" onClick={() => setDetail(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge status={APPROVAL_LABEL[detail.approvalStatus || 'pending']} />
+                <StatusBadge status={detail.kycStatus} />
+              </div>
+              {detail.rejectionReason ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  Rejection: {detail.rejectionReason}
+                </p>
+              ) : null}
+              <SectionCard title="KYC Documents">
+                {docsLoading ? (
+                  <p className="text-sm text-slate-500">Loading documents…</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-slate-500">No KYC documents uploaded yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {documents.map((doc) => (
+                      <li key={doc.id} className="flex items-center justify-between rounded border border-slate-200 px-3 py-2 text-sm">
+                        <span>{doc.originalName || doc.fileName} <span className="text-slate-400">({doc.docType})</span></span>
+                        <a href={kycDocumentUrl(doc.url)} target="_blank" rel="noreferrer"
+                          className="font-semibold text-primary hover:underline">View</a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-3">
+                  <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+                    onChange={handleKycUpload} />
+                  <button type="button" disabled={kycUploading} onClick={() => fileRef.current?.click()}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+                    {kycUploading ? 'Uploading…' : '+ Upload KYC document'}
+                  </button>
+                </div>
+              </SectionCard>
+            </div>
+            <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+              {detail.approvalStatus === 'pending' ? (
+                <>
+                  <button type="button" disabled={actionLoading} onClick={handleApprove}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                    Approve
+                  </button>
+                  <button type="button" disabled={actionLoading} onClick={() => setRejectOpen(true)}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                    Reject
+                  </button>
+                </>
+              ) : null}
+              <button type="button" onClick={() => { handleEdit(detail); setDetail(null); }}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Edit details
+              </button>
+              <button type="button" onClick={() => setDetail(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectOpen && detail && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h4 className="font-bold text-slate-800">Reject vendor</h4>
+            <p className="mt-1 text-sm text-slate-500">Provide a reason — sent to the vendor by email when SMTP is configured.</p>
+            <textarea className={`${inputClass} mt-3 h-24 py-2`} value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)} placeholder="Reason for rejection…" />
+            <div className="mt-4 flex gap-2">
+              <button type="button" disabled={actionLoading} onClick={handleReject}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                Confirm reject
+              </button>
+              <button type="button" onClick={() => { setRejectOpen(false); setRejectReason(''); }}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDel && (
-        <ConfirmDialog title="Delete Vendor" message={`Delete vendor ${confirmDel}?`}
+        <ConfirmDialog title="Delete Vendor" message={`Delete vendor ${confirmDel.vendorCode}?`}
           confirmLabel="Delete" onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />
       )}
     </ErrorBoundary>

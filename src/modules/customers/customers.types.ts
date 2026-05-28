@@ -4,6 +4,7 @@ export type ReviewStatus = 'Published' | 'Hidden' | 'Flagged';
 
 export interface Individual {
   id: string;
+  customerId: string;
   fullName: string;
   email: string;
   mobile: string;

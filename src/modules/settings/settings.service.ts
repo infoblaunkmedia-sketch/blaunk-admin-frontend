@@ -57,18 +57,18 @@ export type UserAdminInfo = {
 
 export async function fetchUserAdminInfo(code: string, type: 'employee' | '3pc') {
   const res = await api.get<{ user: UserAdminInfo }>(
-    `/api/users/${encodeURIComponent(code)}?type=${type}`,
+    `/api/staff-users/${encodeURIComponent(code)}?type=${type}`,
   );
   return res.user;
 }
 
 export async function setUserStatus(code: string, type: 'employee' | '3pc', status: 'Active' | 'Disabled') {
-  await api.patch(`/api/users/${encodeURIComponent(code)}/status?type=${type}`, { status });
+  await api.patch(`/api/staff-users/${encodeURIComponent(code)}/status?type=${type}`, { status });
 }
 
 export async function generateTempPassword(code: string, type: 'employee' | '3pc') {
   const res = await api.post<{ tempPassword: string }>(
-    `/api/users/${encodeURIComponent(code)}/temp-password?type=${type}`,
+    `/api/staff-users/${encodeURIComponent(code)}/temp-password?type=${type}`,
     {},
   );
   return res.tempPassword;

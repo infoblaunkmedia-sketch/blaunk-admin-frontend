@@ -5,12 +5,19 @@ import { useAuth } from '../../auth/useAuth';
 import { getWorkspaceHomePath } from '../../auth/homePath';
 import type { ModulePermission } from '../../shared/types/auth.types';
 
+type NavChild = {
+  label: string;
+  path: string;
+  section: string;
+};
+
 type NavItem = {
   label: string;
   path: string;
   permission: ModulePermission;
   icon: React.ReactNode;
   badge?: number;
+  children?: NavChild[];
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -57,6 +64,10 @@ const NAV_ITEMS: NavItem[] = [
         <rect x="3" y="4" width="18" height="16" rx="2" />
       </svg>
     ),
+    children: [
+      { label: 'DSA Network', path: '/channel-partners/dsa', section: 'dsa' },
+      { label: 'Verifiers', path: '/channel-partners/verifiers', section: 'verifiers' },
+    ],
   },
   {
     label: 'Finance',
@@ -107,7 +118,7 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Reports (MIS)',
+    label: 'Reports (MIS)', 
     path: '/reports',
     permission: 'reports',
     icon: (
@@ -118,13 +129,24 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Corporate',
+    label: 'Company Secretary',
     path: '/corporate',
     permission: 'corporate',
     icon: (
       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <path d="M9 9h6M9 12h6M9 15h6" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Admin & Personnel',
+    path: '/admin-personnel',
+    permission: 'adminPersonnel',
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 3v18M3 12h18" />
+        <circle cx="12" cy="12" r="9" />
       </svg>
     ),
   },
@@ -154,11 +176,24 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+const CHEVRON_ICON = (
+  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <path d="M9 18l6-6-6-6" />
+  </svg>
+);
+
 export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClose }) => {
-  const { hasPermission, user } = useAuth();
+  const { hasPermission, hasSection, user } = useAuth();
   const location = useLocation();
+  const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
   const [collapsedTip, setCollapsedTip] = React.useState<{
     label: string;
+    top: number;
+    left: number;
+  } | null>(null);
+  const [collapsedFlyout, setCollapsedFlyout] = React.useState<{
+    item: NavItem;
+    children: NavChild[];
     top: number;
     left: number;
   } | null>(null);
@@ -172,8 +207,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
   });
 
   React.useEffect(() => {
-    if (!collapsed) setCollapsedTip(null);
+    if (!collapsed) {
+      setCollapsedTip(null);
+      setCollapsedFlyout(null);
+    }
   }, [collapsed]);
+
+  React.useEffect(() => {
+    if (location.pathname.startsWith('/channel-partners')) {
+      setExpandedGroups((prev) => ({ ...prev, '/channel-partners': true }));
+    }
+  }, [location.pathname]);
+
+  const visibleChildren = (item: NavItem): NavChild[] => {
+    if (!item.children?.length) return [];
+    if (user?.role === 'admin') return item.children;
+    return item.children.filter((child) => hasSection(item.permission, child.section));
+  };
+
+  const toggleGroup = (path: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [path]: !prev[path] }));
+  };
 
   const collapsedLabelProps = (label: string) =>
     collapsed
@@ -251,9 +305,81 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
             </NavLink>
           ) : null}
           {visibleItems.map((item) => {
-            const isActive =
+            const children = visibleChildren(item);
+            const hasChildren = children.length > 0;
+            const isGroupActive =
               location.pathname === item.path ||
               location.pathname.startsWith(`${item.path}/`);
+            const isExpanded = expandedGroups[item.path] ?? false;
+
+            if (hasChildren) {
+              return (
+                <div key={item.path} className="flex flex-col gap-0.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (collapsed) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setCollapsedFlyout((prev) =>
+                          prev?.item.path === item.path
+                            ? null
+                            : { item, children, top: rect.top, left: rect.right + 10 },
+                        );
+                        return;
+                      }
+                      toggleGroup(item.path);
+                    }}
+                    aria-expanded={collapsed ? collapsedFlyout?.item.path === item.path : isExpanded}
+                    {...collapsedLabelProps(item.label)}
+                    className={[
+                      'flex w-full items-center rounded-lg px-3 text-sm font-bold transition-colors',
+                      collapsed ? 'justify-center' : '',
+                      'py-2.5',
+                      isGroupActive
+                        ? 'bg-primary text-white'
+                        : 'text-black hover:bg-slate-50',
+                    ].join(' ')}
+                  >
+                    <span className={collapsed ? '' : 'mr-2'} aria-hidden>{item.icon}</span>
+                    {!collapsed ? <span className="flex-1 text-left leading-snug">{item.label}</span> : null}
+                    {!collapsed ? (
+                      <span
+                        className={['transition-transform', isExpanded ? 'rotate-90' : ''].join(' ')}
+                        aria-hidden
+                      >
+                        {CHEVRON_ICON}
+                      </span>
+                    ) : null}
+                  </button>
+                  {!collapsed && isExpanded ? (
+                    <div className="ml-3 flex flex-col gap-0.5 border-l-2 border-slate-200 pl-2">
+                      {children.map((child) => {
+                        const childActive =
+                          location.pathname === child.path ||
+                          location.pathname.startsWith(`${child.path}/`);
+                        return (
+                          <NavLink
+                            key={child.path}
+                            to={child.path}
+                            onClick={onClose}
+                            className={[
+                              'rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+                              childActive
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-slate-700 hover:bg-slate-50',
+                            ].join(' ')}
+                          >
+                            {child.label}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
+
+            const isActive = isGroupActive;
             return (
               <NavLink
                 key={item.path}
@@ -284,6 +410,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
 
       {collapsed &&
         collapsedTip != null &&
+        collapsedFlyout == null &&
         createPortal(
           <div
             role="tooltip"
@@ -292,6 +419,51 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
           >
             {collapsedTip.label}
           </div>,
+          document.body,
+        )}
+
+      {collapsed &&
+        collapsedFlyout != null &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              aria-label="Close submenu"
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setCollapsedFlyout(null)}
+            />
+            <div
+              className="fixed z-[9999] min-w-[10rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+              style={{ top: collapsedFlyout.top, left: collapsedFlyout.left }}
+            >
+              <p className="border-b border-slate-100 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                {collapsedFlyout.item.label}
+              </p>
+              {collapsedFlyout.children.map((child) => {
+                const childActive =
+                  location.pathname === child.path ||
+                  location.pathname.startsWith(`${child.path}/`);
+                return (
+                  <NavLink
+                    key={child.path}
+                    to={child.path}
+                    onClick={() => {
+                      setCollapsedFlyout(null);
+                      onClose();
+                    }}
+                    className={[
+                      'block px-3 py-2 text-sm font-semibold transition-colors',
+                      childActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-slate-700 hover:bg-slate-50',
+                    ].join(' ')}
+                  >
+                    {child.label}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </>,
           document.body,
         )}
     </>

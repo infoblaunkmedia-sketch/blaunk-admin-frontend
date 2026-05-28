@@ -8,6 +8,7 @@ export const PRESET_ROLES: Record<PresetRole, ModulePermission[]> = {
   superAdmin: [
     'dashboard', 'cms', 'people', 'channelPartners', 'finance',
     'platform', 'marketing', 'customers', 'reports', 'corporate', 'settings',
+    'adminPersonnel',
   ],
   hrManager: ['dashboard', 'people', 'reports'],
   financeManager: ['dashboard', 'finance', 'reports', 'platform'],

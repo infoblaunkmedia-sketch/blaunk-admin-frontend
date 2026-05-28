@@ -6,12 +6,16 @@ import { PlanCharges } from './planCharges/PlanCharges';
 import { Commission } from './commission/Commission';
 import { Vouchers } from './vouchers/Vouchers';
 import { DsaLimits } from './dsaLimits/DsaLimits';
+import { Products } from './products/Products';
+import { Categories } from './categories/Categories';
 
 const TABS = [
   { label: 'Plan Charges', path: '/platform/plan-charges', section: 'plan-charges' },
   { label: 'Commission', path: '/platform/commission', section: 'commission' },
   { label: 'Vouchers', path: '/platform/vouchers', section: 'vouchers' },
   { label: 'DSA Limits', path: '/platform/dsa-limits', section: 'dsa-limits' },
+  { label: 'Products', path: '/platform/products', section: 'products' },
+  { label: 'Categories', path: '/platform/categories', section: 'categories' },
 ];
 
 export const PlatformPage: React.FC = () => (
@@ -23,6 +27,8 @@ export const PlatformPage: React.FC = () => (
         <Route path="commission" element={<Commission />} />
         <Route path="vouchers" element={<Vouchers />} />
         <Route path="dsa-limits" element={<DsaLimits />} />
+        <Route path="products" element={<Products />} />
+        <Route path="categories" element={<Categories />} />
       </Routes>
     </ModuleLayout>
   </ErrorBoundary>

@@ -15,6 +15,10 @@ import { onIntegerInputKeyDown } from '../../../shared/utils/numericInput';
 import {
   fetchDsaRecords, saveDsaRecord, deleteDsaRecord, generateDsaCode,
 } from '../channelPartners.service';
+import {
+  fetchReferrals, fetchCommissionLedger, referralLink, type Referral, type LedgerRow,
+} from '../referrals.service';
+import { useAuth } from '../../../auth/useAuth';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -35,9 +39,14 @@ const emptyForm = (code: string): DsaRecord => ({
 });
 
 export const DsaNetwork: React.FC = () => {
+  const { user } = useAuth();
   const [records, setRecords] = React.useState<DsaRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [view, setView] = React.useState<'list' | 'form'>('list');
+  const [view, setView] = React.useState<'list' | 'form' | 'referrals'>('referrals');
+  const [referrals, setReferrals] = React.useState<Referral[]>([]);
+  const [ledger, setLedger] = React.useState<LedgerRow[]>([]);
+  const [refLoading, setRefLoading] = React.useState(true);
+  const [linkCode, setLinkCode] = React.useState(user?.code || 'DSA0001');
   const [form, setForm] = React.useState<DsaRecord | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
@@ -50,6 +59,27 @@ export const DsaNetwork: React.FC = () => {
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
+
+  const loadReferrals = React.useCallback(async () => {
+    setRefLoading(true);
+    try {
+      const code = user?.role === 'admin' ? undefined : user?.code;
+      const [refRes, ledRes] = await Promise.all([
+        fetchReferrals({ dsaCode: code, limit: 200 }),
+        fetchCommissionLedger(code),
+      ]);
+      setReferrals(refRes.records);
+      setLedger(ledRes.ledger);
+    } catch {
+      toast.error('Failed to load referrals');
+    } finally {
+      setRefLoading(false);
+    }
+  }, [user?.code, user?.role]);
+
+  React.useEffect(() => {
+    if (view === 'referrals') loadReferrals();
+  }, [view, loadReferrals]);
 
   const handleNew = async () => {
     const code = await generateDsaCode(records);
@@ -195,11 +225,73 @@ export const DsaNetwork: React.FC = () => {
     );
   }
 
+  if (view === 'referrals') {
+    return (
+      <ErrorBoundary>
+        <PageHeader title="DSA Network" subtitle="Referral tracking and commission ledger (API)."
+          actions={[
+            { label: 'DSA Registry', onClick: () => setView('list'), variant: 'secondary' },
+            { label: '+ New DSA', onClick: handleNew },
+          ]} />
+        <SectionCard title="Referral link" className="mb-4">
+          <div className="flex flex-wrap items-end gap-2">
+            <FormField label="DSA Code" className="min-w-[140px]">
+              <input className={inputClass} value={linkCode} onChange={(e) => setLinkCode(e.target.value.toUpperCase())} />
+            </FormField>
+            <p className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-mono text-slate-700">
+              {referralLink(linkCode || 'DSA0001')}
+            </p>
+          </div>
+        </SectionCard>
+        {ledger.length > 0 && (
+          <SectionCard title="Commission ledger" className="mb-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {ledger.map((l) => (
+                <div key={l.dsaCode} className="rounded-lg border border-slate-200 p-3 text-sm">
+                  <p className="font-bold text-primary">{l.dsaCode}</p>
+                  <p>Referrals: {l.referralCount}</p>
+                  <p>Commission: ₹{l.totalCommission.toLocaleString()}</p>
+                  <p>Pending: ₹{l.pendingCommission.toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        )}
+        <SectionCard title="Referrals">
+          {refLoading ? <p className="text-sm text-slate-500">Loading…</p> : (
+            <table className="w-full text-sm">
+              <thead><tr className="bg-primary text-white">
+                {['DSA', 'User', 'Event', 'Commission', 'Status', 'Date'].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {referrals.map((r) => (
+                  <tr key={r.id} className="border-b border-slate-100">
+                    <td className="px-3 py-2">{r.dsaCode}</td>
+                    <td className="px-3 py-2">{r.referredUserName || r.referredUserId}</td>
+                    <td className="px-3 py-2">{r.eventType}</td>
+                    <td className="px-3 py-2">₹{r.commissionAmount}</td>
+                    <td className="px-3 py-2">{r.payoutStatus}</td>
+                    <td className="px-3 py-2">{(r.createdAt || '').toString().slice(0, 10)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </SectionCard>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <PageHeader title="DSA Network" subtitle="Manage DSA partner records and sharing ratios."
         beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
-        actions={[{ label: '+ New DSA', onClick: handleNew }]} />
+        actions={[
+          { label: 'Referrals', onClick: () => setView('referrals'), variant: 'secondary' },
+          { label: '+ New DSA', onClick: handleNew },
+        ]} />
       <DataTableWrapper columns={columns} data={records} loading={loading} searchable
         filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
       {confirmDel && (

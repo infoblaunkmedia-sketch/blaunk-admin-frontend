@@ -56,6 +56,9 @@ const CorporatePage = React.lazy(() =>
 const SettingsPage = React.lazy(() =>
   import('../modules/settings/index').then((m) => ({ default: m.SettingsPage }))
 );
+const AdminPersonnelPage = React.lazy(() =>
+  import('../modules/adminPersonnel/index').then((m) => ({ default: m.AdminPersonnelPage }))
+);
 const EmployeeWorkspacePage = React.lazy(() =>
   import('../modules/dashboard/EmployeeWorkspace').then((m) => ({ default: m.EmployeeWorkspacePage }))
 );
@@ -164,6 +167,7 @@ export const router = createBrowserRouter([
           moduleRoute('/customers', CustomersPage, 'customers'),
           moduleRoute('/reports', ReportsPage, 'reports'),
           moduleRoute('/corporate', CorporatePage, 'corporate'),
+          moduleRoute('/admin-personnel', AdminPersonnelPage, 'adminPersonnel'),
           moduleRoute('/settings', SettingsPage, 'settings'),
           {
             path: '/profile',

@@ -17,7 +17,10 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
     key: 'cms',
     label: 'CMS',
     children: [
-      { key: 'images', label: 'Image Library' },
+      { key: 'banners', label: 'Banners' },
+      { key: 'giff', label: 'GIFF' },
+      { key: 'local-stores', label: 'B-Store Shops' },
+      { key: 'store-categories', label: 'B-Store Categories' },
       { key: 'pages', label: 'Page Content' },
     ],
   },
@@ -56,6 +59,8 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'commission', label: 'Commission' },
       { key: 'vouchers', label: 'Vouchers' },
       { key: 'dsa-limits', label: 'DSA Limits' },
+      { key: 'products', label: 'Products' },
+      { key: 'categories', label: 'Categories' },
     ],
   },
   {
@@ -76,6 +81,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'vendors', label: 'Vendors' },
       { key: 'issues', label: 'Issues' },
       { key: 'reviews', label: 'Reviews' },
+      { key: 'orders', label: 'Orders' },
     ],
   },
   { key: 'reports', label: 'Reports (MIS)' },
@@ -95,6 +101,11 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'security', label: 'Security' },
       { key: 'ip-management', label: 'IP Management' },
     ],
+  },
+  {
+    key: 'adminPersonnel',
+    label: 'Admin & Personnel',
+    children: [{ key: 'media', label: 'Media' }],
   },
 ];
 

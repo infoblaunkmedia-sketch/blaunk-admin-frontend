@@ -8,7 +8,11 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Individual, CustomerStatus } from '../customers.types';
-import { fetchIndividuals, updateIndividualStatus, updateIndividualNotes } from '../customers.service';
+import {
+  fetchIndividuals,
+  fetchIndividualById,
+  updateIndividualProfile,
+} from '../customers.service';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -21,36 +25,64 @@ export const Individuals: React.FC = () => {
   const [statusDraft, setStatusDraft] = React.useState<CustomerStatus>('Active');
   const [saving, setSaving] = React.useState(false);
   const [tableSearch, setTableSearch] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<CustomerStatus | ''>('');
+  const [total, setTotal] = React.useState(0);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    setIndividuals(await fetchIndividuals());
-    setLoading(false);
-  }, []);
+    try {
+      const { records, pagination } = await fetchIndividuals({
+        q: tableSearch.trim() || undefined,
+        status: statusFilter || undefined,
+        limit: 200,
+      });
+      setIndividuals(records);
+      setTotal(pagination.total);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load customers');
+      setIndividuals([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [tableSearch, statusFilter]);
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => { load(); }, 300);
+    return () => window.clearTimeout(t);
+  }, [load]);
 
-  const openProfile = (ind: Individual) => {
-    setSelected(ind);
-    setNotesDraft(ind.internalNotes);
-    setStatusDraft(ind.accountStatus);
+  const openProfile = async (ind: Individual) => {
+    try {
+      const fresh = await fetchIndividualById(ind.id);
+      setSelected(fresh);
+      setNotesDraft(fresh.internalNotes);
+      setStatusDraft(fresh.accountStatus);
+    } catch {
+      toast.error('Failed to load customer profile');
+    }
   };
 
   const handleSave = async () => {
     if (!selected) return;
     setSaving(true);
     try {
-      await updateIndividualStatus(selected.id, statusDraft);
-      await updateIndividualNotes(selected.id, notesDraft);
+      await updateIndividualProfile(selected.id, {
+        accountStatus: statusDraft,
+        internalNotes: notesDraft,
+      });
       toast.success('Customer profile updated');
       setSelected(null);
       load();
-    } catch { toast.error('Save failed'); }
-    finally { setSaving(false); }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const columns: TableColumn<Individual>[] = [
-    { name: 'Customer ID', selector: (r) => r.id, width: '130px', sortable: true },
+    { name: 'Customer ID', selector: (r) => r.customerId, width: '130px', sortable: true },
     { name: 'Full Name', selector: (r) => r.fullName, sortable: true, grow: 2 },
     { name: 'Email', selector: (r) => r.email, grow: 2 },
     { name: 'Mobile', selector: (r) => r.mobile, width: '130px' },
@@ -74,8 +106,22 @@ export const Individuals: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader title="Individual Customers"
-        subtitle="End users registered via the website. Admin manages status and internal notes."
-        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />} />
+        subtitle={`End users registered via the website. ${total} total.`}
+        beforeActions={
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as CustomerStatus | '')}
+            >
+              <option value="">All statuses</option>
+              <option value="Active">Active</option>
+              <option value="Suspended">Suspended</option>
+              <option value="Blocked">Blocked</option>
+            </select>
+            <ListTableSearchInput value={tableSearch} onChange={setTableSearch} />
+          </div>
+        } />
 
       <DataTableWrapper columns={columns} data={individuals} loading={loading} searchable
         filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
@@ -90,6 +136,7 @@ export const Individuals: React.FC = () => {
             </div>
             <div className="space-y-4 p-5">
               <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="font-semibold text-slate-500">ID:</span> <span>{selected.customerId}</span></div>
                 <div><span className="font-semibold text-slate-500">Name:</span> <span>{selected.fullName}</span></div>
                 <div><span className="font-semibold text-slate-500">Email:</span> <span>{selected.email}</span></div>
                 <div><span className="font-semibold text-slate-500">Mobile:</span> <span>{selected.mobile}</span></div>

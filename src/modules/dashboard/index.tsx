@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { SectionCard } from '../../shared/components/SectionCard';
 import { ErrorBoundary } from '../../shared/components/ErrorBoundary';
-import { fetchIndividuals, fetchIssues } from '../customers/customers.service';
-import { fetchDsaPayouts } from '../finance/finance.service';
+import { fetchAnalyticsSummary, fetchAnalyticsCharts, type AnalyticsSummary } from './analytics.service';
 
-// KPI card — clickable if onClick is supplied
 const KpiCard: React.FC<{
   label: string;
   value: string | number;
@@ -28,118 +26,104 @@ const KpiCard: React.FC<{
   </button>
 );
 
-// Quick-navigate shortcut card
 const QuickLink: React.FC<{ label: string; to: string }> = ({ label, to }) => {
   const navigate = useNavigate();
   return (
-    <button
-      type="button"
-      onClick={() => navigate(to)}
-      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-white hover:text-primary"
-    >
+    <button type="button" onClick={() => navigate(to)}
+      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-white hover:text-primary">
       {label}
     </button>
   );
 };
 
-type KpiState = {
-  activeEmployees: number;
-  openIssues: number;
-  pendingDsaPayments: number;
-  pendingVerifications: number;
-};
-
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const [kpis, setKpis] = React.useState<KpiState>({
-    activeEmployees: 0,
-    openIssues: 0,
-    pendingDsaPayments: 0,
-    pendingVerifications: 0,
-  });
+  const [summary, setSummary] = React.useState<AnalyticsSummary | null>(null);
+  const [charts, setCharts] = React.useState<{ newUsersByDay: { date: string; count: number }[]; ordersByDay: { date: string; orders: number; revenue: number }[] } | null>(null);
 
   React.useEffect(() => {
-    async function loadKpis() {
-      const [individuals, issues, payouts] = await Promise.allSettled([
-        fetchIndividuals(),
-        fetchIssues(),
-        fetchDsaPayouts(),
-      ]);
-
-      setKpis({
-        activeEmployees:
-          individuals.status === 'fulfilled'
-            ? individuals.value.filter((i) => i.accountStatus === 'Active').length
-            : 0,
-        openIssues:
-          issues.status === 'fulfilled'
-            ? issues.value.filter((i) => i.status !== 'Resolved').length
-            : 0,
-        pendingDsaPayments:
-          payouts.status === 'fulfilled'
-            ? payouts.value.filter((p) => p.status === 'PENDING' || p.status === 'PENDING_APPROVAL').length
-            : 0,
-        pendingVerifications: 0,
-      });
+    async function load() {
+      try {
+        const [s, c] = await Promise.all([
+          fetchAnalyticsSummary(),
+          fetchAnalyticsCharts('30d'),
+        ]);
+        setSummary(s);
+        setCharts(c);
+      } catch {
+        setSummary(null);
+      }
     }
-    loadKpis();
+    load();
   }, []);
+
+  const maxOrders = Math.max(1, ...(charts?.ordersByDay.map((d) => d.orders) || [1]));
 
   return (
     <ErrorBoundary>
-      <PageHeader title="Dashboard" subtitle="Welcome back — here's what's happening." />
+      <PageHeader title="Dashboard" subtitle="Live metrics from MongoDB." />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Active Customers"
-          value={kpis.activeEmployees}
-          color="text-primary"
-          sub="Individual accounts"
-          onClick={() => navigate('/customers/individuals')}
-        />
-        <KpiCard
-          label="Open Customer Issues"
-          value={kpis.openIssues}
-          color="text-amber-600"
-          sub="Pending + In Progress"
-          onClick={() => navigate('/customers/issues')}
-        />
-        <KpiCard
-          label="Pending DSA Payments"
-          value={kpis.pendingDsaPayments}
-          color="text-red-600"
-          sub="Awaiting approval"
-          onClick={() => navigate('/platform/dsa-limits')}
-        />
-        <KpiCard
-          label="Pending Verifications"
-          value={kpis.pendingVerifications}
-          color="text-slate-700"
-          sub="Channel partner KYC"
-          onClick={() => navigate('/channel-partners/verifiers')}
-        />
+        <KpiCard label="B2C Users" value={summary?.totalUsers ?? '—'} color="text-primary"
+          onClick={() => navigate('/customers/individuals')} />
+        <KpiCard label="Orders" value={summary?.totalOrders ?? '—'} color="text-amber-600"
+          sub={`Revenue ₹${(summary?.totalRevenue ?? 0).toLocaleString()}`}
+          onClick={() => navigate('/customers/orders')} />
+        <KpiCard label="Pending Sellers" value={summary?.pendingSellerApprovals ?? '—'} color="text-red-600"
+          onClick={() => navigate('/customers/vendors')} />
+        <KpiCard label="Pending Products" value={summary?.pendingProductApprovals ?? '—'} color="text-slate-700"
+          onClick={() => navigate('/platform/products')} />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KpiCard label="Approved Sellers" value={summary?.totalSellers.approved ?? '—'} color="text-emerald-600" />
+        <KpiCard label="DSA Payouts (total)" value={`₹${(summary?.dsaPayoutTotal ?? 0).toLocaleString()}`} color="text-primary" />
+        <KpiCard label="Referral Commission" value={`₹${(summary?.referralCommissionTotal ?? 0).toLocaleString()}`} color="text-primary"
+          onClick={() => navigate('/channel-partners/dsa')} />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard title="Recent Activity">
-          <p className="py-8 text-center text-sm text-slate-400">
-            Activity feed will populate here once the API is wired.
-          </p>
+        <SectionCard title="New users (30 days)">
+          {charts?.newUsersByDay.length ? (
+            <div className="flex h-40 items-end gap-1">
+              {charts.newUsersByDay.map((d) => (
+                <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="w-full rounded-t bg-primary/80" style={{ height: `${Math.max(8, (d.count || 0) * 24)}px` }} title={`${d.count}`} />
+                  <span className="text-[9px] text-slate-400 rotate-[-45deg] origin-top-left whitespace-nowrap">{d.date.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-slate-400">No chart data yet.</p>
+          )}
         </SectionCard>
 
-        <SectionCard title="Quick Navigate">
-          <div className="grid grid-cols-2 gap-3">
-            <QuickLink label="People" to="/people/employees" />
-            <QuickLink label="Finance" to="/finance/b2b" />
-            <QuickLink label="Channel Partners" to="/channel-partners/dsa" />
-            <QuickLink label="Platform" to="/platform/plan-charges" />
-            <QuickLink label="Marketing" to="/marketing/media-ads" />
-            <QuickLink label="Customers" to="/customers/individuals" />
-            <QuickLink label="Reports" to="/reports" />
-            <QuickLink label="Settings" to="/settings/rights" />
-          </div>
+        <SectionCard title="Orders per day (30 days)">
+          {charts?.ordersByDay.length ? (
+            <div className="flex h-40 items-end gap-1">
+              {charts.ordersByDay.map((d) => (
+                <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="w-full rounded-t bg-amber-500/80" style={{ height: `${Math.max(8, ((d.orders || 0) / maxOrders) * 120)}px` }} title={`${d.orders} orders`} />
+                  <span className="text-[9px] text-slate-400">{d.date.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-slate-400">No chart data yet.</p>
+          )}
         </SectionCard>
       </div>
+
+      <SectionCard title="Quick Navigate" className="mt-6">
+        <div className="grid grid-cols-2 gap-3">
+          <QuickLink label="Products" to="/platform/products" />
+          <QuickLink label="Orders" to="/customers/orders" />
+          <QuickLink label="Vendors" to="/customers/vendors" />
+          <QuickLink label="DSA Referrals" to="/channel-partners/dsa" />
+          <QuickLink label="Banners" to="/cms/banners" />
+          <QuickLink label="Categories" to="/platform/categories" />
+        </div>
+      </SectionCard>
     </ErrorBoundary>
   );
 };

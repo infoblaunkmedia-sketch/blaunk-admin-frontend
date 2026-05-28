@@ -1,6 +1,7 @@
 export type DsaStatus = 'Active' | 'Suspended' | 'Blocked';
 export type KycStatus = 'Pending' | 'Verified' | 'Rejected';
 export type VendorStatus = 'Active' | 'Inactive' | 'Suspended';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type VerifierStatus = 'Active' | 'Inactive' | 'Suspended';
 
 export interface BankDetails {
@@ -46,6 +47,7 @@ export interface VerifierRecord {
 }
 
 export interface VendorRecord {
+  id?: string;
   vendorCode: string;
   businessName: string;
   ownerName: string;
@@ -59,6 +61,8 @@ export interface VendorRecord {
   bank: BankDetails;
   kycStatus: KycStatus;
   status: VendorStatus;
+  approvalStatus?: ApprovalStatus;
+  rejectionReason?: string;
   joiningDate: string;
   createdAt?: string;
 }

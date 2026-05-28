@@ -11,7 +11,8 @@ export type ModulePermission =
   | 'customers'
   | 'reports'
   | 'corporate'
-  | 'settings';
+  | 'settings'
+  | 'adminPersonnel';
 
 export type EmployeeKind = 'employee' | '3pc';
 

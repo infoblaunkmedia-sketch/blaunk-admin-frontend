@@ -2,6 +2,10 @@ import React from 'react';
 import DataTable, { type TableColumn } from 'react-data-table-component';
 import { EmptyState } from './EmptyState';
 
+/** Shared width/height for list filters (dropdown + search on one row). */
+export const LIST_FILTER_FIELD_CLASS =
+  'h-9 w-56 min-w-[11rem] shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 sm:w-64';
+
 /** Shared styling for the list search field (e.g. in `PageHeader.beforeActions`). */
 export function ListTableSearchInput({
   value,
@@ -21,11 +25,7 @@ export function ListTableSearchInput({
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={[
-        'h-9 w-56 min-w-[11rem] shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none sm:w-64',
-        'focus:border-primary focus:ring-2 focus:ring-primary/20',
-        className,
-      ].join(' ')}
+      className={[LIST_FILTER_FIELD_CLASS, 'font-normal text-slate-900', className].join(' ')}
     />
   );
 }
@@ -44,9 +44,16 @@ interface DataTableWrapperProps<T extends object> {
   loading?: boolean;
   title?: string;
   actions?: React.ReactNode;
+  responsive?: boolean;
+  className?: string;
 }
 
 const customStyles = {
+  table: {
+    style: {
+      width: '100%',
+    },
+  },
   headRow: {
     style: {
       backgroundColor: '#0B61C9',
@@ -97,6 +104,8 @@ export function DataTableWrapper<T extends object>({
   loading = false,
   title,
   actions,
+  responsive = true,
+  className = '',
 }: DataTableWrapperProps<T>) {
   const [internalFilter, setInternalFilter] = React.useState('');
   const isControlled =
@@ -151,7 +160,12 @@ export function DataTableWrapper<T extends object>({
           </div>
         </div>
       )}
-      <div className="overflow-hidden rounded-card border border-slate-200 bg-white shadow-card">
+      <div
+        className={[
+          'overflow-hidden rounded-card border border-slate-200 bg-white shadow-card',
+          className,
+        ].join(' ')}
+      >
         <DataTable
           columns={columns}
           data={filtered}
@@ -161,7 +175,7 @@ export function DataTableWrapper<T extends object>({
           paginationRowsPerPageOptions={[10, 20, 50, 100]}
           striped
           highlightOnHover
-          responsive
+          responsive={responsive}
           noDataComponent={<EmptyState message="No records found." />}
           customStyles={customStyles}
         />
