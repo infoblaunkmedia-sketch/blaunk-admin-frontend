@@ -10,6 +10,7 @@ import {
   WorkspaceIndexRedirect,
 } from '../auth/WorkspaceGates';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
+import { MarketingRedirects } from './MarketingRedirects';
 
 // Auth pages
 const ForgotPassword = React.lazy(() =>
@@ -41,8 +42,11 @@ const FinancePage = React.lazy(() =>
 const PlatformPage = React.lazy(() =>
   import('../modules/platform/index').then((m) => ({ default: m.PlatformPage }))
 );
-const MarketingPage = React.lazy(() =>
-  import('../modules/marketing/index').then((m) => ({ default: m.MarketingPage }))
+const SalesPage = React.lazy(() =>
+  import('../modules/sales/index').then((m) => ({ default: m.SalesPage }))
+);
+const ItPage = React.lazy(() =>
+  import('../modules/it/index').then((m) => ({ default: m.ItPage }))
 );
 const CustomersPage = React.lazy(() =>
   import('../modules/customers/index').then((m) => ({ default: m.CustomersPage }))
@@ -163,7 +167,12 @@ export const router = createBrowserRouter([
           moduleRoute('/channel-partners', ChannelPartnersPage, 'channelPartners'),
           moduleRoute('/finance', FinancePage, 'finance'),
           moduleRoute('/platform', PlatformPage, 'platform'),
-          moduleRoute('/marketing', MarketingPage, 'marketing'),
+          { path: '/marketing', element: <MarketingRedirects /> },
+          { path: '/marketing/*', element: <MarketingRedirects /> },
+          moduleRoute('/sales', SalesPage, 'sales'),
+          { path: '/payslip', element: <Navigate to="/people/payroll" replace /> },
+          { path: '/payslip/*', element: <Navigate to="/people/payroll" replace /> },
+          moduleRoute('/it', ItPage, 'it'),
           moduleRoute('/customers', CustomersPage, 'customers'),
           moduleRoute('/reports', ReportsPage, 'reports'),
           moduleRoute('/corporate', CorporatePage, 'corporate'),

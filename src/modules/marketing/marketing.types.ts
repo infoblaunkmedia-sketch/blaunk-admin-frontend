@@ -1,6 +1,7 @@
 export type MediaAdStatus = 'Pending Review' | 'Approved' | 'Rejected';
 export type ContestStatus = 'Draft' | 'Active' | 'Ended';
 export type SliderStatus = 'Draft' | 'Active' | 'Inactive';
+export type AdUploadSource = 'vendor_direct' | 'admin_3p';
 
 export interface MediaAdSubmission {
   id: string;
@@ -63,6 +64,8 @@ export interface DsaSlider {
   discount: number;
   toPay: number;
   dsaCode?: string;
+  uploadSource?: AdUploadSource;
+  uploadedByDsaCode?: string | null;
   status: SliderStatus;
   uploadDate?: string | null;
   expiryDate?: string | null;

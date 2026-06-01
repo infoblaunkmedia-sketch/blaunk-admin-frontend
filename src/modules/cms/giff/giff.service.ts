@@ -13,6 +13,7 @@ export type GiffRecord = {
   imageUrl: string;
   format: 'gif' | 'jpg';
   isActive: boolean;
+  productId?: string;
 };
 
 export type GiffListResponse = {
@@ -29,6 +30,7 @@ export type GiffPublicRecord = {
   imageUrl: string;
   format: 'gif' | 'jpg';
   isActive: boolean;
+  productId?: string;
 };
 
 export type GiffPublicResponse = {
@@ -41,6 +43,7 @@ export type GiffPayload = {
   format: string;
   isActive: boolean;
   sortOrder: number;
+  productId?: string;
 };
 
 function authHeaders(): HeadersInit {
@@ -68,10 +71,11 @@ export async function deleteGiff(id: string) {
   await api.delete(`/api/giff/${encodeURIComponent(id)}`);
 }
 
-export async function uploadGiffImage(file: File): Promise<string> {
+export async function uploadGiffImage(file: File, category?: string): Promise<string> {
   if (!API_BASE) throw new Error('VITE_API_BASE_URL is not configured');
   const payload = new FormData();
   payload.append('image', file);
+  if (category) payload.append('category', category);
   const res = await fetch(`${API_BASE.replace(/\/$/, '')}/api/upload/giff`, {
     method: 'POST',
     headers: authHeaders(),

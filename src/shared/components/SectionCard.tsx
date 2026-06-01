@@ -6,6 +6,8 @@ interface SectionCardProps {
   defaultOpen?: boolean;
   children: React.ReactNode;
   className?: string;
+  /** Inner content wrapper classes (default `p-5`). Use `p-0 overflow-hidden` for flush tables. */
+  contentClassName?: string;
   actions?: React.ReactNode;
 }
 
@@ -15,6 +17,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   defaultOpen = true,
   children,
   className = '',
+  contentClassName = 'p-5',
   actions,
 }) => {
   const [open, setOpen] = React.useState(defaultOpen);
@@ -51,7 +54,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           </div>
         </div>
       )}
-      {open && <div className="p-5">{children}</div>}
+      {open && <div className={contentClassName}>{children}</div>}
     </div>
   );
 };

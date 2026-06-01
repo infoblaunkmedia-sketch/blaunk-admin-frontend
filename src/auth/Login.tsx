@@ -11,7 +11,7 @@ type LoginTab = 'employee' | 'admin';
 
 const ALL_PERMISSIONS: ModulePermission[] = [
   'dashboard', 'cms', 'people', 'channelPartners', 'finance',
-  'platform', 'marketing', 'customers', 'reports', 'corporate', 'settings',
+  'platform', 'sales', 'it', 'customers', 'reports', 'corporate', 'settings',
 ];
 
 const inputClass =

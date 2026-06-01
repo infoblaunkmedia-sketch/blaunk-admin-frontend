@@ -61,7 +61,7 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title="Dashboard" subtitle="Live metrics from MongoDB." />
+      <PageHeader title="Dashboard" subtitle="Overview of your business" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="B2C Users" value={summary?.totalUsers ?? '—'} color="text-primary"
@@ -119,8 +119,8 @@ export const DashboardPage: React.FC = () => {
           <QuickLink label="Products" to="/platform/products" />
           <QuickLink label="Orders" to="/customers/orders" />
           <QuickLink label="Vendors" to="/customers/vendors" />
-          <QuickLink label="DSA Referrals" to="/channel-partners/dsa" />
-          <QuickLink label="Banners" to="/cms/banners" />
+          <QuickLink label="DSA" to="/channel-partners/dsa" />
+          <QuickLink label="Upload" to="/cms/banners" />
           <QuickLink label="Categories" to="/platform/categories" />
         </div>
       </SectionCard>

@@ -26,6 +26,7 @@ import {
   deleteThirdPartyCredential,
   upload3pImage,
 } from './thirdPartyCredentials.service';
+import { getActiveMatchDoe } from '../../marketing/marketing.service';
 import {
   digitsOnlyMax,
   INDIAN_PINCODE_DIGITS_MAX,
@@ -168,6 +169,7 @@ export const ThirdPartyCredentials: React.FC = () => {
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [showPass, setShowPass] = React.useState<Record<string, boolean>>({});
   const [tableSearch, setTableSearch] = React.useState('');
+  const [activeMatchCode, setActiveMatchCode] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -181,6 +183,21 @@ export const ThirdPartyCredentials: React.FC = () => {
   React.useEffect(() => {
     load();
   }, [load]);
+
+  React.useEffect(() => {
+    if (view !== 'form') return;
+    let mounted = true;
+    void getActiveMatchDoe()
+      .then((entry) => {
+        if (mounted) setActiveMatchCode(entry?.code?.trim() || null);
+      })
+      .catch(() => {
+        if (mounted) setActiveMatchCode(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [view]);
 
   const setField = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
@@ -283,6 +300,17 @@ export const ThirdPartyCredentials: React.FC = () => {
 
   const columns: TableColumn<ThirdPartyCredential>[] = [
     { name: '3PC Code', selector: (r) => r.threePEmplCode, sortable: true, width: '120px' },
+    {
+      name: 'Match Code',
+      selector: (r) => r.matchCode || '—',
+      sortable: true,
+      width: '130px',
+      cell: (r) => (
+        <span className="font-mono text-xs text-slate-600" title="Synced from Settings → Match Code">
+          {r.matchCode || '—'}
+        </span>
+      ),
+    },
     { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2 },
     { name: 'Department', selector: (r) => r.department, sortable: true, width: '160px' },
     { name: 'Mobile', selector: (r) => r.mobileNo, sortable: true, width: '130px' },
@@ -342,10 +370,35 @@ export const ThirdPartyCredentials: React.FC = () => {
     return (
       <ErrorBoundary>
         <PageHeader
-          title={readOnly ? '3P Credential Details' : editId ? 'Edit 3P Credential' : 'New 3P Credential'}
-          subtitle={readOnly ? 'View-only details for this 3PC record.' : 'Add or update 3P credential details.'}
+          title={
+            readOnly
+              ? 'Admin Panel DSA / 3P Employee'
+              : editId
+                ? 'Edit Admin Panel DSA / 3P Employee'
+                : 'New Admin Panel DSA / 3P Employee'
+          }
+          subtitle={
+            readOnly
+              ? 'View-only details for this admin panel DSA / 3P employee.'
+              : 'Add or update onboarding data. Upload validation uses the active Match Code from Settings.'
+          }
         />
         <SectionCard title={readOnly ? 'Credential Details' : editId ? 'Edit Credential' : 'New Credential'}>
+          {!readOnly && (
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <span className="font-semibold">Match Code (auto): </span>
+              {activeMatchCode ? (
+                <span className="font-mono font-bold text-primary">{activeMatchCode}</span>
+              ) : (
+                <span className="text-amber-700">
+                  No active code — generate one in Settings → Match Code before saving.
+                </span>
+              )}
+              <p className="mt-1 text-xs text-slate-500">
+                All 3P employees share this code. Refreshing it in Settings updates every employee and invalidates the previous code.
+              </p>
+            </div>
+          )}
           <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="Department">
@@ -736,8 +789,8 @@ export const ThirdPartyCredentials: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader
-        title="3P Credentials"
-        subtitle="Manage 3PC employees (non-regular employees) and their onboarding data."
+        title="Admin Panel DSA / 3P Employees"
+        subtitle="Manage admin panel DSA / 3P employees. Match codes sync automatically from Settings."
         beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Add Credential', onClick: handleNew }]}
       />

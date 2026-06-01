@@ -151,10 +151,15 @@ export async function deleteBanner(id: string) {
   await api.delete(`/api/banners/${encodeURIComponent(id)}`);
 }
 
-export async function uploadBannerImage(file: File): Promise<string> {
+export async function uploadBannerImage(
+  file: File,
+  meta?: { page?: string; position?: string },
+): Promise<string> {
   if (!API_BASE) throw new Error('VITE_API_BASE_URL is not configured');
   const payload = new FormData();
   payload.append('image', file);
+  if (meta?.page) payload.append('page', meta.page);
+  if (meta?.position) payload.append('position', meta.position);
   const res = await fetch(`${API_BASE.replace(/\/$/, '')}/api/upload/banner`, {
     method: 'POST',
     headers: authHeaders(),
@@ -176,9 +181,9 @@ export function bannerImageUrl(url: string) {
   return `${base}${url.startsWith('/') ? url : `/${url}`}`;
 }
 
-export function emptyBanner(position: HomepageBannerPosition): BannerPayload {
+export function emptyBanner(page: string, position: string): BannerPayload {
   const base: BannerPayload = {
-    page: 'home',
+    page,
     position,
     title: '',
     imageUrl: '',

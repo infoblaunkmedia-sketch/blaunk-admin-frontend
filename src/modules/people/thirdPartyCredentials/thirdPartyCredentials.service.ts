@@ -21,6 +21,7 @@ type RecordDto = {
   state?: string;
   threePCompanyName?: string;
   threePEmplCode?: string;
+  matchCode?: string | null;
   threePEntity?: string;
   businessCode?: string;
   branchCode?: string;
@@ -71,6 +72,7 @@ function toRecord(dto: RecordDto): ThirdPartyCredential {
     state: dto.state || '',
     threePCompanyName: dto.threePCompanyName || '',
     threePEmplCode: dto.threePEmplCode || '',
+    matchCode: dto.matchCode || '',
     threePEntity: dto.threePEntity || '',
     businessCode: dto.businessCode || '',
     branchCode: dto.branchCode || '',
@@ -121,9 +123,10 @@ export async function fetchThirdPartyCredentialById(id: string): Promise<ThirdPa
 }
 
 export async function saveThirdPartyCredential(payload: Omit<ThirdPartyCredential, 'createdAt' | 'updatedAt'>) {
+  const { matchCode: _matchCode, ...rest } = payload;
   const body = {
-    ...(payload.id ? { id: payload.id } : {}),
-    ...payload,
+    ...(rest.id ? { id: rest.id } : {}),
+    ...rest,
   };
 
   const res = await api.post<{ record: RecordDto }>('/api/3p-credentials', body);

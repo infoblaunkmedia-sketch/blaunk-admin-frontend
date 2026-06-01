@@ -9,7 +9,7 @@ import { ShopCategories } from './localStores/ShopCategories';
 import { PageContent } from './pages/PageContent';
 
 const TABS = [
-  { label: 'Homepage Banners', path: '/cms/banners', section: 'banners' },
+  { label: 'Upload', path: '/cms/banners', section: 'banners' },
   { label: 'GIFF', path: '/cms/giff', section: 'giff' },
   { label: 'B-Store Shops', path: '/cms/local-stores', section: 'local-stores' },
   { label: 'B-Store Categories', path: '/cms/store-categories', section: 'store-categories' },

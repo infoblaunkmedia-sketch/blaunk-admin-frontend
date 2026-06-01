@@ -2,7 +2,6 @@ import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
-import { SectionCard } from '../../../shared/components/SectionCard';
 import {
   DataTableWrapper,
   LIST_FILTER_FIELD_CLASS,
@@ -12,6 +11,7 @@ import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ImageCropDialog } from '../../../shared/components/ImageCropDialog';
+import { ClickableImageThumb, ClickablePreviewImage } from '../../../shared/components/ImagePreview';
 import {
   GIFF_ASPECT,
   GIFF_ASPECT_LABEL,
@@ -139,7 +139,7 @@ export const Giff: React.FC = () => {
 
   const handleCropComplete = async (file: File, previewUrl: string) => {
     try {
-      const path = await uploadGiffImage(file);
+      const path = await uploadGiffImage(file, category);
       setField('imageUrl', path);
       URL.revokeObjectURL(previewUrl);
       toast.success('Image uploaded');
@@ -201,7 +201,11 @@ export const Giff: React.FC = () => {
       minWidth: '140px',
       cell: (r) =>
         r.imageUrl ? (
-          <img src={giffImageUrl(r.imageUrl)} alt="" className="my-1 h-10 w-14 rounded border object-cover" />
+          <ClickableImageThumb
+            src={giffImageUrl(r.imageUrl)}
+            alt={`GIFF ${r.format}`}
+            title={`${r.format.toUpperCase()} · slot ${r.sortOrder}`}
+          />
         ) : (
           <span className="text-xs text-slate-400">—</span>
         ),
@@ -253,20 +257,16 @@ export const Giff: React.FC = () => {
         actions={canAddMore ? [{ label: '+ Upload', onClick: openNew }] : []}
       />
 
-      <SectionCard className="w-full max-w-none">
-        <div className="w-full min-w-0">
-          <DataTableWrapper
-            columns={columns}
-            data={rows}
-            loading={loading}
-            hideSearchInput
-            filterText={tableSearch}
-            onFilterTextChange={setTableSearch}
-            responsive={false}
-            className="w-full"
-          />
-        </div>
-      </SectionCard>
+      <DataTableWrapper
+        columns={columns}
+        data={rows}
+        loading={loading}
+        hideSearchInput
+        filterText={tableSearch}
+        onFilterTextChange={setTableSearch}
+        responsive={false}
+        className="w-full"
+      />
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -305,10 +305,9 @@ export const Giff: React.FC = () => {
                     onChange={handleFileChange}
                   />
                   {form.imageUrl && (
-                    <img
+                    <ClickablePreviewImage
                       src={giffImageUrl(form.imageUrl)}
-                      alt=""
-                      className="max-h-28 rounded-lg border object-contain"
+                      alt="GIFF preview"
                     />
                   )}
                 </div>

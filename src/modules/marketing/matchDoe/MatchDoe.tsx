@@ -34,7 +34,9 @@ export const MatchDoe: React.FC = () => {
     try {
       const entry = await generateNewMatchDoe(currentUser?.code ?? 'system');
       setActive(entry);
-      toast.success(`New Match Code generated: ${entry.code}`);
+      toast.success(
+        `New Match Code: ${entry.code}. All 3P employees updated; previous code no longer works.`,
+      );
       load();
     } catch { toast.error('Failed to generate code'); }
     finally { setGenerating(false); }
@@ -85,7 +87,7 @@ export const MatchDoe: React.FC = () => {
     <ErrorBoundary>
       <PageHeader
         title="Match Code"
-        subtitle="DSA agents must enter the active code when submitting media uploads."
+        subtitle="One active code for all 3P employees. Generating a new code updates every 3P record and invalidates the old code for uploads."
       />
 
       <SectionCard title="Active Match Code" className="mb-5">

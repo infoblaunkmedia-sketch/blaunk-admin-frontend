@@ -17,6 +17,8 @@ export interface ThirdPartyCredential {
   state: string;
   threePCompanyName: string;
   threePEmplCode: string;
+  /** Admin-assigned; used for upload validation (3P/DSA employees). */
+  matchCode: string;
   threePEntity: string;
   businessCode: string;
   branchCode: string;

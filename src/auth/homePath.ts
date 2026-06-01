@@ -17,6 +17,8 @@ const MODULE_BY_PREFIX: Array<{ prefix: string; permission: ModulePermission }> 
     { prefix: '/finance', permission: 'finance' },
     { prefix: '/platform', permission: 'platform' },
     { prefix: '/marketing', permission: 'marketing' },
+    { prefix: '/sales', permission: 'sales' },
+    { prefix: '/it', permission: 'it' },
     { prefix: '/customers', permission: 'customers' },
     { prefix: '/reports', permission: 'reports' },
     { prefix: '/corporate', permission: 'corporate' },
@@ -41,8 +43,24 @@ export function sectionKeyForPath(pathname: string): string | null {
   return rest.split('/')[0] || null;
 }
 
+function legacyMarketingPathToSettings(pathname: string): { module: ModulePermission; section: string } | null {
+  if (!pathname.startsWith('/marketing')) return null;
+  if (pathname.includes('match-doe') || pathname.includes('match-code')) {
+    return { module: 'settings', section: 'match-code' };
+  }
+  if (pathname.includes('slot-settings')) {
+    return { module: 'settings', section: 'slot-settings' };
+  }
+  return { module: 'settings', section: 'slot-settings' };
+}
+
 export function canAccessPath(user: AuthUser | null, pathname: string): boolean {
   if (!user || user.role === 'admin') return true;
+  const legacy = legacyMarketingPathToSettings(pathname);
+  if (legacy) {
+    if (!hasModuleAccess(user.permissions, legacy.module)) return false;
+    return hasSectionAccess(user.permissions, legacy.module, legacy.section);
+  }
   const mod = modulePermissionForPath(pathname);
   if (!mod) return true;
   if (!hasModuleAccess(user.permissions, mod)) return false;

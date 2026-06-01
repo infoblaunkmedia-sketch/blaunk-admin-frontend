@@ -25,10 +25,15 @@ export type HomepageBannerField =
   | 'variant'
   | 'imageFormat'
   | 'image'
-  | 'focalPoint'
-  | 'sortOrder'
-  | 'isActive'
-  | 'schedule';
+  | 'slideSlot'
+  | 'chipSlot'
+  | 'isActive';
+
+export type DiscoveryHubConfig = {
+  headerFields: HomepageBannerField[];
+  chipFields: HomepageBannerField[];
+  chipCount: number;
+};
 
 export type HomepageBannerPositionConfig = {
   id: HomepageBannerPosition;
@@ -40,6 +45,12 @@ export type HomepageBannerPositionConfig = {
   imageRequired: boolean;
   /** When 1, only one banner record may exist for this position. */
   maxRecords?: number;
+  /** Slide/slot dropdown (maps to sortOrder) instead of auto-assign. */
+  slotPicker?: boolean;
+  /** BGT Discovery Hub — header at sortOrder 0 + chips at 1..n. */
+  discoveryHub?: DiscoveryHubConfig;
+  /** First slide/chip number for slot picker (default 1; boutique hero uses 0). */
+  sortOrderStart?: number;
 };
 
 /** Positions that allow a single upload/record only. */
@@ -56,7 +67,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Top carousel — title, tag pill, subtitle, CTA',
     aspect: 21 / 9,
     aspectLabel: '21:9',
-    fields: ['image', 'title', 'tag', 'subtitle', 'ctaText', 'linkUrl', 'focalPoint', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'tag', 'subtitle', 'ctaText', 'linkUrl', 'isActive'],
     imageRequired: true,
   },
   {
@@ -65,7 +76,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Right map image — one record only',
     aspect: 4 / 3,
     aspectLabel: '4:3',
-    fields: ['image', 'title', 'focalPoint', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'isActive'],
     imageRequired: true,
     maxRecords: 1,
   },
@@ -75,7 +86,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Market section squares + label',
     aspect: 1,
     aspectLabel: '1:1',
-    fields: ['image', 'title', 'linkUrl', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'isActive'],
     imageRequired: true,
   },
   {
@@ -84,7 +95,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Tall cards — variant blur | yellow | white',
     aspect: 3 / 4,
     aspectLabel: '3:4',
-    fields: ['image', 'title', 'linkUrl', 'variant', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'variant', 'isActive'],
     imageRequired: true,
   },
   {
@@ -93,7 +104,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Large right image — one record only · tag = badge text',
     aspect: 4 / 3,
     aspectLabel: '4:3',
-    fields: ['image', 'tag', 'focalPoint', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'tag', 'isActive'],
     imageRequired: true,
     maxRecords: 1,
   },
@@ -103,7 +114,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Find Services small cards',
     aspect: 1,
     aspectLabel: '1:1',
-    fields: ['image', 'title', 'linkUrl', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'isActive'],
     imageRequired: true,
   },
   {
@@ -112,7 +123,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Find Logistics small cards',
     aspect: 1,
     aspectLabel: '1:1',
-    fields: ['image', 'title', 'linkUrl', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'isActive'],
     imageRequired: true,
   },
   {
@@ -121,7 +132,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Phone bar — title = label, subtitle = phone (no image)',
     aspect: 1,
     aspectLabel: '—',
-    fields: ['title', 'subtitle', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['title', 'subtitle', 'isActive'],
     imageRequired: false,
   },
   {
@@ -130,17 +141,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Below B-Dial · title = main line, subtitle = gold accent, ctaText = button',
     aspect: 21 / 9,
     aspectLabel: '21:9',
-    fields: [
-      'image',
-      'title',
-      'subtitle',
-      'ctaText',
-      'linkUrl',
-      'focalPoint',
-      'sortOrder',
-      'isActive',
-      'schedule',
-    ],
+    fields: ['image', 'title', 'subtitle', 'ctaText', 'linkUrl', 'isActive'],
     imageRequired: true,
   },
   {
@@ -149,17 +150,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Independent from trade-hub · same fields, 21:9',
     aspect: 21 / 9,
     aspectLabel: '21:9',
-    fields: [
-      'image',
-      'title',
-      'subtitle',
-      'ctaText',
-      'linkUrl',
-      'focalPoint',
-      'sortOrder',
-      'isActive',
-      'schedule',
-    ],
+    fields: ['image', 'title', 'subtitle', 'ctaText', 'linkUrl', 'isActive'],
     imageRequired: true,
   },
   {
@@ -168,7 +159,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Tall partner scroller',
     aspect: 2 / 3,
     aspectLabel: '2:3',
-    fields: ['image', 'title', 'linkUrl', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'isActive'],
     imageRequired: true,
   },
   {
@@ -187,10 +178,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
       'overlayQuote',
       'ctaText',
       'linkUrl',
-      'focalPoint',
-      'sortOrder',
       'isActive',
-      'schedule',
     ],
     imageRequired: true,
     maxRecords: 1,
@@ -201,7 +189,7 @@ export const HOMEPAGE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
     hint: 'Client marquee images only (header is static on site)',
     aspect: 16 / 9,
     aspectLabel: '16:9',
-    fields: ['image', 'title', 'linkUrl', 'sortOrder', 'isActive', 'schedule'],
+    fields: ['image', 'title', 'isActive'],
     imageRequired: true,
   },
 ];

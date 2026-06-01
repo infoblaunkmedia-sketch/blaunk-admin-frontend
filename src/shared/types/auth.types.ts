@@ -8,6 +8,8 @@ export type ModulePermission =
   | 'finance'
   | 'platform'
   | 'marketing'
+  | 'sales'
+  | 'it'
   | 'customers'
   | 'reports'
   | 'corporate'

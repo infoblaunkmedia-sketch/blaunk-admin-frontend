@@ -6,7 +6,8 @@ export type GiffCategoryId =
   | 'dial-home-page-hotel-giff'
   | 'dial-home-page-boutique'
   | 'hotel-home-page-giff'
-  | 'hotel-page-wedding-giff';
+  | 'hotel-page-wedding-giff'
+  | 'bgt-view-more-giff';
 
 export type GiffCategoryConfig = {
   id: GiffCategoryId;
@@ -16,6 +17,7 @@ export type GiffCategoryConfig = {
 
 export const GIFF_CATEGORIES: GiffCategoryConfig[] = [
   { id: 'home-page-cake-giff', label: 'HOME PAGE CAKE - GIFF', maxRecords: 2 },
+  { id: 'bgt-view-more-giff', label: 'BGT VIEW MORE - GIFF', maxRecords: 2 },
   { id: 'connect-page-giff', label: 'CONNECT PAGE - GIFF', maxRecords: 2 },
   { id: 'boutique-page-giff', label: 'BOUTIQUE PAGE - GIFF', maxRecords: 1 },
   { id: 'bgt-home-page-giff', label: 'BGT HOME PAGE - GIFF', maxRecords: 1 },

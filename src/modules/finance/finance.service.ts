@@ -71,6 +71,22 @@ export async function rejectPayoutById(id: string, reason: string): Promise<void
   await updatePayoutStatusById(id, 'REJECTED', reason);
 }
 
+export type DsaLimitUsageRow = {
+  dsaCode: string;
+  dsaName: string;
+  maxSlots: number;
+  activeUploads: number;
+  remainingSlots: number | null;
+  expiredUploads: number;
+  totalUploads: number;
+};
+
+export async function fetchDsaLimitUsage(dsaCode?: string): Promise<DsaLimitUsageRow[]> {
+  const q = dsaCode ? `?dsaCode=${encodeURIComponent(dsaCode)}` : '';
+  const res = await api.get<{ records: DsaLimitUsageRow[] }>(`/api/dsa-limits/usage${q}`);
+  return res.records || [];
+}
+
 // BGT Bank Accounts
 const DEFAULT_BGT: BgtBankAccounts = {
   neft: { accountHolder: '', accountNumber: '', ifsc: '', bankName: '', branch: '' },

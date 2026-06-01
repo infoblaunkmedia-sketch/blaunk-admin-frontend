@@ -1,9 +1,6 @@
 import { api } from '../../shared/services/apiService';
 import type { Individual, CustomerIssue, CustomerReview, CustomerStatus, ReviewStatus } from './customers.types';
 
-const ISSUES_KEY = 'blaunk_customer_issues';
-const REVIEWS_KEY = 'blaunk_customer_reviews';
-
 type IndividualDto = {
   id: string;
   customerId?: string;
@@ -16,6 +13,32 @@ type IndividualDto = {
   lastLoginDate: string;
   totalOrders: number;
   internalNotes: string;
+};
+
+type IssueDto = {
+  id: string;
+  rnNumber?: string;
+  customerName?: string;
+  customerId?: string;
+  article?: string;
+  issueType?: string;
+  vendorName?: string;
+  vendorResponse?: string;
+  penaltyAmount?: number;
+  status?: CustomerIssue['status'];
+  country?: string;
+  raisedDate?: string;
+  resolvedDate?: string;
+};
+
+type ReviewDto = {
+  id: string;
+  reviewerName?: string;
+  product?: string;
+  rating?: number;
+  reviewText?: string;
+  date?: string;
+  status?: ReviewStatus;
 };
 
 function mapIndividual(dto: IndividualDto): Individual {
@@ -31,6 +54,36 @@ function mapIndividual(dto: IndividualDto): Individual {
     lastLoginDate: dto.lastLoginDate,
     totalOrders: dto.totalOrders,
     internalNotes: dto.internalNotes,
+  };
+}
+
+function mapIssue(dto: IssueDto): CustomerIssue {
+  return {
+    id: dto.id,
+    rnNumber: dto.rnNumber || '',
+    customerName: dto.customerName || '',
+    customerId: dto.customerId || '',
+    article: dto.article || '',
+    issueType: dto.issueType || '',
+    vendorName: dto.vendorName || '',
+    vendorResponse: dto.vendorResponse || '',
+    penaltyAmount: Number(dto.penaltyAmount || 0),
+    status: (dto.status as CustomerIssue['status']) || 'Pending',
+    country: dto.country || '',
+    raisedDate: dto.raisedDate || '',
+    resolvedDate: dto.resolvedDate || '',
+  };
+}
+
+function mapReview(dto: ReviewDto): CustomerReview {
+  return {
+    id: dto.id,
+    reviewerName: dto.reviewerName || '',
+    product: dto.product || '',
+    rating: Number(dto.rating || 0),
+    reviewText: dto.reviewText || '',
+    date: dto.date || '',
+    status: (dto.status as ReviewStatus) || 'Published',
   };
 }
 
@@ -81,7 +134,6 @@ export async function updateIndividualNotes(id: string, internalNotes: string): 
   return mapIndividual(res.record);
 }
 
-/** Status + notes in one request (preferred for profile save). */
 export async function updateIndividualProfile(
   id: string,
   patch: { accountStatus: CustomerStatus; internalNotes: string },
@@ -93,35 +145,39 @@ export async function updateIndividualProfile(
   return mapIndividual(res.record);
 }
 
-// Issues (localStorage until API exists)
-function loadArr<T>(key: string): T[] {
-  try { return JSON.parse(localStorage.getItem(key) ?? '[]') as T[]; }
-  catch { return []; }
-}
-function persist(key: string, data: unknown): void {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
 export async function fetchIssues(): Promise<CustomerIssue[]> {
-  return loadArr<CustomerIssue>(ISSUES_KEY);
-}
-export async function saveIssue(issue: CustomerIssue): Promise<void> {
-  const all = loadArr<CustomerIssue>(ISSUES_KEY);
-  const idx = all.findIndex((i) => i.id === issue.id);
-  if (idx >= 0) all[idx] = issue; else all.push(issue);
-  persist(ISSUES_KEY, all);
-}
-export async function deleteIssue(id: string): Promise<void> {
-  persist(ISSUES_KEY, loadArr<CustomerIssue>(ISSUES_KEY).filter((i) => i.id !== id));
+  const res = await api.get<{ records: IssueDto[] }>('/api/issues');
+  return (res.records || []).map(mapIssue);
 }
 
-// Reviews (localStorage until API exists)
-export async function fetchReviews(): Promise<CustomerReview[]> {
-  return loadArr<CustomerReview>(REVIEWS_KEY);
+export async function saveIssue(issue: CustomerIssue): Promise<void> {
+  const body = {
+    ...(issue.id && /^[a-f\d]{24}$/i.test(issue.id) ? { id: issue.id } : {}),
+    rnNumber: issue.rnNumber,
+    customerName: issue.customerName,
+    customerId: issue.customerId,
+    article: issue.article,
+    issueType: issue.issueType,
+    vendorName: issue.vendorName,
+    vendorResponse: issue.vendorResponse,
+    penaltyAmount: issue.penaltyAmount,
+    status: issue.status,
+    country: issue.country,
+    raisedDate: issue.raisedDate,
+    resolvedDate: issue.resolvedDate || undefined,
+  };
+  await api.post<{ record: IssueDto }>('/api/issues', body);
 }
+
+export async function deleteIssue(id: string): Promise<void> {
+  await api.delete(`/api/issues/${encodeURIComponent(id)}`);
+}
+
+export async function fetchReviews(): Promise<CustomerReview[]> {
+  const res = await api.get<{ records: ReviewDto[] }>('/api/reviews');
+  return (res.records || []).map(mapReview);
+}
+
 export async function updateReviewStatus(id: string, status: ReviewStatus): Promise<void> {
-  const all = loadArr<CustomerReview>(REVIEWS_KEY).map((r) =>
-    r.id === id ? { ...r, status } : r,
-  );
-  persist(REVIEWS_KEY, all);
+  await api.patch<{ record: ReviewDto }>(`/api/reviews/${encodeURIComponent(id)}`, { status });
 }

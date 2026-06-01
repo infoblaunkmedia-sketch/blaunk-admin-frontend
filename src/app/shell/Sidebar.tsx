@@ -65,7 +65,7 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
     children: [
-      { label: 'DSA Network', path: '/channel-partners/dsa', section: 'dsa' },
+      { label: 'DSA', path: '/channel-partners/dsa', section: 'dsa' },
       { label: 'Verifiers', path: '/channel-partners/verifiers', section: 'verifiers' },
     ],
   },
@@ -96,14 +96,13 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Marketing & Ads',
-    path: '/marketing',
-    permission: 'marketing',
+    label: 'Sales',
+    path: '/sales',
+    permission: 'sales',
     icon: (
       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
-        <path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14" />
-        <path d="M8 6v8" />
+        <path d="M3 3h18v18H3z" />
+        <path d="M7 15l3-3 2 2 5-5" />
       </svg>
     ),
   },
@@ -147,6 +146,17 @@ const NAV_ITEMS: NavItem[] = [
       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 3v18M3 12h18" />
         <circle cx="12" cy="12" r="9" />
+      </svg>
+    ),
+  },
+  {
+    label: 'IT',
+    path: '/it',
+    permission: 'it',
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
       </svg>
     ),
   },
@@ -352,7 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
                     ) : null}
                   </button>
                   {!collapsed && isExpanded ? (
-                    <div className="ml-3 flex flex-col gap-0.5 border-l-2 border-slate-200 pl-2">
+                    <div className="ml-3 flex flex-col mt-2 gap-0.5 border-l-2 border-slate-200 pl-2">
                       {children.map((child) => {
                         const childActive =
                           location.pathname === child.path ||

@@ -13,7 +13,8 @@ const MODULE_LABELS: Partial<Record<ModulePermission, string>> = {
   channelPartners: 'Channel Partners',
   finance: 'Finance',
   platform: 'Platform & Products',
-  marketing: 'Marketing',
+  sales: 'Sales',
+  it: 'IT',
   customers: 'Customers & Care',
   reports: 'Reports',
   corporate: 'Corporate',
@@ -53,7 +54,7 @@ export const EmployeeWorkspacePage: React.FC = () => {
   const modules = (
     [
       'dashboard', 'cms', 'people', 'channelPartners', 'finance', 'platform',
-      'marketing', 'customers', 'reports', 'corporate', 'settings',
+      'sales', 'it', 'customers', 'reports', 'corporate', 'settings',
     ] as ModulePermission[]
   ).filter((m) => hasModuleAccess(user?.permissions ?? [], m));
 

@@ -1,6 +1,6 @@
 export type DsaStatus = 'Active' | 'Suspended' | 'Blocked';
 export type KycStatus = 'Pending' | 'Verified' | 'Rejected';
-export type VendorStatus = 'Active' | 'Inactive' | 'Suspended';
+export type VendorStatus = 'Approved' | 'Suspended' | 'Deleted';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 export type VerifierStatus = 'Active' | 'Inactive' | 'Suspended';
 
@@ -12,8 +12,11 @@ export interface BankDetails {
   branch: string;
 }
 
+export type DsaType = 'admin' | 'website';
+
 export interface DsaRecord {
   dsaCode: string;
+  dsaType?: DsaType;
   companyName: string;
   ownerName: string;
   mobile: string;

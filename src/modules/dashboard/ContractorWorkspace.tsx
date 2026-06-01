@@ -12,7 +12,6 @@ const MODULE_LABELS: Partial<Record<ModulePermission, string>> = {
   channelPartners: 'Channel Partners',
   finance: 'Finance',
   platform: 'Platform & Products',
-  marketing: 'Marketing',
   customers: 'Customers & Care',
   reports: 'Reports',
   corporate: 'Corporate',

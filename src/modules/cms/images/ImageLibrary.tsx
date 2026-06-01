@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { ClickableImageThumb } from '../../../shared/components/ImagePreview';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { CmsImage, ImageStatus } from '../cms.types';
 import { fetchCmsImages, saveCmsImage, deleteCmsImage, updateImageStatus } from '../cms.service';
@@ -97,9 +98,12 @@ export const ImageLibrary: React.FC = () => {
     {
       name: 'Thumbnail',
       cell: (r) => (
-        <div className="my-1 h-12 w-16 overflow-hidden rounded border border-slate-200 bg-slate-50">
-          <img src={r.thumbnailUrl} alt={r.fileName} className="h-full w-full object-cover" />
-        </div>
+        <ClickableImageThumb
+          src={r.thumbnailUrl}
+          alt={r.fileName}
+          title={r.fileName}
+          wrapClassName="my-1 block h-12 w-16 overflow-hidden rounded border border-slate-200 bg-slate-50"
+        />
       ),
       width: '90px',
     },

@@ -2,193 +2,249 @@ import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
-import { SectionCard } from '../../../shared/components/SectionCard';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
-import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
-import { BankDetailsFields } from '../shared/BankDetailsFields';
-import { INDIAN_STATES } from '../../../shared/constants/hrConstants';
-import type { VerifierRecord, BankDetails } from '../channelPartners.types';
-import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { useAuth } from '../../../auth/useAuth';
 import {
-  fetchVerifiers, saveVerifier, deleteVerifier, generateVerifierCode,
-} from '../channelPartners.service';
+  fetchVerifierRecords,
+  submitVendorVerification,
+  reviewVendorVerification,
+  type VendorVerificationRecord,
+  type FieldVerificationStatus,
+  type ReviewVerificationPayload,
+} from './verifiers.service';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
-const emptyBank = (): BankDetails => ({
-  accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', branch: '',
-});
+const FIELD_STATUS_OPTIONS: FieldVerificationStatus[] = ['Pending', 'Verified', 'Rejected'];
 
-const emptyForm = (code: string): VerifierRecord => ({
-  verifierCode: code, companyName: '', contactPerson: '', mobile: '', email: '',
-  city: '', state: '', productsCovered: '', verificationFee: 0,
-  status: 'Active', kycStatus: 'Pending', bank: emptyBank(),
-});
+function FieldStatusPills({ record }: { record: VendorVerificationRecord }) {
+  const items: { label: string; status: FieldVerificationStatus }[] = [
+    { label: 'Email', status: record.emailStatus },
+    { label: 'Mobile', status: record.mobileStatus },
+    { label: 'Photo', status: record.photoStatus },
+    { label: 'Bank', status: record.bankStatus },
+    { label: 'Location', status: record.shopLocationStatus },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map(({ label, status }) => (
+        <span
+          key={label}
+          className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700"
+          title={`${label}: ${status}`}
+        >
+          {label.slice(0, 1)}:{status === 'Verified' ? '✓' : status === 'Rejected' ? '✗' : '…'}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export const Verifiers: React.FC = () => {
-  const [records, setRecords] = React.useState<VerifierRecord[]>([]);
+  const { user, hasSection } = useAuth();
+  const [records, setRecords] = React.useState<VendorVerificationRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [view, setView] = React.useState<'list' | 'form'>('list');
-  const [form, setForm] = React.useState<VerifierRecord | null>(null);
-  const [saving, setSaving] = React.useState(false);
-  const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [tableSearch, setTableSearch] = React.useState('');
+  const [reviewRow, setReviewRow] = React.useState<VendorVerificationRecord | null>(null);
+  const [reviewDraft, setReviewDraft] = React.useState<ReviewVerificationPayload>({});
+  const [actionLoading, setActionLoading] = React.useState(false);
+
+  const canMake =
+    user?.role === 'admin' ||
+    user?.employeeType === '3pc' ||
+    hasSection('channelPartners', 'verifiers');
+  const canCheck =
+    user?.role === 'admin' || hasSection('adminPersonnel', 'media');
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    setRecords(await fetchVerifiers());
-    setLoading(false);
-  }, []);
-
-  React.useEffect(() => { load(); }, [load]);
-
-  const handleNew = async () => {
-    const code = await generateVerifierCode(records);
-    setForm(emptyForm(code));
-    setView('form');
-  };
-
-  const handleEdit = (r: VerifierRecord) => { setForm({ ...r }); setView('form'); };
-
-  const setField = <K extends keyof VerifierRecord>(k: K, v: VerifierRecord[K]) =>
-    setForm((p) => p ? { ...p, [k]: v } : p);
-
-  const handleSave = async () => {
-    if (!form) return;
-    if (!form.companyName.trim()) { toast.error('Company name required'); return; }
-    setSaving(true);
     try {
-      await saveVerifier(form);
-      toast.success(`Verifier ${form.verifierCode} saved`);
-      setView('list'); load();
-    } catch { toast.error('Save failed'); }
-    finally { setSaving(false); }
+      setRecords(await fetchVerifierRecords(tableSearch.trim() || undefined));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load verifiers');
+      setRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tableSearch]);
+
+  React.useEffect(() => {
+    const t = window.setTimeout(() => { void load(); }, 300);
+    return () => window.clearTimeout(t);
+  }, [load]);
+
+  const openReview = (row: VendorVerificationRecord) => {
+    setReviewRow(row);
+    setReviewDraft({
+      emailStatus: row.emailStatus,
+      mobileStatus: row.mobileStatus,
+      photoStatus: row.photoStatus,
+      bankStatus: row.bankStatus,
+      shopLocationStatus: row.shopLocationStatus,
+    });
   };
 
-  const handleDelete = async () => {
-    if (!confirmDel) return;
-    await deleteVerifier(confirmDel);
-    setConfirmDel(null);
-    load();
-    toast.success('Verifier deleted');
+  const handleSubmit = async (row: VendorVerificationRecord) => {
+    setActionLoading(true);
+    try {
+      await submitVendorVerification(row.vendorId);
+      toast.success('Verification submitted for review');
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Submit failed');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const columns: TableColumn<VerifierRecord>[] = [
-    { name: 'Code', selector: (r) => r.verifierCode, sortable: true, width: '100px' },
-    { name: 'Company', selector: (r) => r.companyName, sortable: true, grow: 2 },
-    { name: 'Contact', selector: (r) => r.contactPerson },
+  const handleSaveReview = async () => {
+    if (!reviewRow) return;
+    setActionLoading(true);
+    try {
+      await reviewVendorVerification(reviewRow.vendorId, reviewDraft);
+      toast.success('Review saved');
+      setReviewRow(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Review failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const columns: TableColumn<VendorVerificationRecord>[] = [
+    { name: 'Vendor Code', selector: (r) => r.vendorCode, sortable: true, width: '110px' },
+    { name: 'Business', selector: (r) => r.businessName, sortable: true, grow: 2 },
+    { name: 'Contact', selector: (r) => r.ownerName || '—' },
     { name: 'Mobile', selector: (r) => r.mobile, width: '120px' },
-    { name: 'City', selector: (r) => r.city },
-    { name: 'Fee (₹)', selector: (r) => r.verificationFee, format: (r) => `₹${r.verificationFee}`, width: '90px' },
-    { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
-    { name: 'KYC', cell: (r) => <StatusBadge status={r.kycStatus} />, width: '90px' },
+    { name: 'City', selector: (r) => r.city, width: '100px' },
+    {
+      name: 'Field Status',
+      cell: (r) => <FieldStatusPills record={r} />,
+      grow: 1.5,
+      minWidth: '200px',
+    },
+    {
+      name: 'Overall',
+      cell: (r) => <StatusBadge status={r.overallStatus} />,
+      width: '100px',
+    },
     {
       name: 'Actions',
       cell: (r) => (
-        <div className="flex gap-2">
-          <button type="button" onClick={() => handleEdit(r)}
-            className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10">Edit</button>
-          <button type="button" onClick={() => setConfirmDel(r.verifierCode)}
-            className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+        <div className="flex flex-wrap gap-1">
+          {canMake ? (
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={() => handleSubmit(r)}
+              className="rounded px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+            >
+              Submit
+            </button>
+          ) : null}
+          {canCheck || canMake ? (
+            <button
+              type="button"
+              onClick={() => openReview(r)}
+              className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+            >
+              Review
+            </button>
+          ) : null}
         </div>
       ),
-      width: '120px', ignoreRowClick: true,
+      width: '140px',
+      ignoreRowClick: true,
     },
   ];
 
-  if (view === 'form' && form) {
-    return (
-      <ErrorBoundary>
-        <PageHeader
-          title={form.createdAt ? `Edit: ${form.verifierCode}` : `New Verifier — ${form.verifierCode}`}
-          actions={[
-            { label: 'Save', onClick: handleSave, variant: 'primary' },
-            { label: 'Cancel', onClick: () => setView('list'), variant: 'secondary' },
-          ]}
-        />
-        <div className="flex flex-col gap-5">
-          <SectionCard title="Verifier Information">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <FormField label="Verifier Code">
-                <input className={`${inputClass} bg-slate-100 text-slate-500`} value={form.verifierCode} readOnly />
-              </FormField>
-              <FormField label="Company Name" required>
-                <input className={inputClass} value={form.companyName}
-                  onChange={(e) => setField('companyName', e.target.value)} />
-              </FormField>
-              <FormField label="Contact Person">
-                <input className={inputClass} value={form.contactPerson}
-                  onChange={(e) => setField('contactPerson', e.target.value)} />
-              </FormField>
-              <FormField label="Mobile">
-                <input className={inputClass} maxLength={15} value={form.mobile}
-                  onChange={(e) => setField('mobile', e.target.value)} />
-              </FormField>
-              <FormField label="Email">
-                <input type="email" className={inputClass} value={form.email}
-                  onChange={(e) => setField('email', e.target.value)} />
-              </FormField>
-              <FormField label="City">
-                <input className={inputClass} value={form.city}
-                  onChange={(e) => setField('city', e.target.value)} />
-              </FormField>
-              <FormField label="State">
-                <select className={inputClass} value={form.state}
-                  onChange={(e) => setField('state', e.target.value)}>
-                  <option value="">Select</option>
-                  {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </FormField>
-              <FormField label="Products Covered">
-                <input className={inputClass} value={form.productsCovered}
-                  onChange={(e) => setField('productsCovered', e.target.value)} />
-              </FormField>
-              <FormField label="Verification Fee (₹)">
-                <input type="number" min={0} className={inputClass} value={form.verificationFee}
-                  onKeyDown={onNumericInputKeyDown}
-                  onChange={(e) => setField('verificationFee', Number(e.target.value))} />
-              </FormField>
-              <FormField label="Status">
-                <select className={inputClass} value={form.status}
-                  onChange={(e) => setField('status', e.target.value as VerifierRecord['status'])}>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Suspended">Suspended</option>
-                </select>
-              </FormField>
-              <FormField label="KYC Status">
-                <select className={inputClass} value={form.kycStatus}
-                  onChange={(e) => setField('kycStatus', e.target.value as VerifierRecord['kycStatus'])}>
-                  <option value="Pending">Pending</option>
-                  <option value="Verified">Verified</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </FormField>
-            </div>
-          </SectionCard>
-          <SectionCard title="Bank Details">
-            <BankDetailsFields value={form.bank} onChange={(bank) => setField('bank', bank)} />
-          </SectionCard>
-        </div>
-      </ErrorBoundary>
-    );
-  }
-
   return (
     <ErrorBoundary>
-      <PageHeader title="Verifiers" subtitle="Manage verification partners."
+      <PageHeader
+        title="Verifiers"
+        subtitle="Vendor verification — maker submits, checker reviews each field."
         beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
-        actions={[{ label: '+ New Verifier', onClick: handleNew }]} />
-      <DataTableWrapper columns={columns} data={records} loading={loading} searchable
-        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
-      {confirmDel && (
-        <ConfirmDialog title="Delete Verifier" message={`Delete verifier ${confirmDel}?`}
-          confirmLabel="Delete" onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />
-      )}
+      />
+      <DataTableWrapper
+        columns={columns}
+        data={records}
+        loading={loading}
+        searchable
+        filterText={tableSearch}
+        onFilterTextChange={setTableSearch}
+        hideSearchInput
+      />
+
+      {reviewRow ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-base font-bold text-slate-800">Review — {reviewRow.businessName}</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {reviewRow.vendorCode} · Submitted by {reviewRow.submittedBy || '—'}
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ['emailStatus', 'Email'],
+                  ['mobileStatus', 'Mobile'],
+                  ['photoStatus', 'Photo'],
+                  ['bankStatus', 'Bank'],
+                  ['shopLocationStatus', 'Shop Location'],
+                ] as const
+              ).map(([key, label]) => (
+                <FormField key={key} label={label}>
+                  <select
+                    className={inputClass}
+                    disabled={!canCheck || actionLoading}
+                    value={reviewDraft[key] ?? reviewRow[key]}
+                    onChange={(e) =>
+                      setReviewDraft((p) => ({
+                        ...p,
+                        [key]: e.target.value as FieldVerificationStatus,
+                      }))
+                    }
+                  >
+                    {FIELD_STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {canCheck ? (
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={handleSaveReview}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {actionLoading ? 'Saving…' : 'Save review'}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setReviewRow(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+            {!canCheck ? (
+              <p className="mt-3 text-xs text-slate-500">
+                Only Admin or Admin & Personnel users can save field reviews.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </ErrorBoundary>
   );
 };

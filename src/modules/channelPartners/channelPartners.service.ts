@@ -20,14 +20,18 @@ function persist<T>(key: string, data: T[]): void {
 
 // DSA
 export async function fetchDsaRecords(): Promise<DsaRecord[]> {
-  return load<DsaRecord>(DSA_KEY);
+  return load<DsaRecord>(DSA_KEY).filter((r) => (r.dsaType ?? 'admin') === 'admin');
 }
 
 export async function saveDsaRecord(record: DsaRecord): Promise<void> {
   const all = load<DsaRecord>(DSA_KEY);
   const idx = all.findIndex((r) => r.dsaCode === record.dsaCode);
   const now = new Date().toISOString();
-  const updated = { ...record, createdAt: record.createdAt ?? now };
+  const updated = {
+    ...record,
+    dsaType: record.dsaType ?? 'admin',
+    createdAt: record.createdAt ?? now,
+  };
   if (idx >= 0) all[idx] = updated;
   else all.push(updated);
   persist(DSA_KEY, all);

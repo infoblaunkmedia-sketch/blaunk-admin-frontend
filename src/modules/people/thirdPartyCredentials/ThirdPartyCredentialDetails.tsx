@@ -94,13 +94,13 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader
-        title="3P credential details"
+        title="Admin Panel DSA / 3P Employee"
         subtitle={
           record?.threePEmplCode
-            ? `3PC Code: ${record.threePEmplCode}`
+            ? `3PC Code: ${record.threePEmplCode}${record.matchCode ? ` · Match Code: ${record.matchCode}` : ''}`
             : idNorm
               ? `Record: ${idNorm}`
-              : '3P credential record'
+              : 'Admin panel DSA / 3P employee record'
         }
         actions={[
           {
@@ -134,6 +134,21 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="3PC Code" value={record.threePEmplCode} />
+              <Field
+                label="Match Code"
+                value={
+                  record.matchCode ? (
+                    <span>
+                      <span className="font-mono">{record.matchCode}</span>
+                      <span className="mt-1 block text-xs font-normal text-slate-500">
+                        Synced from Settings → Match Code
+                      </span>
+                    </span>
+                  ) : (
+                    '—'
+                  )
+                }
+              />
               <Field label="Name" value={record.name} />
               <Field label="Department" value={record.department} />
               <Field label="3PC Company" value={record.threePCompanyName} />

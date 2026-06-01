@@ -20,6 +20,7 @@ import {
   generateVendorCode,
   approveVendor,
   rejectVendor,
+  updateVendorStatus,
   uploadKycDocument,
   kycDocumentUrl,
   type KycDocument,
@@ -42,7 +43,7 @@ const emptyForm = (code: string): VendorRecord => ({
   vendorCode: code, businessName: '', ownerName: '', mobile: '', email: '',
   address: '', city: '', state: '', country: 'India',
   productCategories: '', bank: emptyBank(),
-  kycStatus: 'Pending', status: 'Active', approvalStatus: 'pending',
+  kycStatus: 'Pending', status: 'Approved', approvalStatus: 'pending',
   joiningDate: new Date().toISOString().slice(0, 10),
 });
 
@@ -64,7 +65,10 @@ export const Vendors: React.FC = () => {
   const [rejectReason, setRejectReason] = React.useState('');
   const [actionLoading, setActionLoading] = React.useState(false);
   const [kycUploading, setKycUploading] = React.useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
+
+  const VENDOR_STATUS_OPTIONS: VendorRecord['status'][] = ['Approved', 'Suspended', 'Deleted'];
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -187,6 +191,21 @@ export const Vendors: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (row: VendorRecord, status: VendorRecord['status']) => {
+    if (!row.id || row.status === status) return;
+    setStatusUpdatingId(row.id);
+    try {
+      await updateVendorStatus(row.id, status);
+      setRecords((prev) => prev.map((r) => (r.id === row.id ? { ...r, status } : r)));
+      if (detail?.id === row.id) setDetail((d) => (d ? { ...d, status } : d));
+      toast.success(`Vendor status set to ${status}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Status update failed');
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const handleKycUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !detail?.id) return;
@@ -216,6 +235,26 @@ export const Vendors: React.FC = () => {
       width: '110px',
     },
     { name: 'KYC', cell: (r) => <StatusBadge status={r.kycStatus} />, width: '90px' },
+    {
+      name: 'Status',
+      cell: (r) => (
+        <select
+          className="h-8 min-w-[7.5rem] rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-primary disabled:opacity-60"
+          value={r.status || 'Approved'}
+          disabled={!r.id || statusUpdatingId === r.id}
+          onChange={(e) => handleStatusChange(r, e.target.value as VendorRecord['status'])}
+          aria-label={`Status for ${r.vendorCode}`}
+        >
+          {VENDOR_STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      ),
+      width: '130px',
+      ignoreRowClick: true,
+    },
     {
       name: 'Actions',
       cell: (r) => (
@@ -341,9 +380,24 @@ export const Vendors: React.FC = () => {
               <button type="button" onClick={() => setDetail(null)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-5">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={APPROVAL_LABEL[detail.approvalStatus || 'pending']} />
                 <StatusBadge status={detail.kycStatus} />
+                {detail.id ? (
+                  <select
+                    className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-primary disabled:opacity-60"
+                    value={detail.status || 'Approved'}
+                    disabled={statusUpdatingId === detail.id}
+                    onChange={(e) => handleStatusChange(detail, e.target.value as VendorRecord['status'])}
+                    aria-label="Vendor status"
+                  >
+                    {VENDOR_STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
               </div>
               {detail.rejectionReason ? (
                 <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

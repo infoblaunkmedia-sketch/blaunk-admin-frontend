@@ -2,11 +2,11 @@ import React, { forwardRef, useImperativeHandle } from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
-import { SectionCard } from '../../../shared/components/SectionCard';
 import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { ClickableImageThumb } from '../../../shared/components/ImagePreview';
 import { ImageCropDialog } from '../../../shared/components/ImageCropDialog';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { StarRatingPicker } from './StarRatingPicker';
@@ -211,13 +211,15 @@ export const Testimonials = forwardRef<TestimonialsHandle, TestimonialsProps>(fu
     {
       name: 'Photo',
       width: '72px',
-      cell: (r) => (
-        <div className="my-1 h-10 w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-          {r.profilePhotoUrl ? (
-            <img src={r.profilePhotoUrl} alt={r.name} className="h-full w-full object-cover" />
-          ) : null}
-        </div>
-      ),
+      cell: (r) =>
+        r.profilePhotoUrl ? (
+          <ClickableImageThumb
+            src={r.profilePhotoUrl}
+            alt={r.name}
+            title={r.name}
+            wrapClassName="my-1 block h-10 w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100"
+          />
+        ) : null,
     },
     { name: 'Name', selector: (r) => r.name, sortable: true, grow: 1.2 },
     {
@@ -268,26 +270,15 @@ export const Testimonials = forwardRef<TestimonialsHandle, TestimonialsProps>(fu
         />
       ) : null}
 
-      <SectionCard className={embedded ? '' : 'mb-5'}>
-        {!embedded ? (
-          <DataTableWrapper
-            columns={columns}
-            data={displayed}
-            loading={loading}
-            filterText={tableSearch}
-            onFilterTextChange={setTableSearch}
-          />
-        ) : (
-          <DataTableWrapper
-            columns={columns}
-            data={displayed}
-            loading={loading}
-            hideSearchInput
-            filterText={tableSearch}
-            onFilterTextChange={setTableSearch}
-          />
-        )}
-      </SectionCard>
+      <DataTableWrapper
+        columns={columns}
+        data={displayed}
+        loading={loading}
+        hideSearchInput={embedded}
+        filterText={tableSearch}
+        onFilterTextChange={setTableSearch}
+        className={embedded ? '' : 'mb-5'}
+      />
 
       {showForm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

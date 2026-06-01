@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from '../../shared/components/ErrorBoundary';
 import { useAuth } from '../../auth/useAuth';
-import { DsaNetwork } from './dsa/DsaNetwork';
+import { DsaSection } from './dsa/DsaSection';
 import { Verifiers } from './verifiers/Verifiers';
 
 const NO_ACCESS = (
@@ -44,7 +44,7 @@ export const ChannelPartnersPage: React.FC = () => (
         path="dsa"
         element={
           <SectionGuard section="dsa">
-            <DsaNetwork />
+            <DsaSection />
           </SectionGuard>
         }
       />

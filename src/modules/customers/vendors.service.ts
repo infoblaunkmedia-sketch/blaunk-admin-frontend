@@ -90,6 +90,14 @@ export async function generateVendorCode(): Promise<string> {
   return res.code;
 }
 
+export async function updateVendorStatus(id: string, status: VendorRecord['status']): Promise<VendorRecord> {
+  const res = await api.patch<{ record: SellerDto }>(
+    `/api/sellers/${encodeURIComponent(id)}`,
+    { status },
+  );
+  return mapSeller(res.record);
+}
+
 export async function saveVendor(record: VendorRecord): Promise<VendorRecord> {
   const body = {
     id: record.id,

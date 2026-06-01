@@ -96,6 +96,8 @@ type SliderDto = {
   discount: number;
   toPay: number;
   dsaCode?: string;
+  uploadSource?: 'vendor_direct' | 'admin_3p';
+  uploadedByDsaCode?: string | null;
   status: SliderStatus;
   uploadDate?: string | null;
   expiryDate?: string | null;
@@ -119,6 +121,11 @@ function mapSlider(dto: SliderDto): DsaSlider {
     discount: Number(dto.discount || 0),
     toPay: Number(dto.toPay || 0),
     dsaCode: dto.dsaCode,
+    uploadSource: dto.uploadSource === 'vendor_direct' ? 'vendor_direct' : 'admin_3p',
+    uploadedByDsaCode:
+      dto.uploadSource === 'vendor_direct'
+        ? null
+        : (dto.uploadedByDsaCode ?? dto.dsaCode ?? null),
     status: dto.status,
     uploadDate: dto.uploadDate ?? null,
     expiryDate: dto.expiryDate ?? null,
@@ -232,6 +239,22 @@ export async function fetchDsaPayoutHistory(params?: { dsaCode?: string; status?
     rejectedAt: String(r.rejectedAt || ''),
     createdAt: r.createdAt,
   }));
+}
+
+export type DsaUploadLimitStatus = {
+  dsaCode: string;
+  dsaName: string;
+  maxSlots: number;
+  activeUploads: number;
+  remainingSlots: number | null;
+  expiredUploads: number;
+  totalUploads: number;
+};
+
+export async function fetchDsaUploadLimitStatus(dsaCode?: string): Promise<DsaUploadLimitStatus> {
+  const q = dsaCode ? `?dsaCode=${encodeURIComponent(dsaCode)}` : '';
+  const res = await api.get<{ status: DsaUploadLimitStatus }>(`/api/dsa-limits/status${q}`);
+  return res.status;
 }
 
 export async function fetchMediaSlotConfigs(): Promise<MediaSlotTabConfig[]> {

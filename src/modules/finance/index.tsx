@@ -5,10 +5,12 @@ import { ErrorBoundary } from '../../shared/components/ErrorBoundary';
 import { B2BPayments } from './b2bPayments/B2BPayments';
 import { DsaPayouts } from './dsaPayouts/DsaPayouts';
 import { BgtBankAccounts } from './bankAccounts/BgtBankAccounts';
+import { DsaLimitCheck } from './dsaLimitCheck/DsaLimitCheck';
 
 const TABS = [
   { label: 'B2B Payments', path: '/finance/b2b', section: 'b2b' },
   { label: 'DSA Payouts', path: '/finance/dsa-payouts', section: 'dsa-payouts' },
+  { label: 'DSA Limit Check', path: '/finance/dsa-limit-check', section: 'dsa-payouts' },
   { label: 'BGT Bank Accounts', path: '/finance/bank-accounts', section: 'bank-accounts' },
 ];
 
@@ -19,6 +21,7 @@ export const FinancePage: React.FC = () => (
         <Route index element={<Navigate to="b2b" replace />} />
         <Route path="b2b" element={<B2BPayments />} />
         <Route path="dsa-payouts" element={<DsaPayouts />} />
+        <Route path="dsa-limit-check" element={<DsaLimitCheck />} />
         <Route path="bank-accounts" element={<BgtBankAccounts />} />
       </Routes>
     </ModuleLayout>

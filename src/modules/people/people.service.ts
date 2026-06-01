@@ -4,8 +4,6 @@ import { logger } from '../../shared/utils/logger';
 import { parseApiErrorBody } from '../../shared/utils/apiErrorMessage';
 
 const EMP_KEY = 'blaunk_employees';
-const VAC_KEY = 'blaunk_vacancies';
-
 type EmployeeCredentialsRecord = {
   pan: string;
   employeeName?: string;
@@ -377,24 +375,52 @@ export async function fetchEmployeeByPan(pan: string): Promise<Employee> {
 }
 
 // Vacancies
+type VacancyDto = {
+  id: string;
+  jobTitle?: string;
+  department?: string;
+  numberOfOpenings?: number;
+  description?: string;
+  requiredExperience?: string;
+  location?: string;
+  postedDate?: string;
+  status?: Vacancy['status'];
+};
+
+function mapVacancy(dto: VacancyDto): Vacancy {
+  return {
+    id: dto.id,
+    jobTitle: dto.jobTitle || '',
+    department: dto.department || '',
+    numberOfOpenings: Number(dto.numberOfOpenings || 0),
+    description: dto.description || '',
+    requiredExperience: dto.requiredExperience || '',
+    location: dto.location || '',
+    postedDate: dto.postedDate || '',
+    status: (dto.status as Vacancy['status']) || 'Open',
+  };
+}
+
 export async function fetchVacancies(): Promise<Vacancy[]> {
-  try {
-    const raw = localStorage.getItem(VAC_KEY);
-    return raw ? (JSON.parse(raw) as Vacancy[]) : [];
-  } catch {
-    return [];
-  }
+  const res = await api.get<{ records: VacancyDto[] }>('/api/vacancies');
+  return (res.records || []).map(mapVacancy);
 }
 
 export async function saveVacancy(vac: Vacancy): Promise<void> {
-  const all = await fetchVacancies();
-  const idx = all.findIndex((v) => v.id === vac.id);
-  if (idx >= 0) all[idx] = vac;
-  else all.push(vac);
-  localStorage.setItem(VAC_KEY, JSON.stringify(all));
+  const body = {
+    ...(vac.id && /^[a-f\d]{24}$/i.test(vac.id) ? { id: vac.id } : {}),
+    jobTitle: vac.jobTitle,
+    department: vac.department,
+    numberOfOpenings: vac.numberOfOpenings,
+    description: vac.description,
+    requiredExperience: vac.requiredExperience,
+    location: vac.location,
+    postedDate: vac.postedDate,
+    status: vac.status,
+  };
+  await api.post<{ record: VacancyDto }>('/api/vacancies', body);
 }
 
 export async function deleteVacancy(id: string): Promise<void> {
-  const all = await fetchVacancies();
-  localStorage.setItem(VAC_KEY, JSON.stringify(all.filter((v) => v.id !== id)));
+  await api.delete(`/api/vacancies/${encodeURIComponent(id)}`);
 }

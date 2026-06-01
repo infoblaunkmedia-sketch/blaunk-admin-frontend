@@ -41,12 +41,25 @@ const DEFAULT_PRODUCT_PLAN_ROWS = [
 ];
 
 const DEFAULT_AD_PLAN_ROWS = [
-  { name: 'Standard', duration: '2M Validity', basicFees: 300, assuranceFees: 0 },
-  { name: 'Silver', duration: '3M Validity', basicFees: 300, assuranceFees: 0 },
-  { name: 'Gold', duration: '6M Validity', basicFees: 500, assuranceFees: 0 },
+  { name: 'Bronze', duration: '3M Validity', basicFees: 300, assuranceFees: 0 },
+  { name: 'Silver', duration: '6M Validity', basicFees: 300, assuranceFees: 0 },
+  { name: 'Gold', duration: '1Yr Validity', basicFees: 500, assuranceFees: 0 },
   { name: 'Diamond', duration: '1Yr Validity', basicFees: 999, assuranceFees: 0 },
-  { name: 'Platinum', duration: '2Yr Validity', basicFees: 999, assuranceFees: 0 },
+  { name: 'Platinum', duration: '2Yr Validity', basicFees: 1999, assuranceFees: 0 },
 ];
+
+/** Media Upload plan label → row name in saved ad plan charges (localStorage). */
+const AD_PLAN_TIER_ALIASES: Record<string, string> = {
+  Bronze: 'Bronze',
+  Standard: 'Bronze',
+};
+
+function normalizeAdPlanRows(rows: AdPlanChargeRow[]): AdPlanChargeRow[] {
+  return rows.map((r) => {
+    if (r.name === 'Standard') return { ...r, name: 'Bronze' };
+    return r;
+  });
+}
 
 const DEFAULT_PRODUCT_PLAN_CHARGES: ProductPlanChargesConfig = {
   productPlan: '',
@@ -121,7 +134,8 @@ export async function saveProductPlanCharges(config: ProductPlanChargesConfig): 
 }
 
 export async function fetchAdPlanCharges(): Promise<AdPlanChargesConfig> {
-  return load(AD_PLAN_CHARGES_KEY, DEFAULT_AD_PLAN_CHARGES);
+  const config = load(AD_PLAN_CHARGES_KEY, DEFAULT_AD_PLAN_CHARGES);
+  return { ...config, rows: normalizeAdPlanRows(config.rows) };
 }
 export async function saveAdPlanCharges(config: AdPlanChargesConfig): Promise<void> {
   persist(AD_PLAN_CHARGES_KEY, config);
@@ -139,9 +153,17 @@ export async function saveAdPlanCharges(config: AdPlanChargesConfig): Promise<vo
 
 export async function resolveAdPlanFees(mediaTab: string, planLabel: string): Promise<Pick<AdPlanChargeRow, 'basicFees' | 'assuranceFees'>> {
   const config = await fetchAdPlanCharges();
-  const adKey = MEDIA_TAB_TO_AD_PLAN[mediaTab] || config.adPlan || 'Slider';
   const tier = planLabelToTier(planLabel);
-  const row = config.rows.find((r) => r.name.toLowerCase() === tier.toLowerCase());
+  const lookupNames = [
+    tier,
+    AD_PLAN_TIER_ALIASES[tier],
+    tier === 'Bronze' ? 'Standard' : undefined,
+  ].filter(Boolean) as string[];
+  let row: AdPlanChargeRow | undefined;
+  for (const name of lookupNames) {
+    row = config.rows.find((r) => r.name.toLowerCase() === name.toLowerCase());
+    if (row) break;
+  }
   if (row) return { basicFees: row.basicFees, assuranceFees: row.assuranceFees };
   return { basicFees: 0, assuranceFees: 0 };
 }
