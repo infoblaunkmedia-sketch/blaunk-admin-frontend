@@ -97,7 +97,7 @@ export const DsaLimitCheckPage: React.FC = () => {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/20 bg-primary px-4 py-3 sm:px-5">
-        <h2 className="text-lg font-bold text-white sm:text-xl">DSA Limit Check</h2>
+        <h2 className="text-lg font-bold text-white sm:text-xl">DSA Limit</h2>
         <button
           type="button"
           onClick={handleSave}

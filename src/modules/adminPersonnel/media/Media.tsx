@@ -17,6 +17,7 @@ import {
 } from './mediaConfig';
 import { MediaImageSlot, type ImageSlotValue } from './MediaImageSlot';
 import { SocialMediaSlot } from './SocialMediaSlot';
+import { ContestQuizPanel } from './ContestQuizPanel';
 import {
   deleteSiteMediaSlot,
   fetchSiteMediaAssets,
@@ -355,7 +356,10 @@ export const Media: React.FC = () => {
             })}
           </div>
         ) : (
-          renderImageSections()
+          <>
+            {sectionId === 'contest' ? <ContestQuizPanel /> : null}
+            {renderImageSections()}
+          </>
         )}
       </SectionCard>
 

@@ -54,7 +54,7 @@ export const RightsPage: React.FC = () => {
     'MIS',
     'Paybank',
     'Voucher',
-    'DSA Limit Check',
+    'DSA Limit',
     'Company Details',
   ];
 
@@ -156,7 +156,7 @@ export const RightsPage: React.FC = () => {
       );
     }
 
-    if (activeTab === 'DSA Limit Check') {
+    if (activeTab === 'DSA Limit') {
       return (
         <section className="w-full p-0 sm:p-0">
           <DsaLimitCheckPage />
@@ -205,13 +205,13 @@ export const RightsPage: React.FC = () => {
       {/* Page title */}
       {activeTab === 'Commission' ||
       activeTab === 'Voucher' ||
-      activeTab === 'DSA Limit Check' ||
+      activeTab === 'DSA Limit' ||
       activeTab === 'Company Details' ? (
         <h1 className="sr-only">
           {activeTab === 'Voucher'
             ? 'Voucher Management'
-            : activeTab === 'DSA Limit Check'
-              ? 'DSA Limit Check'
+            : activeTab === 'DSA Limit'
+              ? 'DSA Limit'
               : activeTab === 'Company Details'
                 ? 'Company Details'
                 : 'Commission'}

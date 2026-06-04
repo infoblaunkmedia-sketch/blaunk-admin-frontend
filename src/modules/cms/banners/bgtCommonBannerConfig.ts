@@ -101,12 +101,12 @@ export const BGT_MAIN_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
   {
     id: 'blaunk-advantage',
     label: 'Blaunk Exporter Directory',
-    hint: 'Intro header + up to 6 advantage cards with icons',
+    hint: 'Add intro header once (+ Add header), then + Add card for up to 6 exporter posters (1:1 icons)',
     aspect: 1,
     aspectLabel: '1:1',
     fields: [],
     imageRequired: false,
-    maxRecords: 7,
+    maxRecords: 1 + 6,
     discoveryHub: {
       headerFields: ['description', 'isActive'],
       chipFields: ['image', 'title', 'chipSlot', 'isActive'],

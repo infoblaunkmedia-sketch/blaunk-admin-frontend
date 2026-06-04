@@ -2,6 +2,7 @@ import type { Employee, Vacancy, EmployeeReference } from './people.types';
 import { CTC_DIVISOR_OPTIONS } from '../../shared/constants/hrConstants';
 import { logger } from '../../shared/utils/logger';
 import { parseApiErrorBody } from '../../shared/utils/apiErrorMessage';
+import { api } from '../../shared/services/apiService';
 
 const EMP_KEY = 'blaunk_employees';
 type EmployeeCredentialsRecord = {
@@ -378,47 +379,50 @@ export async function fetchEmployeeByPan(pan: string): Promise<Employee> {
 type VacancyDto = {
   id: string;
   jobTitle?: string;
-  department?: string;
   numberOfOpenings?: number;
-  description?: string;
   requiredExperience?: string;
   location?: string;
-  postedDate?: string;
-  status?: Vacancy['status'];
+  packageLpa?: string;
+  qualification?: string;
+  applyEmail?: string;
 };
 
 function mapVacancy(dto: VacancyDto): Vacancy {
   return {
     id: dto.id,
     jobTitle: dto.jobTitle || '',
-    department: dto.department || '',
     numberOfOpenings: Number(dto.numberOfOpenings || 0),
-    description: dto.description || '',
     requiredExperience: dto.requiredExperience || '',
     location: dto.location || '',
-    postedDate: dto.postedDate || '',
-    status: (dto.status as Vacancy['status']) || 'Open',
+    packageLpa: dto.packageLpa || '',
+    qualification: dto.qualification || '',
+    applyEmail: dto.applyEmail || 'careers@blaunk.com',
   };
 }
 
 export async function fetchVacancies(): Promise<Vacancy[]> {
-  const res = await api.get<{ records: VacancyDto[] }>('/api/vacancies');
-  return (res.records || []).map(mapVacancy);
+  const res = await api.get<{ records: VacancyDto[] }>(
+    `/api/vacancies?_=${Date.now()}`,
+  );
+  return (res.records || [])
+    .map(mapVacancy)
+    .filter((v) => v.id && /^[a-f\d]{24}$/i.test(v.id));
 }
 
-export async function saveVacancy(vac: Vacancy): Promise<void> {
+export async function saveVacancy(vac: Vacancy): Promise<Vacancy> {
   const body = {
     ...(vac.id && /^[a-f\d]{24}$/i.test(vac.id) ? { id: vac.id } : {}),
-    jobTitle: vac.jobTitle,
-    department: vac.department,
+    jobTitle: vac.jobTitle.trim(),
     numberOfOpenings: vac.numberOfOpenings,
-    description: vac.description,
-    requiredExperience: vac.requiredExperience,
-    location: vac.location,
-    postedDate: vac.postedDate,
-    status: vac.status,
+    requiredExperience: vac.requiredExperience.trim(),
+    location: vac.location.trim(),
+    packageLpa: vac.packageLpa.trim(),
+    qualification: vac.qualification.trim(),
+    applyEmail: (vac.applyEmail || 'careers@blaunk.com').trim(),
   };
-  await api.post<{ record: VacancyDto }>('/api/vacancies', body);
+  const res = await api.post<{ record: VacancyDto }>('/api/vacancies', body);
+  if (!res.record) throw new Error('Save succeeded but no record was returned.');
+  return mapVacancy(res.record);
 }
 
 export async function deleteVacancy(id: string): Promise<void> {

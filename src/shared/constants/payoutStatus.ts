@@ -19,7 +19,6 @@ export const PAYOUT_STATUS_OPTIONS: { value: PayoutStatus; label: string }[] = [
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: 'REVERSE_BACK', label: 'Reverse Back' },
   { value: 'ON_HOLD', label: 'On Hold' },
-  { value: 'DOUBLE_ENTRY', label: 'Double entry' },
   { value: 'ENTRY_MISSING', label: 'Entry Missing' },
 ];
 

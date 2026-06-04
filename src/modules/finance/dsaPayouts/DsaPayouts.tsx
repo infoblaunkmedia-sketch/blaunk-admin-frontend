@@ -4,541 +4,331 @@ import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
-import { StatusBadge } from '../../../shared/components/StatusBadge';
-import { FormField } from '../../../shared/components/FormField';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { useAuth } from '../../../auth/useAuth';
-import { fetchDsaRecords } from '../../channelPartners/channelPartners.service';
-import { fetchEmployees } from '../../people/people.service';
-import { fetchThirdPartyCredentials } from '../../people/thirdPartyCredentials/thirdPartyCredentials.service';
-import { fetchDsaLimitConfig } from '../../platform/platform.service';
-import { fetchDsaPayouts, saveDsaPayout, updatePayoutStatusById } from '../finance.service';
-import type { DsaPayoutSubmission, PaymentMode } from '../finance.types';
+import { fetchDsaPayouts, updatePayoutFieldsById, updatePayoutStatusById } from '../finance.service';
+import type { DsaPayoutSubmission } from '../finance.types';
 import { PayoutStatusSelect } from '../../../shared/components/PayoutStatusSelect';
 import {
-  PAYOUT_STATUS_OPTIONS,
   isPendingPayoutStatus,
   isNegativePayoutStatus,
   normalizePayoutStatus,
+  payoutStatusLabel,
   type PayoutStatus,
 } from '../../../shared/constants/payoutStatus';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { payoutCheckerLabel } from './payoutChecker';
 
 const inputClass =
-  'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+  'h-9 w-full min-w-[5rem] rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
 
-const CURRENCIES = ['INR', 'USD', 'AED', 'GBP', 'SGD', 'MYR', 'QAR', 'KWD', 'BHD'];
+const readOnlyClass =
+  `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500`;
 
-const emptyForm = (): Omit<DsaPayoutSubmission, 'id' | 'status' | 'calculatedLimit' | 'currencyInr'> => ({
-  dsaCode: '',
-  dsaName: '',
-  country: '',
-  submittedAmount: 0,
-  currency: 'INR',
-  shareRatio: 30,
-  mode: 'NEFT',
-  transactionNumber: '',
-  submissionDate: new Date().toISOString().slice(0, 10),
-  newAmount: 0,
-  bodBalance: 0,
-  usedValue: 0,
-});
+function payoutCurrencyLabel(currency: string): string {
+  const c = String(currency || '').toUpperCase();
+  if (c === 'USD') return '$';
+  return 'Rs.';
+}
+
+function formatCurrencyPayin(row: DsaPayoutSubmission): string {
+  return `${payoutCurrencyLabel(row.currency)} ${Number(row.submittedAmount || 0).toLocaleString()}`;
+}
+
+function shareRatioLabel(shareRatio: number | undefined): string {
+  const sr = Number(shareRatio);
+  if (!Number.isFinite(sr)) return '-';
+  return `${sr}:${100 - sr}`;
+}
 
 export const DsaPayouts: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
-  const ownDsaCode = String(user?.code || '').trim().toUpperCase();
   const [records, setRecords] = React.useState<DsaPayoutSubmission[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [showForm, setShowForm] = React.useState(false);
-  const [form, setForm] = React.useState(emptyForm());
-  const [currencyRate, setCurrencyRate] = React.useState(1);
-  const [saving, setSaving] = React.useState(false);
   const [tableSearch, setTableSearch] = React.useState('');
-  const [dsaCodeFilter, setDsaCodeFilter] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('');
   const [actioningId, setActioningId] = React.useState<string | null>(null);
-  const dsaLookupGen = React.useRef(0);
-  const dsaLookupTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [fieldEdits, setFieldEdits] = React.useState<Record<string, { currencyInr: string; calculatedLimit: string }>>({});
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    setRecords(await fetchDsaPayouts({
-      dsaCode: isAdmin && dsaCodeFilter.trim() ? dsaCodeFilter.trim() : undefined,
-      status: statusFilter || undefined,
-      limit: isAdmin ? 2000 : 1000,
-    }));
-    setLoading(false);
-  }, [dsaCodeFilter, isAdmin, statusFilter]);
-
-  React.useEffect(() => { load(); }, [load]);
-
-  const resolveDsaProfile = React.useCallback(async (code: string, gen: number) => {
-    const c = code.trim();
-    if (!c) return;
-
-    const fromChannel = (await fetchDsaRecords()).find((d) => d.dsaCode.toLowerCase() === c.toLowerCase());
-    if (gen !== dsaLookupGen.current) return;
-    if (fromChannel) {
-      setForm((p) => ({
-        ...p,
-        dsaCode: fromChannel.dsaCode,
-        dsaName: fromChannel.companyName,
-        country: fromChannel.country || '',
-        shareRatio: fromChannel.shareRatio,
-      }));
-      return;
-    }
-
-    let employees: Awaited<ReturnType<typeof fetchEmployees>> = [];
     try {
-      employees = await fetchEmployees();
-    } catch {
-      employees = [];
+      const rows = await fetchDsaPayouts({ limit: 2000 });
+      setRecords(rows);
+      setFieldEdits((prev) => {
+        const next: Record<string, { currencyInr: string; calculatedLimit: string }> = {};
+        for (const row of rows) {
+          if (!isPendingPayoutStatus(row.status)) continue;
+          next[row.id] = prev[row.id] ?? { currencyInr: '', calculatedLimit: '' };
+        }
+        return next;
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load submissions');
+    } finally {
+      setLoading(false);
     }
-    if (gen !== dsaLookupGen.current) return;
-    const emp = employees.find((e) => e.employeeCode.toLowerCase() === c.toLowerCase());    
-    if (emp) {
-      setForm((p) => ({
-        ...p,
-        dsaCode: emp.employeeCode,
-        dsaName: emp.fullName || '',
-        country: emp.country || '',
-      }));
-      return;
-    }
-
-    let third: Awaited<ReturnType<typeof fetchThirdPartyCredentials>> = [];
-    try {
-      third = await fetchThirdPartyCredentials();
-    } catch {
-      third = [];
-    }
-    if (gen !== dsaLookupGen.current) return;
-    const tp = third.find((t) => t.threePEmplCode.toLowerCase() === c.toLowerCase());
-    if (tp) {      
-      setForm((p) => ({
-        ...p,
-        dsaCode: tp.threePEmplCode,
-        dsaName: tp.name,
-        country: tp.country || '',
-      }));
-      return;
-    }
-
-    setForm((p) => ({ ...p, dsaName: '', country: '' }));
   }, []);
-
-  const handleDsaCodeChange = React.useCallback((raw: string) => {
-    const code = raw.trim().toUpperCase();
-    setForm((p) => ({
-      ...p,
-      dsaCode: code,
-      ...(code ? {} : { dsaName: '', country: '' }),
-    }));
-    if (!code) {
-      dsaLookupGen.current += 1;
-      if (dsaLookupTimer.current) clearTimeout(dsaLookupTimer.current);
-      return;
-    }
-
-    void (async () => {
-      const fromChannel = (await fetchDsaRecords()).find((d) => d.dsaCode.toLowerCase() === code.toLowerCase());
-      if (fromChannel) {
-        dsaLookupGen.current += 1;
-        if (dsaLookupTimer.current) clearTimeout(dsaLookupTimer.current);
-        setForm((p) => ({
-          ...p,
-          dsaCode: fromChannel.dsaCode,
-          dsaName: fromChannel.companyName,
-          country: fromChannel.country || '',
-          shareRatio: fromChannel.shareRatio,
-        }));
-        return;
-      }
-
-      if (dsaLookupTimer.current) clearTimeout(dsaLookupTimer.current);
-      const gen = ++dsaLookupGen.current;
-      dsaLookupTimer.current = setTimeout(() => {
-        void resolveDsaProfile(code, gen);
-      }, 350);
-    })();
-  }, [resolveDsaProfile]);
 
   React.useEffect(() => {
-    if (!showForm || isAdmin || !ownDsaCode) return;
-    handleDsaCodeChange(ownDsaCode);
-    setForm((p) => ({
-      ...p,
-      submissionDate: new Date().toISOString().slice(0, 10),
-    }));
-  }, [handleDsaCodeChange, isAdmin, ownDsaCode, showForm]);
+    void load();
+  }, [load]);
 
-  React.useEffect(() => () => {
-    if (dsaLookupTimer.current) clearTimeout(dsaLookupTimer.current);
+  const getFieldEdit = React.useCallback((row: DsaPayoutSubmission) => {
+    if (isPendingPayoutStatus(row.status)) {
+      const edit = fieldEdits[row.id];
+      return {
+        currencyInr: edit?.currencyInr ?? '',
+        calculatedLimit: edit?.calculatedLimit ?? '',
+      };
+    }
+    return {
+      currencyInr: row.currencyInr != null ? String(row.currencyInr) : '',
+      calculatedLimit: row.calculatedLimit != null ? String(row.calculatedLimit) : '',
+    };
+  }, [fieldEdits]);
+
+  const setFieldEdit = React.useCallback((
+    row: DsaPayoutSubmission,
+    patch: Partial<{ currencyInr: string; calculatedLimit: string }>,
+  ) => {
+    setFieldEdits((p) => {
+      const current = p[row.id] ?? { currencyInr: '', calculatedLimit: '' };
+      return { ...p, [row.id]: { ...current, ...patch } };
+    });
   }, []);
 
-  const summary = React.useMemo(() => {
-    const totals = {
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      approvedLimit: 0,
-      approvedAvailable: 0,
-    };
-    for (const row of records) {
-      if (isPendingPayoutStatus(row.status)) totals.pending += 1;
-      if (normalizePayoutStatus(row.status) === 'APPROVED') {
-        totals.approved += 1;
-        totals.approvedLimit += Number(row.calculatedLimit || 0);
-        totals.approvedAvailable += Number(row.availableBalance || 0);
-      }
-      if (isNegativePayoutStatus(row.status)) totals.rejected += 1;
-    }
-    return totals;
-  }, [records]);
+  const saveFieldEdits = React.useCallback(async (row: DsaPayoutSubmission) => {
+    const { currencyInr, calculatedLimit } = getFieldEdit(row);
+    const inr = parseFloat(currencyInr) || 0;
+    const limit = parseFloat(calculatedLimit) || 0;
+    await updatePayoutFieldsById(row.id, { currencyInr: inr, calculatedLimit: limit });
+    setRecords((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, currencyInr: inr, calculatedLimit: limit } : r)),
+    );
+  }, [getFieldEdit]);
 
-  const handleCurrencyChange = async (currency: string) => {
-    setForm((p) => ({ ...p, currency }));
-    if (currency === 'INR') { setCurrencyRate(1); return; }
-    const config = await fetchDsaLimitConfig();
-    const entry = config.currencyRates.find((r) => r.currency === currency);
-    setCurrencyRate(entry?.rateToInr ?? 1);
-  };
-
-  const setField = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
-    setForm((p) => ({ ...p, [k]: v }));
-
-  const currencyInr = form.submittedAmount * currencyRate;
-  const calculatedLimit = currencyInr + (currencyInr * form.shareRatio) / 100;
-  const availableBalance = (form.newAmount ?? 0) + (form.bodBalance ?? 0) - (form.usedValue ?? 0);
-
-  const handleSubmit = async () => {
-    if (!form.dsaCode.trim()) { toast.error('DSA code required'); return; }
-    if (form.submittedAmount <= 0) { toast.error('Amount must be > 0'); return; }
-    setSaving(true);
-    try {
-      const record: DsaPayoutSubmission = {
-        ...form,
-        id: crypto.randomUUID(),
-        currencyInr,
-        calculatedLimit,
-        status: 'PENDING',
-      };
-      await saveDsaPayout(record);
-      toast.success('Submission sent for approval');
-      setShowForm(false);
-      setForm(emptyForm());
-      load();
-    } catch { toast.error('Submit failed'); }
-    finally { setSaving(false); }
-  };
-
-  const exportCsv = () => {
-    const header = [
-      'Entry Date',
-      'DSA Code',
-      'DSA Name',
-      'Country',
-      'Mode',
-      'Curr',
-      'Amount Pay-in',
-      'INR',
-      'Calculated Limit',
-      'Available Balance',
-      'Status',
-      'Approval Note',
-      'Rejection Reason',
-      'Approved By',
-      'Approved At',
-      'Rejected By',
-      'Rejected At',
-    ];
-    const rows = records.map((r) => ([
-      r.submissionDate || '',
-      r.dsaCode || '',
-      r.dsaName || '',
-      r.country || '',
-      r.mode || '',
-      r.currency || '',
-      String(r.submittedAmount ?? 0),
-      String(r.currencyInr ?? 0),
-      String(r.calculatedLimit ?? 0),
-      String(r.availableBalance ?? 0),
-      r.status || '',
-      r.approvalNote || '',
-      r.rejectionReason || '',
-      r.approvedBy || '',
-      r.approvedAt || '',
-      r.rejectedBy || '',
-      r.rejectedAt || '',
-    ]));
-    const csv = [header, ...rows]
-      .map((line) => line.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dsa-payout-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleAdminStatusChange = async (row: DsaPayoutSubmission, nextStatus: PayoutStatus) => {
+  const handleApprovalChange = React.useCallback(async (row: DsaPayoutSubmission, nextStatus: PayoutStatus) => {
     const current = normalizePayoutStatus(row.status);
     if (nextStatus === current) return;
 
     let note = '';
     if (isNegativePayoutStatus(nextStatus)) {
       const reason = window.prompt('Note / reason (required):', row.rejectionReason || '');
-      if (!reason || !reason.trim()) {
+      if (!reason?.trim()) {
         toast.error('Note / reason is required for this status.');
         return;
       }
       note = reason.trim();
-    } else if (nextStatus === 'APPROVED') {
-      note = window.prompt('Approval note (optional):', row.approvalNote || '') ?? '';
-    } else {
-      note = window.prompt('Note (optional):', row.approvalNote || '') ?? '';
+    }
+
+    const { currencyInr, calculatedLimit } = getFieldEdit(row);
+    if (nextStatus === 'APPROVED' && (!currencyInr.trim() || !calculatedLimit.trim())) {
+      toast.error('Enter Currency-INR and Limit before approving.');
+      return;
     }
 
     try {
       setActioningId(row.id);
+      if (isPendingPayoutStatus(row.status)) {
+        await saveFieldEdits(row);
+      }
       await updatePayoutStatusById(row.id, nextStatus, note);
-      toast.success('Status updated');
+      toast.success('Approval updated — synced to DSA section');
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update status');
+      toast.error(e instanceof Error ? e.message : 'Failed to update approval');
     } finally {
       setActioningId(null);
     }
-  };
+  }, [getFieldEdit, load, saveFieldEdits]);
 
-  const columns: TableColumn<DsaPayoutSubmission>[] = [
-    { name: 'Entry Date', selector: (r) => r.submissionDate, sortable: true, width: '110px' },
-    { name: 'DSA Code', selector: (r) => r.dsaCode, sortable: true, width: '110px' },
-    { name: 'Country', selector: (r) => r.country, sortable: true, width: '100px' },
-    { name: 'Mode', selector: (r) => r.mode, sortable: true, width: '90px' },
-    { name: 'Curr', selector: (r) => r.currency, sortable: true, width: '70px' },
-    { name: 'Amount Pay-in', selector: (r) => r.submittedAmount, format: (r) => r.submittedAmount.toLocaleString(), width: '120px' },
-    { name: 'Share %', selector: (r) => r.shareRatio, format: (r) => `${r.shareRatio}:${100 - r.shareRatio}`, width: '90px' },
-    { name: 'Limit (₹)', selector: (r) => r.calculatedLimit, format: (r) => `₹${r.calculatedLimit.toLocaleString()}` },
-    { name: 'Available (₹)', selector: (r) => Number(r.availableBalance || 0), format: (r) => `₹${Number(r.availableBalance || 0).toLocaleString()}` },
-    { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '150px' },
-    { name: 'Approval Note', selector: (r) => r.approvalNote || '-', grow: 2 },
-    { name: 'Rejection Reason', selector: (r) => r.rejectionReason || '-', grow: 2 },
-    { name: 'Approved By', selector: (r) => r.approvedBy || '-', width: '130px' },
-    { name: 'Rejected By', selector: (r) => r.rejectedBy || '-', width: '130px' },
-    ...(isAdmin
-      ? [{
-          name: 'Actions',
-          width: '200px',
-          cell: (r: DsaPayoutSubmission) => (
-            <PayoutStatusSelect
-              value={r.status}
-              disabled={actioningId === r.id}
-              onChange={(status) => handleAdminStatusChange(r, status)}
-            />
-          ),
-          ignoreRowClick: true,
-        }]
-      : []),
-  ];
+  const columns = React.useMemo((): TableColumn<DsaPayoutSubmission>[] => [
+    {
+      name: 'Date',
+      selector: (row) => row.submissionDate || '',
+      cell: (row) => (
+        <span className="whitespace-nowrap font-semibold text-slate-800">
+          {formatDateDDMMYYYY(row.submissionDate)}
+        </span>
+      ),
+      sortable: true,
+      minWidth: '6.5rem',
+    },
+    {
+      name: 'DSA Name',
+      selector: (row) => row.dsaName || '',
+      sortable: true,
+      minWidth: '7rem',
+    },
+    {
+      name: 'Country',
+      selector: (row) => row.country || '',
+      sortable: true,
+      minWidth: '5.5rem',
+    },
+    {
+      name: 'DSA Code',
+      selector: (row) => row.dsaCode,
+      cell: (row) => <span className="uppercase">{row.dsaCode}</span>,
+      sortable: true,
+      minWidth: '6rem',
+    },
+    {
+      name: 'Sharing Ratio',
+      selector: (row) => shareRatioLabel(row.shareRatio),
+      sortable: true,
+      minWidth: '6.5rem',
+    },
+    {
+      name: 'Mode',
+      cell: (row) => <input className={readOnlyClass} readOnly value={row.mode || '-'} />,
+      minWidth: '6.5rem',
+    },
+    {
+      name: 'Currency-Payin',
+      cell: (row) => <input className={readOnlyClass} readOnly value={formatCurrencyPayin(row)} />,
+      minWidth: '8.5rem',
+    },
+    {
+      name: 'Txn Ref No.',
+      cell: (row) => (
+        <input className={readOnlyClass} readOnly value={row.transactionNumber || '-'} />
+      ),
+      minWidth: '7.5rem',
+    },
+    {
+      name: 'Currency-INR',
+      cell: (row) => {
+        const canEditInrLimit = isAdmin && isPendingPayoutStatus(row.status);
+        const edit = getFieldEdit(row);
+        return (
+          <input
+            type="text"
+            inputMode="decimal"
+            className={canEditInrLimit ? inputClass : readOnlyClass}
+            readOnly={!canEditInrLimit}
+            value={canEditInrLimit ? edit.currencyInr : (row.currencyInr != null ? String(row.currencyInr) : '')}
+            onKeyDown={canEditInrLimit ? onNumericInputKeyDown : undefined}
+            onChange={(e) => setFieldEdit(row, { currencyInr: e.target.value.replace(/[^\d.]/g, '') })}
+            onBlur={
+              canEditInrLimit
+                ? () => {
+                    const { currencyInr, calculatedLimit } = getFieldEdit(row);
+                    if (!currencyInr.trim() && !calculatedLimit.trim()) return;
+                    void saveFieldEdits(row).catch(() => toast.error('Failed to save Currency-INR'));
+                  }
+                : undefined
+            }
+          />
+        );
+      },
+      minWidth: '7.5rem',
+    },
+    {
+      name: 'Limit',
+      cell: (row) => {
+        const canEditInrLimit = isAdmin && isPendingPayoutStatus(row.status);
+        const edit = getFieldEdit(row);
+        return (
+          <input
+            type="text"
+            inputMode="decimal"
+            className={canEditInrLimit ? inputClass : readOnlyClass}
+            readOnly={!canEditInrLimit}
+            value={canEditInrLimit ? edit.calculatedLimit : (row.calculatedLimit != null ? String(row.calculatedLimit) : '')}
+            onKeyDown={canEditInrLimit ? onNumericInputKeyDown : undefined}
+            onChange={(e) => setFieldEdit(row, { calculatedLimit: e.target.value.replace(/[^\d.]/g, '') })}
+            onBlur={
+              canEditInrLimit
+                ? () => {
+                    const { currencyInr, calculatedLimit } = getFieldEdit(row);
+                    if (!currencyInr.trim() && !calculatedLimit.trim()) return;
+                    void saveFieldEdits(row).catch(() => toast.error('Failed to save limit'));
+                  }
+                : undefined
+            }
+          />
+        );
+      },
+      minWidth: '7rem',
+    },
+    {
+      name: 'Approval',
+      cell: (row) => (
+        isAdmin ? (
+          <PayoutStatusSelect
+            value={row.status}
+            disabled={actioningId === row.id}
+            onChange={(status) => void handleApprovalChange(row, status)}
+          />
+        ) : (
+          <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />
+        )
+      ),
+      minWidth: '11rem',
+    },
+    {
+      name: 'Checker',
+      selector: (row) => payoutCheckerLabel(row),
+      cell: (row) => {
+        const checker = payoutCheckerLabel(row);
+        const actedAt = row.lastActedAt || row.approvedAt || row.rejectedAt;
+        return (
+          <div className="min-w-[5.5rem]">
+            <p className="font-semibold text-slate-800">{checker}</p>
+            {checker !== '-' && actedAt ? (
+              <p className="text-xs text-slate-500">{String(actedAt).slice(0, 10)}</p>
+            ) : null}
+          </div>
+        );
+      },
+      sortable: true,
+      minWidth: '6.5rem',
+    },
+    {
+      name: 'Empl Code',
+      selector: (row) => row.dsaCode,
+      cell: (row) => <span className="uppercase">{row.dsaCode}</span>,
+      sortable: true,
+      minWidth: '6rem',
+    },
+  ], [
+    actioningId,
+    getFieldEdit,
+    handleApprovalChange,
+    isAdmin,
+    saveFieldEdits,
+    setFieldEdit,
+  ]);
 
   return (
     <ErrorBoundary>
-      <PageHeader title="DSA Payouts" subtitle="Maker stage: submit DSA payment requests for approval."
-        beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
-        actions={[
-          ...(isAdmin ? [{ label: 'Export CSV Report', onClick: exportCsv }] : []),
-          { label: '+ New Submission', onClick: () => setShowForm(true) },
-        ]} />
+      <PageHeader
+        title="DSA Limit"
+        subtitle="DSA pay-in is shown as submitted. Enter Currency-INR and Limit manually, then set Approval."
+        beforeActions={
+          <ListTableSearchInput
+            value={tableSearch}
+            onChange={setTableSearch}
+            placeholder="Search DSA, txn ref…"
+          />
+        }
+      />
 
-      <SectionCard title="DSA Limit Summary" className="mb-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-            Pending: {summary.pending}
-          </div>
-          <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-            Approved: {summary.approved}
-          </div>
-          <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-            Rejected: {summary.rejected}
-          </div>
-          <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800">
-            Approved Limit: ₹{summary.approvedLimit.toLocaleString()}
-          </div>
-          <div className="rounded border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800">
-            Available Balance: ₹{summary.approvedAvailable.toLocaleString()}
-          </div>
-        </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {isAdmin ? (
-            <FormField label="Filter by DSA Code">
-              <input
-                className={inputClass}
-                value={dsaCodeFilter}
-                onChange={(e) => setDsaCodeFilter(e.target.value.toUpperCase())}
-                placeholder="All DSAs"
-              />
-            </FormField>
-          ) : null}
-          <FormField label="Filter by Status">
-            <select className={inputClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">All</option>
-              {PAYOUT_STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </FormField>
-          <div className="flex items-end gap-2">
-            <button
-              type="button"
-              onClick={() => { setStatusFilter(''); setDsaCodeFilter(''); }}
-              className="h-9 rounded border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Reset Filters
-            </button>
-            <button
-              type="button"
-              onClick={() => { void load(); }}
-              className="h-9 rounded border border-primary px-4 text-sm font-semibold text-primary hover:bg-primary/5"
-            >
-              Apply Filters
-            </button>
-          </div>
-        </div>
+      <SectionCard title="" contentClassName="p-0 overflow-hidden">
+        <DataTableWrapper
+          className="!rounded-none !border-0 !shadow-none"
+          columns={columns}
+          data={records}
+          loading={loading}
+          searchable
+          filterText={tableSearch}
+          onFilterTextChange={setTableSearch}
+          hideSearchInput
+        />
       </SectionCard>
-
-      {showForm && (
-        <SectionCard title="New DSA Payout Submission" className="mb-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <FormField label="DSA Code" required>
-              <input
-                className={`${inputClass}${!isAdmin ? ' bg-slate-50 text-slate-700' : ''}`}
-                value={form.dsaCode}
-                placeholder="Type DSA code"
-                readOnly={!isAdmin}
-                onChange={(e) => handleDsaCodeChange(e.target.value)}
-              />
-            </FormField>
-            <FormField label="DSA Name">
-              <input
-                className={`${inputClass}${!isAdmin ? ' bg-slate-50 text-slate-700' : ''}`}
-                value={form.dsaName}
-                readOnly={!isAdmin}
-                onChange={(e) => setField('dsaName', e.target.value)}
-              />
-            </FormField>
-            <FormField label="Country">
-              <input
-                className={`${inputClass}${!isAdmin ? ' bg-slate-50 text-slate-700' : ''}`}
-                value={form.country}
-                readOnly={!isAdmin}
-                onChange={(e) => setField('country', e.target.value)}
-              />
-            </FormField>
-            <FormField label="Sharing Ratio">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className={inputClass}
-                value={form.shareRatio}
-                onKeyDown={onNumericInputKeyDown}
-                onChange={(e) => {
-                  const n = Number(e.target.value || 0);
-                  const safe = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
-                  setField('shareRatio', safe);
-                }}
-              />
-            </FormField>
-            <FormField label="Currency">
-              <select className={inputClass} value={form.currency} onChange={(e) => handleCurrencyChange(e.target.value)}>
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Amount" required>
-              <input type="number" min={0} step="0.01" className={inputClass} value={form.submittedAmount || ''}
-                onKeyDown={onNumericInputKeyDown}
-                onChange={(e) => setField('submittedAmount', parseFloat(e.target.value) || 0)} />
-            </FormField>
-            <FormField label="Mode">
-              <select className={inputClass} value={form.mode}
-                onChange={(e) => setField('mode', e.target.value as PaymentMode)}>
-                {['Cash', 'QR', 'UPI', 'Swift', 'RTGS', 'NEFT'].map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Transaction Reference">
-              <input
-                className={`${inputClass} uppercase`}
-                autoComplete="off"
-                value={form.transactionNumber}
-                onChange={(e) => setField('transactionNumber', e.target.value.toUpperCase())}
-                onBlur={(e) => setField('transactionNumber', e.target.value.trim().toUpperCase())}
-              />
-            </FormField>
-            <FormField label="Submission Date">
-              <input
-                type="date"
-                className={`${inputClass}${!isAdmin ? ' bg-slate-50 text-slate-700' : ''}`}
-                value={form.submissionDate}
-                readOnly={!isAdmin}
-                onChange={(e) => setField('submissionDate', e.target.value)}
-              />
-            </FormField>
-          </div>
-
-          {/* PAY-IN Formula */}
-          <div className="mt-5 grid grid-cols-2 gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:grid-cols-4">
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-semibold text-slate-500">New Amount (INR)</p>
-              <p className="text-lg font-bold text-primary">₹{currencyInr.toLocaleString()}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-semibold text-slate-500">BOD Balance</p>
-              <input
-                type="number"
-                min={0}
-                className={`${inputClass} font-bold`}
-                value={form.bodBalance || ''}
-                onKeyDown={onNumericInputKeyDown}
-                onChange={(e) => setField('bodBalance', parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-semibold text-slate-500">Used Value</p>
-              <input
-                type="number"
-                min={0}
-                className={`${inputClass} font-bold`}
-                value={form.usedValue || ''}
-                onKeyDown={onNumericInputKeyDown}
-                onChange={(e) => setField('usedValue', parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-semibold text-slate-500">Available Balance</p>
-              <p className="text-lg font-bold text-emerald-600">₹{availableBalance.toLocaleString()}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex gap-3">
-            <button type="button" disabled={saving} onClick={handleSubmit}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
-              {saving ? 'Submitting…' : 'Submit for Approval'}
-            </button>
-            <button type="button" onClick={() => { setShowForm(false); setForm(emptyForm()); }}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              Cancel
-            </button>
-          </div>
-        </SectionCard>
-      )}
-
-      <DataTableWrapper columns={columns} data={records} loading={loading} searchable
-        filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
     </ErrorBoundary>
   );
 };

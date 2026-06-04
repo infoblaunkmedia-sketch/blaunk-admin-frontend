@@ -12,7 +12,7 @@ export const MEDIA_TABS = [
   'Tour Package',
 ];
 export const CATEGORIES = ['Banner', 'Product', 'Service', 'Offer', 'Event'];
-export const PLANS = ['Bronze', 'Silver', 'Gold', 'Diamond', 'Platinum'];
+export const PLANS = ['Bronze', 'Silver', 'Gold', 'Diamond', 'Platinum', 'Infinity'];
 
 export const COUNTRIES = [
   'India',
@@ -38,7 +38,22 @@ export const PLAN_MONTHS: Record<string, number> = {
   Gold: 12,
   Diamond: 12,
   Platinum: 24,
+  Infinity: 9999,
 };
+
+export const PLAN_DURATION_LABELS: Record<string, string> = {
+  Bronze: '3 months',
+  Silver: '6 months',
+  Gold: '12 months',
+  Diamond: '12 months',
+  Platinum: '24 months',
+  Infinity: 'Extended visibility',
+};
+
+export function planOptionLabel(plan: string): string {
+  const duration = PLAN_DURATION_LABELS[plan];
+  return duration ? `${plan} — ${duration}` : plan;
+}
 
 export function addMonths(dateISO: string, months: number) {
   const d = new Date(dateISO);

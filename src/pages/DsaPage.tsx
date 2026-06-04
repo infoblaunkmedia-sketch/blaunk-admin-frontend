@@ -233,7 +233,7 @@ export const DsaPage: React.FC = () => {
           </div>
 
           <div className="mt-4 flex items-end justify-between">
-            <h3 className="text-4xl font-bold text-primary">DSA Details</h3>
+            <h2 className="text-4xl font-bold text-primary">DSA Details</h2>
             <button
               type="button"
               className="rounded-sm bg-primary px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"

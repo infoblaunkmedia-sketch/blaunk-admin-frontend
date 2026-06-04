@@ -113,13 +113,12 @@ export type EmployeeDraft = Partial<Employee>;
 export interface Vacancy {
   id: string;
   jobTitle: string;
-  department: string;
-  numberOfOpenings: number;
-  description: string;
   requiredExperience: string;
   location: string;
-  postedDate: string;
-  status: 'Open' | 'Closed';
+  packageLpa: string;
+  qualification: string;
+  applyEmail: string;
+  numberOfOpenings: number;
 }
 
 export type PayrollFilter = {

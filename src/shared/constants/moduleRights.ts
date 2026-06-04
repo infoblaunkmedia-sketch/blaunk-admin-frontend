@@ -47,7 +47,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
     label: 'Finance',
     children: [
       { key: 'b2b', label: 'B2B Payments' },
-      { key: 'dsa-payouts', label: 'DSA Payouts' },
+      { key: 'dsa-payouts', label: 'DSA Limit' },
       { key: 'bank-accounts', label: 'BGT Bank Accounts' },
     ],
   },
@@ -58,7 +58,6 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'plan-charges', label: 'Plan Charges' },
       { key: 'commission', label: 'Commission' },
       { key: 'vouchers', label: 'Vouchers' },
-      { key: 'dsa-limits', label: 'DSA Limits' },
       { key: 'products', label: 'Products' },
       { key: 'categories', label: 'Categories' },
     ],

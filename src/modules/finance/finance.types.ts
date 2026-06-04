@@ -38,6 +38,8 @@ export interface DsaPayoutSubmission {
   approvedAt?: string;
   rejectedBy?: string;
   rejectedAt?: string;
+  lastActedBy?: string;
+  lastActedAt?: string;
   newAmount?: number;
   bodBalance?: number;
   usedValue?: number;

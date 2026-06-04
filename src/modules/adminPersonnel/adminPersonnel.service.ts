@@ -44,6 +44,55 @@ export async function deleteSiteMediaSlot(payload: {
   await api.delete('/api/admin-personnel/media/slots', payload);
 }
 
+export type ContestQuizForm = {
+  question: string;
+  options: string[];
+  validUntil: string;
+};
+
+export type ContestQuizAdmin =
+  | { exists: false }
+  | {
+      exists: true;
+      key: string;
+      question: string;
+      options: string[];
+      validUntil: string;
+      deadlinePreview: string;
+    };
+
+export type ContestSubmissionRow = {
+  id: string;
+  participantName: string;
+  participantEmail: string;
+  username: string;
+  answerText: string;
+  optionIndex: number;
+  submittedAt: string;
+};
+
+export async function fetchContestQuiz(): Promise<ContestQuizAdmin> {
+  const res = await api.get<{ quiz: ContestQuizAdmin }>('/api/contest-quiz');
+  return res.quiz;
+}
+
+export async function saveContestQuiz(payload: ContestQuizForm): Promise<ContestQuizAdmin> {
+  const res = await api.put<{ quiz: ContestQuizAdmin }>('/api/contest-quiz', payload);
+  return res.quiz;
+}
+
+export async function deleteContestQuiz(): Promise<ContestQuizAdmin> {
+  const res = await api.delete<{ quiz: ContestQuizAdmin }>('/api/contest-quiz');
+  return res.quiz;
+}
+
+export async function fetchContestSubmissions(): Promise<ContestSubmissionRow[]> {
+  const res = await api.get<{ records: ContestSubmissionRow[]; total: number }>(
+    '/api/contest-quiz/submissions',
+  );
+  return res.records || [];
+}
+
 export function recordsToSlotMaps(records: SiteMediaRecord[]) {
   const imageSlots: Record<
     string,

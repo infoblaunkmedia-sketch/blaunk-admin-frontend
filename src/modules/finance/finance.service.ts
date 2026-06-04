@@ -64,6 +64,13 @@ export async function fetchPendingPayouts(): Promise<DsaPayoutSubmission[]> {
 export async function updatePayoutStatusById(id: string, status: string, note = ''): Promise<void> {
   await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/status`, { status, note });
 }
+
+export async function updatePayoutFieldsById(
+  id: string,
+  fields: { currencyInr?: number; calculatedLimit?: number },
+): Promise<void> {
+  await api.patch<{ record: unknown }>(`/api/dsa-payouts/${encodeURIComponent(id)}/fields`, fields);
+}
 export async function approvePayoutById(id: string, note: string): Promise<void> {
   await updatePayoutStatusById(id, 'APPROVED', note);
 }

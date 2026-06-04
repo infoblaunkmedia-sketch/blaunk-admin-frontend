@@ -167,7 +167,7 @@ export const Verifiers: React.FC = () => {
     <ErrorBoundary>
       <PageHeader
         title="Verifiers"
-        subtitle="Vendor verification — maker submits, checker reviews each field."
+        subtitle="Vendor verification — maker submits, cheker reviews each field."
         beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
       />
       <DataTableWrapper

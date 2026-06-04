@@ -24,23 +24,23 @@ import { resolveAdPlanFees } from '../../platform/platform.service';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { isNegativePayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
 import {
-  CATEGORIES,
   COUNTRIES,
-  MEDIA_TABS,
   PLANS,
   SECTIONS,
   STATUSES,
-  PLAN_MONTHS,
-  addMonths,
+  planOptionLabel,
   toAbsoluteMediaUrl,
 } from './constants';
+
+const DEFAULT_MEDIA_TAB = 'Slider';
+const DEFAULT_CATEGORY = 'Banner';
 
 const inputClass = 'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-primary';
 
 const emptyForm = (section = 'HOMEPAGE') => ({
   section,
   country: 'India',
-  category: CATEGORIES[0],
+  category: DEFAULT_CATEGORY,
   plan: 'Bronze',
   matchCode: '',
   planCharge: 0,
@@ -68,8 +68,8 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   const dsaCode = user?.code || user?.name || 'UNKNOWN';
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState('Slider');
   const [form, setForm] = React.useState(emptyForm());
+  const [marginInput, setMarginInput] = React.useState('0');
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [summary, setSummary] = React.useState({ totalMargin: 50000, marginUsed: 0, availableMargin: 50000 });
   const [slotStatus, setSlotStatus] = React.useState<DsaSlotStatus | null>(null);
@@ -82,29 +82,25 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   });
   const [matchCodeStatus, setMatchCodeStatus] = React.useState<'idle' | 'valid' | 'invalid'>('idle');
 
-  const switchTab = React.useCallback((tab: string) => {
-    setActiveTab(tab);
-    setEditingId(null);
-    setForm(emptyForm('HOMEPAGE'));
-  }, []);
-
   const load = React.useCallback(
     async (slotCtx?: { section: string; country: string }) => {
       const section = slotCtx?.section ?? form.section;
       const country = slotCtx?.country ?? form.country;
       setLoading(true);
       try {
-        const [sum, slot, payouts, uploadLimit] = await Promise.all([
-          fetchSliderSummary({ mediaTab: activeTab, dsaCode }),
+        const [sum, slot, payouts, uploadLimit, activeMatch] = await Promise.all([
+          fetchSliderSummary({ mediaTab: DEFAULT_MEDIA_TAB, dsaCode }),
           fetchDsaSlotStatus({
-            mediaTab: activeTab,
+            mediaTab: DEFAULT_MEDIA_TAB,
             section,
             country,
           }),
           fetchDsaPayoutHistory({ dsaCode }),
           fetchDsaUploadLimitStatus(dsaCode),
+          getActiveMatchDoe().catch(() => null),
         ]);
         setSummary(sum);
+        setMarginInput(String(sum.marginUsed ?? 0));
         setSlotStatus(slot);
         setFinanceHistory(payouts);
         setDsaUploadLimit({
@@ -112,13 +108,14 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
           activeUploads: uploadLimit.activeUploads,
           remainingSlots: uploadLimit.remainingSlots,
         });
+        setActiveMatchDoeCode(String(activeMatch?.code || '').replace(/\D/g, '').trim());
       } catch (e) {
         toast.error(getErrorMessage(e, 'Failed to load sliders'));
       } finally {
         setLoading(false);
       }
     },
-    [activeTab, dsaCode, form.section, form.country],
+    [dsaCode, form.section, form.country],
   );
 
   React.useEffect(() => {
@@ -126,26 +123,13 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   }, [load, refreshKey]);
 
   React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const active = await getActiveMatchDoe();
-      if (!mounted) return;
-      setActiveMatchDoeCode(String(active?.code || '').trim());
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  React.useEffect(() => {
     const payload = (location.state as { editSlider?: DsaSlider } | null)?.editSlider;
     if (!payload) return;
-    if (payload.mediaTab) setActiveTab(payload.mediaTab);
     setEditingId(payload.id);
     setForm({
       section: payload.section,
       country: payload.country,
-      category: payload.category || CATEGORIES[0],
+      category: payload.category || DEFAULT_CATEGORY,
       plan: payload.plan,
       matchCode: payload.matchCode || '',
       planCharge: Number(payload.planCharge || 0),
@@ -167,9 +151,9 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       && dsaUploadLimit.remainingSlots != null
       && dsaUploadLimit.remainingSlots <= 0,
   );
-  const calculatedExpiry = form.plan
-    ? addMonths(new Date().toISOString().slice(0, 10), PLAN_MONTHS[form.plan] || 0)
-    : '';
+  const limitAmount = Number(summary.totalMargin || 0);
+  const marginValue = Number(marginInput) || 0;
+  const availableLimit = Math.max(0, limitAmount - marginValue);
 
   React.useEffect(() => {
     const code = String(form.matchCode || '').trim();
@@ -189,7 +173,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      const fees = await resolveAdPlanFees(activeTab, form.plan);
+      const fees = await resolveAdPlanFees(DEFAULT_MEDIA_TAB, form.plan);
       if (cancelled) return;
       setForm((p) => ({
         ...p,
@@ -198,7 +182,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       }));
     })();
     return () => { cancelled = true; };
-  }, [activeTab, form.plan]);
+  }, [form.plan]);
 
   React.useEffect(() => {
     setForm((p) => ({ ...p, toPay: Number((Number(p.planCharge || 0) + Number(p.luxuryFees || 0) - Number(p.discount || 0)).toFixed(2)) }));
@@ -230,19 +214,27 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       return;
     }
     if (!form.country) return toast.error('Country is required');
-    if (!form.category) return toast.error('Category is required');
     if (!form.plan) return toast.error('Plan is required');
-    if (!String(form.matchCode || '').trim()) return toast.error('Match Code is required');
-    if (!activeMatchDoeCode) return toast.error('Match Code is not matching active code.');
-    const isValidCode = await validateMatchDoe(String(form.matchCode || '').trim());
-    if (!isValidCode) return toast.error('Match Code is not matching active code.');
+    const matchDigits = String(form.matchCode || '').replace(/\D/g, '').trim();
+    if (matchDigits.length !== 5) return toast.error('Enter the 5-digit active Match Code.');
+    const isValidCode =
+      (activeMatchDoeCode && matchDigits === activeMatchDoeCode)
+      || (await validateMatchDoe(matchDigits));
+    if (!isValidCode) {
+      return toast.error(
+        activeMatchDoeCode
+          ? `Match Code must be ${activeMatchDoeCode} (current active code from Settings → Match Code).`
+          : 'No active Match Code. Ask admin to generate one in Settings → Match Code.',
+      );
+    }
     if (!form.imageUrl) return toast.error('Image is required');
     setSaving(true);
     try {
       const payload = {
         ...form,
         productId: '',
-        mediaTab: activeTab,
+        mediaTab: DEFAULT_MEDIA_TAB,
+        category: form.category || DEFAULT_CATEGORY,
         dsaCode,
       };
       if (editingId) await updateDsaSlider(editingId, payload);
@@ -261,47 +253,47 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
 
   return (
     <ErrorBoundary>
-      <PageHeader title={`Media Upload - ${activeTab}`} subtitle="Advertisement" />
+      <PageHeader title="Media Upload" subtitle="Advertisement upload for DSA" />
 
-      <SectionCard title="" className="mb-6">
-        <div className="mb-3 flex flex-wrap gap-2">
-          {MEDIA_TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => switchTab(tab)}
-              className={[
-                'rounded-md border px-3 py-1 text-xs font-semibold',
-                activeTab === tab ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-white text-slate-700',
-              ].join(' ')}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="rounded-lg border border-slate-200">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
-            <h3 className="text-2xl font-bold text-slate-800">{activeTab}</h3>
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-600">
-              <span>DSA Code: {dsaCode}</span>
-              {dsaUploadLimit.maxSlots > 0 ? (
-                <span>
-                  Ad Slot: {dsaUploadLimit.activeUploads}/{dsaUploadLimit.maxSlots}
-                </span>
-              ) : null}
+      <SectionCard title="" className="mb-6" contentClassName="p-0 overflow-hidden">
+        <div>
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-2">
+            <div className="min-w-0">
+              <h3 className="text-xl font-bold text-slate-800">Media Upload</h3>
+              <p className="mt-0.5 text-xs font-semibold text-slate-600">
+                {slotStatus
+                  ? `${slotStatus.usedSlots} / ${slotStatus.maxSlots} Slots Used · ${slotStatus.section} · ${slotStatus.country}`
+                  : 'Slot status…'}
+                {dsaUploadLimit.maxSlots > 0
+                  ? ` · Ad Slot ${dsaUploadLimit.activeUploads}/${dsaUploadLimit.maxSlots}`
+                  : ''}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 text-xs font-semibold text-slate-600 sm:gap-4">
+              <span className="whitespace-nowrap">DSA Code: {dsaCode}</span>
+              <span className="whitespace-nowrap">Limit: ₹{limitAmount.toLocaleString()}</span>
+              <label className="flex items-center gap-2 whitespace-nowrap">
+                Margin
+                <input
+                  type="number"
+                  min={0}
+                  className="h-8 w-28 rounded border border-slate-300 px-2 text-sm font-semibold text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+                  value={marginInput}
+                  title="Loaded from sum of Active/Draft upload To Pay; editable to adjust available balance"
+                  onKeyDown={onNumericInputKeyDown}
+                  onChange={(e) => setMarginInput(e.target.value)}
+                />
+              </label>
+              <span className="whitespace-nowrap font-semibold text-emerald-700">
+                Available: ₹{availableLimit.toLocaleString()}
+              </span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-            <span className="text-slate-800">
-              {slotStatus
-                ? `${slotStatus.usedSlots} / ${slotStatus.maxSlots} Slots Used · ${slotStatus.section} · ${slotStatus.country}`
-                : 'Slot status…'}
-            </span>
-            <span className="text-right">
-              Available Margin: {summary.availableMargin.toFixed(2)} &nbsp;&nbsp; Margin Used: {summary.marginUsed.toFixed(2)}
-            </span>
-          </div>
+          {limitAmount <= 0 ? (
+            <div className="border-b border-amber-100 bg-amber-50 px-4 py-1.5 text-center text-xs font-semibold text-amber-800">
+              No approved limit yet.
+            </div>
+          ) : null}
 
           {dsaUploadLimitReached ? (
             <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-center text-sm font-semibold text-red-800">
@@ -315,24 +307,65 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
             </div>
           ) : null}
 
-          <div className="px-3 py-3 text-white">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
+          <div className="space-y-3 px-4 py-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <FormField label="Section" required>
                 <select className={inputClass} value={form.section} onChange={(e) => setForm((p) => ({ ...p, section: e.target.value }))}>
                   {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </FormField>
-              <FormField label="Country" required><select className={inputClass} value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}>{COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></FormField>
-              <FormField label="Category" required>
-                <select className={inputClass} value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              <FormField label="Country" required>
+                <select className={inputClass} value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}>
+                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </FormField>
-              <FormField label="Plan" required><select className={inputClass} value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}>{PLANS.map((p1) => <option key={p1} value={p1}>{p1}</option>)}</select></FormField>
-              <FormField label="Expiry Date">
-                <input className={`${inputClass} bg-slate-50`} readOnly value={calculatedExpiry || '—'} />
+              <FormField label="Plan" required>
+                <select className={inputClass} value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}>
+                  {PLANS.map((p1) => (
+                    <option key={p1} value={p1}>{planOptionLabel(p1)}</option>
+                  ))}
+                </select>
               </FormField>
-              <FormField label="Plan Charge"><input type="number" min={0} className={`${inputClass} bg-slate-50`} value={form.planCharge} readOnly title="From Platform & Products → Plan Charges" /></FormField>
+              <FormField label="Match Code" required>
+                <input
+                  className={inputClass}
+                  value={form.matchCode}
+                  onChange={(e) => setForm((p) => ({ ...p, matchCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
+                  placeholder={activeMatchDoeCode ? activeMatchDoeCode : '5-digit code'}
+                />
+                {activeMatchDoeCode ? (
+                  <p className="text-xs font-semibold text-slate-500">Active: {activeMatchDoeCode}</p>
+                ) : null}
+                {matchCodeStatus === 'valid' ? (
+                  <p className="text-xs font-semibold text-emerald-600">Successful</p>
+                ) : null}
+                {matchCodeStatus === 'invalid' ? (
+                  <p className="text-xs font-semibold text-red-600">Invalid</p>
+                ) : null}
+              </FormField>
+              <FormField label="Status">
+                <select
+                  className={inputClass}
+                  value={form.status}
+                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as SliderStatus }))}
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <FormField label="Plan Charge">
+                <input
+                  type="number"
+                  min={0}
+                  className={`${inputClass} bg-slate-50`}
+                  value={form.planCharge}
+                  readOnly
+                  title="From Platform & Products → Adv Plan"
+                />
+              </FormField>
               <FormField label="Luxury Fees">
                 <input
                   type="number"
@@ -343,58 +376,21 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   onChange={(e) => setForm((p) => ({ ...p, luxuryFees: Number(e.target.value || 0) }))}
                 />
               </FormField>
+              <FormField label="Discount">
+                <input
+                  type="number"
+                  min={0}
+                  className={inputClass}
+                  value={form.discount}
+                  onKeyDown={onNumericInputKeyDown}
+                  onChange={(e) => setForm((p) => ({ ...p, discount: Number(e.target.value || 0) }))}
+                />
+              </FormField>
+              <FormField label="To Pay">
+                <input className={`${inputClass} bg-slate-50`} value={form.toPay} readOnly />
+              </FormField>
+              <div className="hidden lg:block" aria-hidden />
             </div>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
-                <FormField label="To Pay">
-                  <input
-                    className={inputClass}
-                    value={form.toPay}
-                    disabled
-                  />
-                </FormField>
-
-                <FormField label="Status">
-                  <select
-                    className={inputClass}
-                    value={form.status}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        status: e.target.value as SliderStatus,
-                      }))
-                    }
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label="Discount">
-                  <input
-                    type="number"
-                    min={0}
-                    className={inputClass}
-                    value={form.discount}
-                    onKeyDown={onNumericInputKeyDown}
-                    onChange={(e) => setForm((p) => ({ ...p, discount: Number(e.target.value || 0) }))}
-                  />
-                </FormField>
-                <FormField label="Match Code" required>
-                  <input
-                    className={inputClass}
-                    value={form.matchCode}
-                    onChange={(e) => setForm((p) => ({ ...p, matchCode: e.target.value.toUpperCase().replace(/\D/g, '').slice(0, 5) }))}
-                  />
-                  {matchCodeStatus === 'valid' ? (
-                    <p className="text-xs font-semibold text-emerald-600">Successful</p>
-                  ) : null}
-                  {matchCodeStatus === 'invalid' ? (
-                    <p className="text-xs font-semibold text-red-600">Invalid</p>
-                  ) : null}
-                </FormField>
-              </div>
           </div>
 
           <div className="px-4 py-4">
@@ -447,9 +443,9 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
         </div>
       </SectionCard>
 
-      <SectionCard title="Finance History (DSA)" className="mt-2">
+      <SectionCard title="Finance History (DSA)" className="mt-2" contentClassName="p-0 overflow-hidden">
         {financeHistory.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-500">No finance history found for this DSA.</p>
+          <p className="px-4 py-6 text-center text-sm text-slate-500">No finance history found for this DSA.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm">

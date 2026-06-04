@@ -11,7 +11,9 @@ export type BoutiqueBannerPosition =
 
 const FASHION_ACCESSORIES_CHIP_COUNT = 5;
 const TRENDY_STAR_CHIP_COUNT = 5;
-const DISCLAIMER_UTILITY_CHIP_COUNT = 5;
+/** Optional header (sortOrder 0) + up to 9 disclaimer carousel cards. */
+const DISCLAIMER_UTILITY_CHIP_COUNT = 9;
+const DISCLAIMER_UTILITY_MAX_RECORDS = 1 + DISCLAIMER_UTILITY_CHIP_COUNT;
 const EDITORIAL_GALLERY_MAX = 8;
 
 export const BOUTIQUE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
@@ -107,12 +109,12 @@ export const BOUTIQUE_BANNER_POSITIONS: HomepageBannerPositionConfig[] = [
   {
     id: 'disclaimer-utility',
     label: 'Disclaimer Utility',
-    hint: 'Optional LEGAL DISCLAIMER header (sortOrder 0) + up to 5 carousel cards — 16:9 recommended',
+    hint: 'Optional LEGAL DISCLAIMER header (sortOrder 0), then + Add card for up to 9 carousel uploads — 16:9 recommended',
     aspect: 16 / 9,
     aspectLabel: '16:9',
     fields: [],
     imageRequired: false,
-    maxRecords: 1 + DISCLAIMER_UTILITY_CHIP_COUNT,
+    maxRecords: DISCLAIMER_UTILITY_MAX_RECORDS,
     discoveryHub: {
       headerFields: ['title', 'titleAccent', 'description', 'isActive'],
       chipFields: ['image', 'title', 'linkUrl', 'chipSlot', 'isActive'],

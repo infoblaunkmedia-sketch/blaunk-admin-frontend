@@ -103,7 +103,7 @@ export const PlanCharges: React.FC = () => {
       <PageHeader title="Plan Charges" subtitle="Manage subscription and advertisement pricing." />
 
       <SectionCard
-        title="Plan Charges"
+        title="Product Plan"
         className="mb-5"
         actions={
           editingSub ? (
@@ -126,7 +126,7 @@ export const PlanCharges: React.FC = () => {
         }
       >
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-semibold text-slate-700">Product Plan :</label>
+          <label className="text-sm font-semibold text-slate-700">Product plan</label>
           <select
             className={`${inputClass} max-w-[200px]`}
             value={productConfig.productPlan || 'Select'}
@@ -230,7 +230,7 @@ export const PlanCharges: React.FC = () => {
           ))}
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-semibold text-slate-700">Advertisement Plan :</label>
+          <label className="text-sm font-semibold text-slate-700">Adv plan</label>
           <select
             className={`${inputClass} max-w-[220px]`}
             value={adConfig.adPlan || 'Select'}

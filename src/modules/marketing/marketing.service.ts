@@ -56,10 +56,16 @@ export async function generateNewMatchDoe(generatedBy: string): Promise<MatchDoe
   };
 }
 export async function validateMatchDoe(code: string): Promise<boolean> {
-  const q = new URLSearchParams();
-  q.set('code', code);
-  const res = await api.get<{ valid?: boolean }>(`/api/match-code/validate?${q.toString()}`);
-  return !!res.valid;
+  const digits = String(code || '').replace(/\D/g, '').trim();
+  if (!digits) return false;
+  try {
+    const q = new URLSearchParams();
+    q.set('code', digits);
+    const res = await api.get<{ valid?: boolean }>(`/api/match-code/validate?${q.toString()}`);
+    return !!res.valid;
+  } catch {
+    return false;
+  }
 }
 
 // Contests

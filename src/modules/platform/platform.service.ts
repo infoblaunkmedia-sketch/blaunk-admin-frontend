@@ -46,6 +46,7 @@ const DEFAULT_AD_PLAN_ROWS = [
   { name: 'Gold', duration: '1Yr Validity', basicFees: 500, assuranceFees: 0 },
   { name: 'Diamond', duration: '1Yr Validity', basicFees: 999, assuranceFees: 0 },
   { name: 'Platinum', duration: '2Yr Validity', basicFees: 1999, assuranceFees: 0 },
+  { name: 'Infinity', duration: 'Extended visibility', basicFees: 0, assuranceFees: 0 },
 ];
 
 /** Media Upload plan label → row name in saved ad plan charges (localStorage). */
@@ -55,10 +56,15 @@ const AD_PLAN_TIER_ALIASES: Record<string, string> = {
 };
 
 function normalizeAdPlanRows(rows: AdPlanChargeRow[]): AdPlanChargeRow[] {
-  return rows.map((r) => {
+  const normalized = rows.map((r) => {
     if (r.name === 'Standard') return { ...r, name: 'Bronze' };
     return r;
   });
+  if (!normalized.some((r) => r.name === 'Infinity')) {
+    const infinityDefault = DEFAULT_AD_PLAN_ROWS.find((r) => r.name === 'Infinity');
+    if (infinityDefault) normalized.push({ ...infinityDefault });
+  }
+  return normalized;
 }
 
 const DEFAULT_PRODUCT_PLAN_CHARGES: ProductPlanChargesConfig = {

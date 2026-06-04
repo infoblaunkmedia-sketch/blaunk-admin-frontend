@@ -71,7 +71,7 @@ export const DsaLimits: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title="DSA Limits" subtitle="Approve pending DSA payout submissions and configure limit parameters." />
+      <PageHeader title="DSA Limits" subtitle="Cheker: approve pending DSA payout submissions and configure limit parameters." />
 
       {/* Tab toggle */}
       <div className="mb-5 flex gap-2">
