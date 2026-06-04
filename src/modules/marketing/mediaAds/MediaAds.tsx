@@ -14,7 +14,6 @@ import {
   fetchDsaUploadLimitStatus,
   fetchDsaSlotStatus,
   fetchSliderSummary,
-  getActiveMatchDoe,
   updateDsaSlider,
   validateMatchDoe,
 } from '../marketing.service';
@@ -73,22 +72,19 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [summary, setSummary] = React.useState({ totalMargin: 50000, marginUsed: 0, availableMargin: 50000 });
   const [slotStatus, setSlotStatus] = React.useState<DsaSlotStatus | null>(null);
-  const [activeMatchDoeCode, setActiveMatchDoeCode] = React.useState('');
   const [financeHistory, setFinanceHistory] = React.useState<DsaPayoutHistory[]>([]);
   const [dsaUploadLimit, setDsaUploadLimit] = React.useState({
     maxSlots: 0,
     activeUploads: 0,
     remainingSlots: null as number | null,
   });
-  const [matchCodeStatus, setMatchCodeStatus] = React.useState<'idle' | 'valid' | 'invalid'>('idle');
-
   const load = React.useCallback(
     async (slotCtx?: { section: string; country: string }) => {
       const section = slotCtx?.section ?? form.section;
       const country = slotCtx?.country ?? form.country;
       setLoading(true);
       try {
-        const [sum, slot, payouts, uploadLimit, activeMatch] = await Promise.all([
+        const [sum, slot, payouts, uploadLimit] = await Promise.all([
           fetchSliderSummary({ mediaTab: DEFAULT_MEDIA_TAB, dsaCode }),
           fetchDsaSlotStatus({
             mediaTab: DEFAULT_MEDIA_TAB,
@@ -97,7 +93,6 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
           }),
           fetchDsaPayoutHistory({ dsaCode }),
           fetchDsaUploadLimitStatus(dsaCode),
-          getActiveMatchDoe().catch(() => null),
         ]);
         setSummary(sum);
         setMarginInput(String(sum.marginUsed ?? 0));
@@ -108,7 +103,6 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
           activeUploads: uploadLimit.activeUploads,
           remainingSlots: uploadLimit.remainingSlots,
         });
-        setActiveMatchDoeCode(String(activeMatch?.code || '').replace(/\D/g, '').trim());
       } catch (e) {
         toast.error(getErrorMessage(e, 'Failed to load sliders'));
       } finally {
@@ -131,7 +125,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       country: payload.country,
       category: payload.category || DEFAULT_CATEGORY,
       plan: payload.plan,
-      matchCode: payload.matchCode || '',
+      matchCode: '',
       planCharge: Number(payload.planCharge || 0),
       luxuryFees: Number(payload.luxuryFees || 0),
       discount: Number(payload.discount || 0),
@@ -154,21 +148,6 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   const limitAmount = Number(summary.totalMargin || 0);
   const marginValue = Number(marginInput) || 0;
   const availableLimit = Math.max(0, limitAmount - marginValue);
-
-  React.useEffect(() => {
-    const code = String(form.matchCode || '').trim();
-    if (code.length !== 5) {
-      setMatchCodeStatus('idle');
-      return;
-    }
-    let cancelled = false;
-    void validateMatchDoe(code).then((ok) => {
-      if (!cancelled) setMatchCodeStatus(ok ? 'valid' : 'invalid');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [form.matchCode]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -217,15 +196,9 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
     if (!form.plan) return toast.error('Plan is required');
     const matchDigits = String(form.matchCode || '').replace(/\D/g, '').trim();
     if (matchDigits.length !== 5) return toast.error('Enter the 5-digit active Match Code.');
-    const isValidCode =
-      (activeMatchDoeCode && matchDigits === activeMatchDoeCode)
-      || (await validateMatchDoe(matchDigits));
+    const isValidCode = await validateMatchDoe(matchDigits);
     if (!isValidCode) {
-      return toast.error(
-        activeMatchDoeCode
-          ? `Match Code must be ${activeMatchDoeCode} (current active code from Settings → Match Code).`
-          : 'No active Match Code. Ask admin to generate one in Settings → Match Code.',
-      );
+      return toast.error('Match Code does not match the current active code.');
     }
     if (!form.imageUrl) return toast.error('Image is required');
     setSaving(true);
@@ -331,17 +304,8 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   className={inputClass}
                   value={form.matchCode}
                   onChange={(e) => setForm((p) => ({ ...p, matchCode: e.target.value.replace(/\D/g, '').slice(0, 5) }))}
-                  placeholder={activeMatchDoeCode ? activeMatchDoeCode : '5-digit code'}
+                  autoComplete="off"
                 />
-                {activeMatchDoeCode ? (
-                  <p className="text-xs font-semibold text-slate-500">Active: {activeMatchDoeCode}</p>
-                ) : null}
-                {matchCodeStatus === 'valid' ? (
-                  <p className="text-xs font-semibold text-emerald-600">Successful</p>
-                ) : null}
-                {matchCodeStatus === 'invalid' ? (
-                  <p className="text-xs font-semibold text-red-600">Invalid</p>
-                ) : null}
               </FormField>
               <FormField label="Status">
                 <select
