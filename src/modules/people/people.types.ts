@@ -117,7 +117,8 @@ export interface Vacancy {
   location: string;
   packageLpa: string;
   qualification: string;
-  applyEmail: string;
+  /** Resolved from global Careers apply-email setting when listing. */
+  applyEmail?: string;
   numberOfOpenings: number;
 }
 

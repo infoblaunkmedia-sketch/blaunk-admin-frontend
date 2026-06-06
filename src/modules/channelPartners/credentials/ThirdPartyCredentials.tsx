@@ -7,6 +7,7 @@ import { DataTableWrapper, ListTableSearchInput } from '../../../shared/componen
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { DEPARTMENTS } from '../../../shared/constants/hrConstants';
 import type { ThirdPartyCredential } from '../channelPartners.types';
 import { fetchCredentials, saveCredential, deleteCredential } from '../channelPartners.service';
@@ -90,7 +91,7 @@ export const ThirdPartyCredentials: React.FC = () => {
       width: '160px',
     },
     { name: 'URL', selector: (r) => r.url, cell: (r) => r.url ? <a href={r.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate max-w-[140px]">{r.url}</a> : '—' },
-    { name: 'Added', selector: (r) => r.createdAt ?? '', format: (r) => r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—', width: '100px' },
+    { name: 'Added', selector: (r) => r.createdAt ?? '', format: (r) => formatDateDDMMYYYY(String(r.createdAt || '')) || '—', width: '100px' },
     {
       name: 'Actions',
       cell: (r) => (

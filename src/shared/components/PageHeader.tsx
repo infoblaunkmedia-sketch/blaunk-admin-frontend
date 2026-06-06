@@ -10,6 +10,7 @@ interface Action {
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  className?: string;
   /** Filters/controls below title on the left (e.g. slot dropdown + search). */
   toolbarLeft?: React.ReactNode;
   /** Renders before primary action buttons on the right (legacy; prefer toolbarLeft). */
@@ -28,6 +29,7 @@ const variantClass: Record<NonNullable<Action['variant']>, string> = {
 export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
   subtitle,
+  className = 'mb-6',
   toolbarLeft,
   beforeActions,
   actions = [],
@@ -37,7 +39,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     beforeActions != null || actions.length > 0 || reserveActionsColumn;
 
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className={['flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between', className].join(' ')}>
       <div className="min-w-0 flex-1">
         <h1 className="text-xl font-bold text-primary">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}

@@ -4,6 +4,7 @@ import type {
   ProductPlanChargesConfig, AdPlanChargesConfig, AdPlanChargeRow,
 } from './platform.types';
 import { SUBSCRIPTION_PLAN_NAMES, AD_PLAN_TYPES } from './platform.types';
+import { api } from '../../shared/services/apiService';
 
 const SUB_PLANS_KEY = 'blaunk_sub_plans';
 const AD_PLANS_KEY = 'blaunk_ad_plans';
@@ -128,11 +129,50 @@ export async function saveAdPlans(plans: AdPlan[]): Promise<void> {
 }
 
 // Plan Charges (Product + Advertisement tables)
+type ApiPlanCharge = {
+  id: string;
+  planName: string;
+  duration: string;
+  subscriptionFee: number;
+  renewalFee: number;
+  maxMRP: number;
+  offer: string;
+};
+
 export async function fetchProductPlanCharges(): Promise<ProductPlanChargesConfig> {
-  return load(PRODUCT_PLAN_CHARGES_KEY, DEFAULT_PRODUCT_PLAN_CHARGES);
+  try {
+    const res = await api.get<{ plans: ApiPlanCharge[] }>('/api/plan-charges');
+    const rows = (res.plans || [])
+      .filter((p) => p.planName !== 'Infinity')
+      .map((p) => ({
+        id: p.id,
+        name: p.planName,
+        duration: p.duration,
+        subscription: p.subscriptionFee,
+        renewalFees: p.renewalFee,
+        maxMrp: p.maxMRP,
+        offer: p.offer,
+      }));
+    const stored = load(PRODUCT_PLAN_CHARGES_KEY, DEFAULT_PRODUCT_PLAN_CHARGES);
+    return { productPlan: stored.productPlan, rows: rows.length ? rows : DEFAULT_PRODUCT_PLAN_ROWS };
+  } catch {
+    return load(PRODUCT_PLAN_CHARGES_KEY, DEFAULT_PRODUCT_PLAN_CHARGES);
+  }
 }
+
 export async function saveProductPlanCharges(config: ProductPlanChargesConfig): Promise<void> {
-  persist(PRODUCT_PLAN_CHARGES_KEY, config);
+  const updates = config.rows.filter((r) => r.id);
+  await Promise.all(
+    updates.map((row) =>
+      api.patch(`/api/plan-charges/${encodeURIComponent(String(row.id))}`, {
+        subscriptionFee: row.subscription,
+        renewalFee: row.renewalFees,
+        maxMRP: row.maxMrp,
+        offer: row.offer,
+      }),
+    ),
+  );
+  persist(PRODUCT_PLAN_CHARGES_KEY, { productPlan: config.productPlan, rows: config.rows });
   const plans: SubscriptionPlan[] = config.rows
     .filter((r) => SUBSCRIPTION_PLAN_NAMES.includes(r.name as SubscriptionPlan['name']))
     .map((r) => ({ name: r.name as SubscriptionPlan['name'], mrp: r.maxMrp, offerPrice: r.subscription }));

@@ -9,10 +9,12 @@ import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { BankNameInput } from '../../../shared/components/BankNameInput';
 import {
   DEPARTMENTS,
   DESIGNATIONS,
+  normalizeThirdPartyDepartment,
   THIRD_PARTY_ENTITY_OPTIONS,
   THIRD_PARTY_REMARK_OPTIONS,
   THIRD_PARTY_STATUS_OPTIONS,
@@ -26,7 +28,6 @@ import {
   deleteThirdPartyCredential,
   upload3pImage,
 } from './thirdPartyCredentials.service';
-import { getActiveMatchDoe } from '../../marketing/marketing.service';
 import {
   digitsOnlyMax,
   INDIAN_PINCODE_DIGITS_MAX,
@@ -124,6 +125,7 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
   state: '',
   threePCompanyName: '',
   threePEmplCode: '',
+  matchCode: '',
   threePEntity: '',
   businessCode: '',
   branchCode: '',
@@ -131,6 +133,8 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
   bankName: '',
   ifscCode: '',
   bankAccountNumber: '',
+  bankCity: '',
+  bankCountry: '',
   swiftNo: '',
   ibanNo: '',
   doj: '',
@@ -169,8 +173,6 @@ export const ThirdPartyCredentials: React.FC = () => {
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [showPass, setShowPass] = React.useState<Record<string, boolean>>({});
   const [tableSearch, setTableSearch] = React.useState('');
-  const [activeMatchCode, setActiveMatchCode] = React.useState<string | null>(null);
-
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
@@ -183,21 +185,6 @@ export const ThirdPartyCredentials: React.FC = () => {
   React.useEffect(() => {
     load();
   }, [load]);
-
-  React.useEffect(() => {
-    if (view !== 'form') return;
-    let mounted = true;
-    void getActiveMatchDoe()
-      .then((entry) => {
-        if (mounted) setActiveMatchCode(entry?.code?.trim() || null);
-      })
-      .catch(() => {
-        if (mounted) setActiveMatchCode(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [view]);
 
   const setField = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
@@ -221,6 +208,7 @@ export const ThirdPartyCredentials: React.FC = () => {
     setForm({
       ...emptyForm(),
       ...r,
+      department: normalizeThirdPartyDepartment(r.department || ''),
       references:
         r.references?.length
           ? [
@@ -306,13 +294,18 @@ export const ThirdPartyCredentials: React.FC = () => {
       sortable: true,
       width: '130px',
       cell: (r) => (
-        <span className="font-mono text-xs text-slate-600" title="Synced from Settings → Match Code">
+        <span className="font-mono text-xs text-slate-600" title="Synced from Management → Match Code">
           {r.matchCode || '—'}
         </span>
       ),
     },
     { name: 'Name', selector: (r) => r.name, sortable: true, grow: 2 },
-    { name: 'Department', selector: (r) => r.department, sortable: true, width: '160px' },
+    {
+      name: 'Department',
+      selector: (r) => normalizeThirdPartyDepartment(r.department || ''),
+      sortable: true,
+      width: '160px',
+    },
     { name: 'Mobile', selector: (r) => r.mobileNo, sortable: true, width: '130px' },
     { name: 'Email', selector: (r) => r.email, sortable: true, grow: 1 },
     {
@@ -324,7 +317,7 @@ export const ThirdPartyCredentials: React.FC = () => {
     {
       name: 'Updated',
       selector: (r) => r.updatedAt ?? r.createdAt ?? '',
-      format: (r) => (r.updatedAt || r.createdAt ? new Date(r.updatedAt || r.createdAt || '').toLocaleDateString() : '—'),
+      format: (r) => formatDateDDMMYYYY(String(r.updatedAt || r.createdAt || '')) || '—',
       width: '110px',
     },
     {
@@ -380,31 +373,17 @@ export const ThirdPartyCredentials: React.FC = () => {
           subtitle={
             readOnly
               ? 'View-only details for this admin panel DSA / 3P employee.'
-              : 'Add or update onboarding data. Upload validation uses the active Match Code from Settings.'
+              : 'Add or update onboarding data for admin panel DSA / 3P employees.'
           }
         />
+        <div className="flex flex-col gap-5">
         <SectionCard title={readOnly ? 'Credential Details' : editId ? 'Edit Credential' : 'New Credential'}>
-          {!readOnly && (
-            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <span className="font-semibold">Match Code (auto): </span>
-              {activeMatchCode ? (
-                <span className="font-mono font-bold text-primary">{activeMatchCode}</span>
-              ) : (
-                <span className="text-amber-700">
-                  No active code — generate one in Settings → Match Code before saving.
-                </span>
-              )}
-              <p className="mt-1 text-xs text-slate-500">
-                All 3P employees share this code. Refreshing it in Settings updates every employee and invalidates the previous code.
-              </p>
-            </div>
-          )}
           <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="Department">
               <select className={inputClass} value={form.department} onChange={(e) => setField('department', e.target.value)}>
                 <option value="">Select</option>
-                {DEPARTMENTS.map((d) => (
+                {DEPARTMENTS.map((d) => ( 
                   <option key={d} value={d}>
                     {d}
                   </option>
@@ -516,28 +495,60 @@ export const ThirdPartyCredentials: React.FC = () => {
             <FormField label="GST/TAX No">
               <input className={inputClass} value={form.gstTaxNo} onChange={(e) => setField('gstTaxNo', e.target.value)} />
             </FormField>
+          </div>
+          </fieldset>
+        </SectionCard>
 
-            <FormField label="Bank Name">
-              <BankNameInput
-                className={inputClass}
-                value={form.bankName}
-                onChange={(v) => setField('bankName', v)}
-                disabled={readOnly}
-              />
-            </FormField>
-            <FormField label="IFSC Code">
-              <input className={inputClass} value={form.ifscCode} onChange={(e) => setField('ifscCode', e.target.value.toUpperCase())} />
-            </FormField>
-            <FormField label="Bank Account No">
-              <input className={inputClass} value={form.bankAccountNumber} onChange={(e) => setField('bankAccountNumber', e.target.value)} />
-            </FormField>
-            <FormField label="SWIFT No">
-              <input className={inputClass} value={form.swiftNo} onChange={(e) => setField('swiftNo', e.target.value)} />
-            </FormField>
-            <FormField label="IBAN No">
-              <input className={inputClass} value={form.ibanNo} onChange={(e) => setField('ibanNo', e.target.value)} />
-            </FormField>
+        <SectionCard title="Bank Details">
+          <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <FormField label="Bank Name">
+                <BankNameInput
+                  className={inputClass}
+                  value={form.bankName}
+                  onChange={(v) => setField('bankName', v)}
+                  disabled={readOnly}
+                />
+              </FormField>
+              <FormField label="IFSC Code">
+                <input className={inputClass} value={form.ifscCode} onChange={(e) => setField('ifscCode', e.target.value.toUpperCase())} />
+              </FormField>
+              <FormField label="Bank Account No">
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
+                  value={form.bankAccountNumber}
+                  onChange={(e) => setField('bankAccountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                />
+              </FormField>
+              <FormField label="City">
+                <input
+                  className={inputClass}
+                  value={form.bankCity}
+                  onChange={(e) => setField('bankCity', titleCaseWords(e.target.value))}
+                />
+              </FormField>
+              <FormField label="Country">
+                <input
+                  className={inputClass}
+                  value={form.bankCountry}
+                  onChange={(e) => setField('bankCountry', titleCaseWords(e.target.value))}
+                />
+              </FormField>
+              <FormField label="SWIFT No">
+                <input className={inputClass} value={form.swiftNo} onChange={(e) => setField('swiftNo', e.target.value.toUpperCase())} />
+              </FormField>
+              <FormField label="IBAN No">
+                <input className={inputClass} value={form.ibanNo} onChange={(e) => setField('ibanNo', e.target.value.toUpperCase())} />
+              </FormField>
+            </div>
+          </fieldset>
+        </SectionCard>
 
+        <SectionCard title="Employment & Agreement">
+          <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="DOJ">
               <input type="date" className={inputClass} value={form.doj} onChange={(e) => setField('doj', e.target.value)} />
             </FormField>
@@ -625,10 +636,12 @@ export const ThirdPartyCredentials: React.FC = () => {
               <p className="mt-1 text-[11px] text-slate-500">Numbers only. The two values must add up to 100.</p>
             </FormField>
           </div>
+          </fieldset>
+        </SectionCard>
 
-          <div className="mt-6">
-            <h3 className="text-sm font-bold text-slate-800">References</h3>
-            <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <SectionCard title="References">
+          <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
               {form.references.slice(0, 2).map((ref, idx) => (
                 <React.Fragment key={idx}>
                   <FormField label="Name">
@@ -691,11 +704,12 @@ export const ThirdPartyCredentials: React.FC = () => {
                 </React.Fragment>
               ))}
             </div>
-          </div>
+          </fieldset>
+        </SectionCard>
 
-          <div className="mt-6">
-            <h3 className="text-sm font-bold text-slate-800">Documents</h3>
-            <div className="mt-3 flex flex-wrap gap-6">
+        <SectionCard title="Documents">
+          <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
+            <div className="flex flex-wrap gap-6">
               <ImageUploader
                 label="Address Proof"
                 maxSizeMB={200 / 1024}
@@ -754,8 +768,8 @@ export const ThirdPartyCredentials: React.FC = () => {
                 }}
               />
             </div>
-          </div>
           </fieldset>
+        </SectionCard>
 
           <div className="mt-4 flex gap-3">
             {!readOnly ? (
@@ -781,7 +795,7 @@ export const ThirdPartyCredentials: React.FC = () => {
               {readOnly ? 'Back to list' : 'Cancel'}
             </button>
           </div>
-        </SectionCard>
+        </div>
       </ErrorBoundary>
     );
   }
@@ -790,7 +804,7 @@ export const ThirdPartyCredentials: React.FC = () => {
     <ErrorBoundary>
       <PageHeader
         title="Admin Panel DSA / 3P Employees"
-        subtitle="Manage admin panel DSA / 3P employees. Match codes sync automatically from Settings."
+        subtitle="Manage admin panel DSA / 3P employees. Match codes sync automatically from Management."
         beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Add Credential', onClick: handleNew }]}
       />

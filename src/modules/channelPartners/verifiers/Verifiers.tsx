@@ -5,6 +5,7 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { useAuth } from '../../../auth/useAuth';
 import {
@@ -52,6 +53,8 @@ export const Verifiers: React.FC = () => {
   const [reviewRow, setReviewRow] = React.useState<VendorVerificationRecord | null>(null);
   const [reviewDraft, setReviewDraft] = React.useState<ReviewVerificationPayload>({});
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [pendingSubmit, setPendingSubmit] = React.useState<VendorVerificationRecord | null>(null);
+  const [confirmReview, setConfirmReview] = React.useState(false);
 
   const canMake =
     user?.role === 'admin' ||
@@ -88,11 +91,14 @@ export const Verifiers: React.FC = () => {
     });
   };
 
-  const handleSubmit = async (row: VendorVerificationRecord) => {
+  const handleSubmit = async () => {
+    const row = pendingSubmit;
+    if (!row) return;
     setActionLoading(true);
     try {
       await submitVendorVerification(row.vendorId);
       toast.success('Verification submitted for review');
+      setPendingSubmit(null);
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Submit failed');
@@ -108,6 +114,7 @@ export const Verifiers: React.FC = () => {
       await reviewVendorVerification(reviewRow.vendorId, reviewDraft);
       toast.success('Review saved');
       setReviewRow(null);
+      setConfirmReview(false);
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Review failed');
@@ -141,7 +148,7 @@ export const Verifiers: React.FC = () => {
             <button
               type="button"
               disabled={actionLoading}
-              onClick={() => handleSubmit(r)}
+              onClick={() => setPendingSubmit(r)}
               className="rounded px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
             >
               Submit
@@ -223,7 +230,7 @@ export const Verifiers: React.FC = () => {
                 <button
                   type="button"
                   disabled={actionLoading}
-                  onClick={handleSaveReview}
+                  onClick={() => setConfirmReview(true)}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {actionLoading ? 'Saving…' : 'Save review'}
@@ -244,6 +251,30 @@ export const Verifiers: React.FC = () => {
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {pendingSubmit ? (
+        <ConfirmDialog
+          title="Submit verification"
+          message={`Are you sure you want to submit verification for ${pendingSubmit.vendorCode}? This cannot be undone.`}
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={actionLoading}
+          onConfirm={() => void handleSubmit()}
+          onCancel={() => setPendingSubmit(null)}
+        />
+      ) : null}
+
+      {confirmReview && reviewRow ? (
+        <ConfirmDialog
+          title="Save field review"
+          message={`Are you sure you want to save the field review for ${reviewRow.vendorCode}? This cannot be undone.`}
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={actionLoading}
+          onConfirm={() => void handleSaveReview()}
+          onCancel={() => setConfirmReview(false)}
+        />
       ) : null}
     </ErrorBoundary>
   );

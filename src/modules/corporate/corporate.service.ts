@@ -183,7 +183,10 @@ function toShareholder(r: any): Shareholder {
     bankName: String(r?.bankName || ''),
     ifscCode: String(r?.ifscCode || ''),
     bankAccountNumber: String(r?.bankAccountNumber || ''),
-    pledge: (r?.pledge || 'NA') as any,
+    bankCity: String(r?.bankCity || ''),
+    bankCountry: String(r?.bankCountry || ''),
+    pledge: String(r?.pledge || ''),
+    shareStatus: String(r?.shareStatus || ''),
     nominees: Array.isArray(r?.nominees) ? r.nominees.map(toNominee) : [],
   };
 }
@@ -222,7 +225,10 @@ function toPayload(sh: Shareholder) {
     bankName: sh.bankName,
     ifscCode: sh.ifscCode,
     bankAccountNumber: sh.bankAccountNumber,
-    pledge: sh.pledge || 'NA',
+    bankCity: sh.bankCity,
+    bankCountry: sh.bankCountry,
+    pledge: sh.pledge || '',
+    shareStatus: sh.shareStatus || '',
     nominees: (sh.nominees || []).map((n) => ({
       ...n,
       percentage: n.percentage ? Number(n.percentage) : undefined,

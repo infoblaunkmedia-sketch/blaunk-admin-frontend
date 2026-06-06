@@ -1,5 +1,5 @@
 import React from 'react';
-import DataTable, { type TableColumn } from 'react-data-table-component';
+import DataTable, { type TableColumn, type TableStyles } from 'react-data-table-component';
 import { EmptyState } from './EmptyState';
 
 /** Shared width/height for list filters (dropdown + search on one row). */
@@ -45,6 +45,8 @@ interface DataTableWrapperProps<T extends object> {
   title?: string;
   actions?: React.ReactNode;
   responsive?: boolean;
+  /** Use horizontal scroll on the table shell (avoids clipping wide columns). */
+  horizontalScroll?: boolean;
   className?: string;
 }
 
@@ -70,7 +72,7 @@ const customStyles = {
       paddingLeft: '12px',
       paddingRight: '12px',
       whiteSpace: 'normal',
-      wordBreak: 'break-word',
+      wordBreak: 'break-word' as const,
       overflow: 'visible',
       textOverflow: 'clip',
     },
@@ -105,6 +107,7 @@ export function DataTableWrapper<T extends object>({
   title,
   actions,
   responsive = true,
+  horizontalScroll = false,
   className = '',
 }: DataTableWrapperProps<T>) {
   const [internalFilter, setInternalFilter] = React.useState('');
@@ -127,6 +130,77 @@ export function DataTableWrapper<T extends object>({
   const showBuiltInSearch = searchable && !hideSearchInput;
   const showToolbar =
     Boolean(title) || showBuiltInSearch || exportable || Boolean(actions);
+
+  const resolvedStyles: TableStyles = horizontalScroll
+    ? {
+        ...(customStyles as TableStyles),
+        table: {
+          style: {
+            width: 'max-content',
+            minWidth: '100%',
+          },
+        },
+        tableWrapper: {
+          style: {
+            display: 'block',
+            overflow: 'visible',
+          },
+        },
+        responsiveWrapper: {
+          style: {
+            overflow: 'visible',
+          },
+        },
+        head: {
+          style: {
+            width: 'max-content',
+            minWidth: '100%',
+          },
+        },
+        headRow: {
+          style: {
+            backgroundColor: '#0B61C9',
+            color: '#ffffff',
+            minHeight: '48px',
+            borderRadius: '8px 8px 0 0',
+            width: 'max-content',
+            minWidth: '100%',
+          },
+        },
+        headCells: {
+          style: {
+            color: '#ffffff',
+            fontWeight: '700',
+            fontSize: '13px',
+            paddingLeft: '12px',
+            paddingRight: '12px',
+            whiteSpace: 'nowrap',
+            overflow: 'visible',
+            textOverflow: 'clip',
+            backgroundColor: '#0B61C9',
+            flex: '0 0 auto',
+          },
+        },
+        rows: {
+          style: {
+            minHeight: '44px',
+            fontSize: '13px',
+            width: 'max-content',
+            minWidth: '100%',
+          },
+          stripedStyle: {
+            backgroundColor: '#F8F9FA',
+          },
+        },
+        cells: {
+          style: {
+            paddingLeft: '12px',
+            paddingRight: '12px',
+            flex: '0 0 auto',
+          },
+        },
+      }
+    : (customStyles as TableStyles);
 
   return (
     <>
@@ -162,7 +236,8 @@ export function DataTableWrapper<T extends object>({
       )}
       <div
         className={[
-          'overflow-hidden rounded-card border border-slate-200 bg-white shadow-card',
+          horizontalScroll ? 'dt-horizontal-scroll overflow-x-auto' : 'overflow-hidden',
+          'rounded-card border border-slate-200 bg-white shadow-card',
           className,
         ].join(' ')}
       >
@@ -177,7 +252,8 @@ export function DataTableWrapper<T extends object>({
           highlightOnHover
           responsive={responsive}
           noDataComponent={<EmptyState message="No records found." />}
-          customStyles={customStyles}
+          customStyles={resolvedStyles}
+          className={horizontalScroll ? 'dt-horizontal-scroll-table' : undefined}
         />
       </div>
     </>

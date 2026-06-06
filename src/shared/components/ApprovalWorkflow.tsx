@@ -3,13 +3,15 @@ import { toast } from 'react-toastify';
 import { StatusBadge } from './StatusBadge';
 import { EmptyState } from './EmptyState';
 import {
-  PAYOUT_STATUS_OPTIONS,
+  PAYOUT_APPROVAL_OPTIONS,
   isPendingPayoutStatus,
   isNegativePayoutStatus,
   normalizePayoutStatus,
   payoutStatusLabel,
   type PayoutStatus,
 } from '../constants/payoutStatus';
+import { PAYOUT_SELECT_CLASS } from './payoutSelectStyles';
+import { PayoutRemarkSelect } from './PayoutRemarkSelect';
 
 export interface ApprovalItem {
   id: string;
@@ -28,8 +30,7 @@ interface ApprovalWorkflowProps<T extends ApprovalItem> {
   loading?: boolean;
 }
 
-const selectClass =
-  'h-8 w-full min-w-[10rem] rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold outline-none focus:border-primary';
+const selectClass = PAYOUT_SELECT_CLASS;
 
 export function ApprovalWorkflow<T extends ApprovalItem>({
   items, columns, onStatusChange, loading = false,
@@ -45,7 +46,7 @@ export function ApprovalWorkflow<T extends ApprovalItem>({
     const nextStatus = statusMap[item.id] ?? normalizePayoutStatus(item.status);
     const note = noteMap[item.id] ?? '';
     if (isNegativePayoutStatus(nextStatus) && !note.trim()) {
-      toast.error('Note / reason is required for this status.');
+      toast.error('Select a remark before rejecting.');
       return;
     }
     setProcessing(item.id);
@@ -82,7 +83,7 @@ export function ApprovalWorkflow<T extends ApprovalItem>({
               <th key={c.header} className="px-4 py-3 text-left font-bold">{c.header}</th>
             ))}
             <th className="px-4 py-3 text-left font-bold">Current Status</th>
-            <th className="min-w-[220px] px-4 py-3 text-left font-bold">Note / Reason</th>
+            <th className="min-w-[220px] px-4 py-3 text-left font-bold">Remark</th>
             <th className="px-4 py-3 text-left font-bold">Actions</th>
           </tr>
         </thead>
@@ -101,12 +102,14 @@ export function ApprovalWorkflow<T extends ApprovalItem>({
                   <StatusBadge status={item.status} />
                 </td>
                 <td className="border-b border-slate-100 px-4 py-3">
-                  <input
-                    className="h-8 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-primary"
-                    placeholder="Add note or reason…"
-                    value={noteMap[item.id] ?? ''}
-                    onChange={(e) => setNote(item.id, e.target.value)}
-                  />
+                  {selected === 'REJECTED' ? (
+                    <PayoutRemarkSelect
+                      value={noteMap[item.id] ?? ''}
+                      onChange={(remark) => setNote(item.id, remark)}
+                    />
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
                 </td>
                 <td className="border-b border-slate-100 px-4 py-3">
                   <div className="flex min-w-[14rem] flex-col gap-2 sm:flex-row sm:items-center">
@@ -118,7 +121,7 @@ export function ApprovalWorkflow<T extends ApprovalItem>({
                         setStatusMap((p) => ({ ...p, [item.id]: e.target.value as PayoutStatus }))
                       }
                     >
-                      {PAYOUT_STATUS_OPTIONS.map((opt) => (
+                      {PAYOUT_APPROVAL_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>

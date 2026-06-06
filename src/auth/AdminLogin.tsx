@@ -19,7 +19,6 @@ const ALL_PERMISSIONS: ModulePermission[] = [
   'customers',
   'reports',
   'corporate',
-  'settings',
 ];
 
 const inputClass =

@@ -12,6 +12,7 @@ import { generateExcelReport } from '../../../shared/utils/reportGenerator';
 import type { B2BPayment, BankTransferStatus } from '../finance.types';
 import { fetchB2BPayments, saveB2BPayment, deleteB2BPayment } from '../finance.service';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -130,7 +131,7 @@ export const B2BPayments: React.FC = () => {
     { name: 'Net Payout', selector: (r) => r.netPayout, format: (r) => `₹${r.netPayout.toLocaleString()}`, sortable: true },
     { name: 'Status', cell: (r) => <StatusBadge status={r.bankTransferStatus} />, width: '120px' },
     { name: 'Txn No.', selector: (r) => r.transactionNumber },
-    { name: 'Date', selector: (r) => r.date, sortable: true, width: '110px' },
+    { name: 'Date', selector: (r) => r.date, format: (r) => formatDateDDMMYYYY(r.date) || '—', sortable: true, width: '110px' },
     {
       name: 'Actions',
       cell: (r) => (

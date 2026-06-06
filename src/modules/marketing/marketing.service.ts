@@ -5,7 +5,6 @@ import type {
   MediaAdSubmission,
   DsaSlider,
   SliderStatus,
-  MediaSlotTabConfig,
   DsaSlotStatus,
   DsaPayoutHistory,
 } from './marketing.types';
@@ -91,6 +90,8 @@ type SliderDto = {
   _id: string;
   mediaTab: string;
   imageUrl: string;
+  cmsPage?: string;
+  cmsPosition?: string;
   section: string;
   country: string;
   category?: string;
@@ -107,15 +108,50 @@ type SliderDto = {
   status: SliderStatus;
   uploadDate?: string | null;
   expiryDate?: string | null;
+  giffFormat?: string;
+  giffSortOrder?: number;
   createdAt?: string;
   updatedAt?: string;
 };
 
+const LEGACY_SECTION_PLACEMENT: Record<string, { cmsPage: string; cmsPosition: string }> = {
+  HOMEPAGE: { cmsPage: 'home', cmsPosition: 'hero' },
+  BGT: { cmsPage: 'bgt', cmsPosition: 'hero' },
+  BOUTIQUE: { cmsPage: 'boutique', cmsPosition: 'hero' },
+  TOUR: { cmsPage: 'home', cmsPosition: 'trade-hub' },
+  STORE: { cmsPage: 'home', cmsPosition: 'partner-spotlight' },
+  CAKE: { cmsPage: 'boutique', cmsPosition: 'new-launch-carousel' },
+  LOGISTIC: { cmsPage: 'bgt', cmsPosition: 'blaunk-advantage' },
+};
+
+function resolvePlacementFromDto(dto: SliderDto) {
+  let cmsPage = String(dto.cmsPage || '').trim();
+  let cmsPosition = String(dto.cmsPosition || '').trim();
+  if (!cmsPage || !cmsPosition) {
+    const legacy = LEGACY_SECTION_PLACEMENT[String(dto.section || '').toUpperCase()];
+    if (legacy) {
+      cmsPage = legacy.cmsPage;
+      cmsPosition = legacy.cmsPosition;
+    } else if (String(dto.section || '').includes(':')) {
+      const [p, ...rest] = String(dto.section).split(':');
+      cmsPage = p.trim();
+      cmsPosition = rest.join(':').trim();
+    } else {
+      cmsPage = cmsPage || 'home';
+      cmsPosition = cmsPosition || 'hero';
+    }
+  }
+  return { cmsPage, cmsPosition };
+}
+
 function mapSlider(dto: SliderDto): DsaSlider {
+  const { cmsPage, cmsPosition } = resolvePlacementFromDto(dto);
   return {
     id: dto._id,
     mediaTab: dto.mediaTab,
     imageUrl: dto.imageUrl,
+    cmsPage,
+    cmsPosition,
     section: dto.section,
     country: dto.country,
     category: String(dto.category || ''),
@@ -135,14 +171,26 @@ function mapSlider(dto: SliderDto): DsaSlider {
     status: dto.status,
     uploadDate: dto.uploadDate ?? null,
     expiryDate: dto.expiryDate ?? null,
+    giffFormat: dto.giffFormat ? String(dto.giffFormat) : undefined,
+    giffSortOrder: dto.giffSortOrder != null ? Number(dto.giffSortOrder) : undefined,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
 }
 
-export async function fetchDsaSliders(filters?: { mediaTab?: string; section?: string; country?: string; status?: SliderStatus | ''; q?: string }) {
+export async function fetchDsaSliders(filters?: {
+  mediaTab?: string;
+  cmsPage?: string;
+  cmsPosition?: string;
+  section?: string;
+  country?: string;
+  status?: SliderStatus | '';
+  q?: string;
+}) {
   const params = new URLSearchParams();
   if (filters?.mediaTab) params.set('mediaTab', filters.mediaTab);
+  if (filters?.cmsPage) params.set('cmsPage', filters.cmsPage);
+  if (filters?.cmsPosition) params.set('cmsPosition', filters.cmsPosition);
   if (filters?.section) params.set('section', filters.section);
   if (filters?.country) params.set('country', filters.country);
   if (filters?.status) params.set('status', filters.status);
@@ -151,6 +199,11 @@ export async function fetchDsaSliders(filters?: { mediaTab?: string; section?: s
   const path = query ? `/api/dsa-sliders?${query}` : '/api/dsa-sliders';
   const res = await api.get<{ records: SliderDto[] }>(path);
   return (res.records || []).map(mapSlider);
+}
+
+export async function fetchDsaSliderById(id: string): Promise<DsaSlider> {
+  const res = await api.get<{ record: SliderDto }>(`/api/dsa-sliders/${encodeURIComponent(id)}`);
+  return mapSlider(res.record);
 }
 
 export async function createDsaSlider(payload: Omit<DsaSlider, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) {
@@ -170,9 +223,17 @@ export async function deleteDsaSlider(id: string) {
   await api.delete(`/api/dsa-sliders/${encodeURIComponent(id)}`);
 }
 
-export async function fetchPublicSlidersBySlot(params?: { mediaTab?: string; section?: string; country?: string }) {
+export async function fetchPublicSlidersBySlot(params?: {
+  mediaTab?: string;
+  cmsPage?: string;
+  cmsPosition?: string;
+  section?: string;
+  country?: string;
+}) {
   const q = new URLSearchParams();
   if (params?.mediaTab) q.set('mediaTab', params.mediaTab);
+  if (params?.cmsPage) q.set('cmsPage', params.cmsPage);
+  if (params?.cmsPosition) q.set('cmsPosition', params.cmsPosition);
   if (params?.section) q.set('section', params.section);
   if (params?.country) q.set('country', params.country);
   const path = q.toString() ? `/api/dsa-sliders/public?${q.toString()}` : '/api/dsa-sliders/public';
@@ -180,9 +241,18 @@ export async function fetchPublicSlidersBySlot(params?: { mediaTab?: string; sec
   return (res.records || []).map(mapSlider);
 }
 
-export async function fetchSliderSummary(params?: { mediaTab?: string; section?: string; country?: string; dsaCode?: string }) {
+export async function fetchSliderSummary(params?: {
+  mediaTab?: string;
+  cmsPage?: string;
+  cmsPosition?: string;
+  section?: string;
+  country?: string;
+  dsaCode?: string;
+}) {
   const q = new URLSearchParams();
   if (params?.mediaTab) q.set('mediaTab', params.mediaTab);
+  if (params?.cmsPage) q.set('cmsPage', params.cmsPage);
+  if (params?.cmsPosition) q.set('cmsPosition', params.cmsPosition);
   if (params?.section) q.set('section', params.section);
   if (params?.country) q.set('country', params.country);
   if (params?.dsaCode) q.set('dsaCode', params.dsaCode);
@@ -191,11 +261,19 @@ export async function fetchSliderSummary(params?: { mediaTab?: string; section?:
   return res.summary;
 }
 
-export async function fetchDsaSlotStatus(params: { mediaTab: string; section: string; country: string }): Promise<DsaSlotStatus> {
+export async function fetchDsaSlotStatus(params: {
+  mediaTab: string;
+  cmsPage: string;
+  cmsPosition: string;
+  country: string;
+  section?: string;
+}): Promise<DsaSlotStatus> {
   const q = new URLSearchParams();
   q.set('mediaTab', params.mediaTab);
-  q.set('section', params.section);
+  q.set('cmsPage', params.cmsPage);
+  q.set('cmsPosition', params.cmsPosition);
   q.set('country', params.country);
+  if (params.section) q.set('section', params.section);
   const res = await api.get<{ status: DsaSlotStatus }>(`/api/dsa-sliders/slot-status?${q.toString()}`);
   return res.status;
 }
@@ -245,30 +323,4 @@ export async function fetchDsaPayoutHistory(params?: { dsaCode?: string; status?
     rejectedAt: String(r.rejectedAt || ''),
     createdAt: r.createdAt,
   }));
-}
-
-export type DsaUploadLimitStatus = {
-  dsaCode: string;
-  dsaName: string;
-  maxSlots: number;
-  activeUploads: number;
-  remainingSlots: number | null;
-  expiredUploads: number;
-  totalUploads: number;
-};
-
-export async function fetchDsaUploadLimitStatus(dsaCode?: string): Promise<DsaUploadLimitStatus> {
-  const q = dsaCode ? `?dsaCode=${encodeURIComponent(dsaCode)}` : '';
-  const res = await api.get<{ status: DsaUploadLimitStatus }>(`/api/dsa-limits/status${q}`);
-  return res.status;
-}
-
-export async function fetchMediaSlotConfigs(): Promise<MediaSlotTabConfig[]> {
-  const res = await api.get<{ configs: MediaSlotTabConfig[] }>('/api/media-slot-config');
-  return res.configs || [];
-}
-
-export async function saveMediaSlotConfigs(configs: MediaSlotTabConfig[]): Promise<MediaSlotTabConfig[]> {
-  const res = await api.put<{ configs: MediaSlotTabConfig[] }>('/api/media-slot-config', { configs });
-  return res.configs || [];
 }

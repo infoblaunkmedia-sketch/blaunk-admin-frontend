@@ -11,6 +11,7 @@ import {
 } from '../auth/WorkspaceGates';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { MarketingRedirects } from './MarketingRedirects';
+import { LegacyModulePathRedirect } from './LegacyModuleRedirects';
 
 // Auth pages
 const ForgotPassword = React.lazy(() =>
@@ -39,8 +40,8 @@ const ChannelPartnersPage = React.lazy(() =>
 const FinancePage = React.lazy(() =>
   import('../modules/finance/index').then((m) => ({ default: m.FinancePage }))
 );
-const PlatformPage = React.lazy(() =>
-  import('../modules/platform/index').then((m) => ({ default: m.PlatformPage }))
+const ManagementPage = React.lazy(() =>
+  import('../modules/platform/index').then((m) => ({ default: m.ManagementPage }))
 );
 const SalesPage = React.lazy(() =>
   import('../modules/sales/index').then((m) => ({ default: m.SalesPage }))
@@ -57,8 +58,8 @@ const ReportsPage = React.lazy(() =>
 const CorporatePage = React.lazy(() =>
   import('../modules/corporate/index').then((m) => ({ default: m.CorporatePage }))
 );
-const SettingsPage = React.lazy(() =>
-  import('../modules/settings/index').then((m) => ({ default: m.SettingsPage }))
+const RetailManagementPage = React.lazy(() =>
+  import('../modules/retailManagement/index').then((m) => ({ default: m.RetailManagementPage }))
 );
 const AdminPersonnelPage = React.lazy(() =>
   import('../modules/adminPersonnel/index').then((m) => ({ default: m.AdminPersonnelPage }))
@@ -166,7 +167,11 @@ export const router = createBrowserRouter([
           moduleRoute('/people', PeoplePage, 'people'),
           moduleRoute('/channel-partners', ChannelPartnersPage, 'channelPartners'),
           moduleRoute('/finance', FinancePage, 'finance'),
-          moduleRoute('/platform', PlatformPage, 'platform'),
+          moduleRoute('/management', ManagementPage, 'platform'),
+          { path: '/platform', element: <LegacyModulePathRedirect /> },
+          { path: '/platform/*', element: <LegacyModulePathRedirect /> },
+          { path: '/settings', element: <LegacyModulePathRedirect /> },
+          { path: '/settings/*', element: <LegacyModulePathRedirect /> },
           { path: '/marketing', element: <MarketingRedirects /> },
           { path: '/marketing/*', element: <MarketingRedirects /> },
           moduleRoute('/sales', SalesPage, 'sales'),
@@ -177,7 +182,7 @@ export const router = createBrowserRouter([
           moduleRoute('/reports', ReportsPage, 'reports'),
           moduleRoute('/corporate', CorporatePage, 'corporate'),
           moduleRoute('/admin-personnel', AdminPersonnelPage, 'adminPersonnel'),
-          moduleRoute('/settings', SettingsPage, 'settings'),
+          moduleRoute('/retail-management', RetailManagementPage, 'retailManagement'),
           {
             path: '/profile',
             element: (

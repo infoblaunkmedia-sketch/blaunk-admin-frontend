@@ -18,6 +18,7 @@ export interface AdPlan {
 }
 
 export interface ProductPlanChargeRow {
+  id?: string;
   name: string;
   duration: string;
   subscription: number;

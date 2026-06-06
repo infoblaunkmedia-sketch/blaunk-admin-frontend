@@ -38,7 +38,11 @@ const REPORT_TYPES = {
   'Customer Care': ['Issue Report', 'Review Summary', 'Vendor Status Summary'],
   'Company Secretary': ['Shareholding Register'],
   IT: ['Security Log', 'IP Access Log'],
-  'Admin & Personnel': ['Admin Activity Log'],
+  'Admin & Personnel': [
+    'Admin Activity Log',
+    'Contest Questions',
+    'Contest Answer Submissions',
+  ],
 } as const;
 
 type Department = keyof typeof REPORT_TYPES;
@@ -177,6 +181,27 @@ const COLUMN_MAP: Record<string, { header: string; key: string; width?: number }
     { header: 'Role', key: 'role', width: 12 },
     { header: 'Module', key: 'module', width: 14 },
   ],
+  'Contest Questions': [
+    { header: 'Sr. No.', key: 'srNo', width: 8 },
+    { header: 'Date of Que', key: 'dateOfQue', width: 14 },
+    { header: 'Que', key: 'question', width: 36 },
+    { header: 'Option 1', key: 'option1', width: 22 },
+    { header: 'Option 2', key: 'option2', width: 22 },
+    { header: 'Option 3', key: 'option3', width: 22 },
+    { header: 'Option 4', key: 'option4', width: 22 },
+    { header: 'Final Ans', key: 'finalAnswer', width: 22 },
+  ],
+  'Contest Answer Submissions': [
+    { header: 'Sr. No.', key: 'srNo', width: 8 },
+    { header: 'Date/Time', key: 'dateTime', width: 20 },
+    { header: 'Que', key: 'question', width: 36 },
+    { header: 'Ans', key: 'answer', width: 22 },
+    { header: 'Emp Name', key: 'empName', width: 22 },
+    { header: 'Code', key: 'code', width: 14 },
+    { header: 'Country', key: 'country', width: 14 },
+    { header: 'State', key: 'state', width: 14 },
+    { header: 'City', key: 'city', width: 14 },
+  ],
   'Issue Report': [
     { header: 'RN No.', key: 'rnNumber', width: 14 },
     { header: 'Customer', key: 'customerName', width: 22 },
@@ -269,7 +294,7 @@ const DEPARTMENT_HINTS: Record<Department, string> = {
   'Customer Care': 'Issues, reviews, and vendor account status',
   'Company Secretary': 'Shareholding register',
   IT: 'IP and security configuration',
-  'Admin & Personnel': 'Admin panel activity audit trail',
+  'Admin & Personnel': 'Admin activity, contest questions, and contest submissions',
 };
 
 const DEPARTMENTS = Object.keys(REPORT_TYPES) as Department[];

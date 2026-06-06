@@ -1,10 +1,12 @@
 import React from 'react';
+import { toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { normalizeThirdPartyDepartment } from '../../../shared/constants/hrConstants';
 import type { ThirdPartyCredential } from './thirdPartyCredentials.types';
 import { fetchThirdPartyCredentialById } from './thirdPartyCredentials.service';
 
@@ -141,7 +143,7 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
                     <span>
                       <span className="font-mono">{record.matchCode}</span>
                       <span className="mt-1 block text-xs font-normal text-slate-500">
-                        Synced from Settings → Match Code
+                        Synced from Management → Match Code
                       </span>
                     </span>
                   ) : (
@@ -150,11 +152,11 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
                 }
               />
               <Field label="Name" value={record.name} />
-              <Field label="Department" value={record.department} />
+              <Field label="Department" value={normalizeThirdPartyDepartment(record.department || '')} />
               <Field label="3PC Company" value={record.threePCompanyName} />
               <Field label="3PC Entity" value={record.threePEntity} />
-              <Field label="Date of Joining" value={record.doj} />
-              <Field label="Exit Date" value={record.exitDate} />
+              <Field label="Date of Joining" value={toDisplayDDMMYYYY(String(record.doj || ''))} />
+              <Field label="Exit Date" value={toDisplayDDMMYYYY(String(record.exitDate || ''))} />
               <Field label="Remark" value={record.remarks} />
             </div>
           </SectionCard>
@@ -192,6 +194,8 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
               <Field label="Bank Name" value={record.bankName} />
               <Field label="Account No." value={record.bankAccountNumber} />
               <Field label="IFSC" value={record.ifscCode} />
+              <Field label="City" value={record.bankCity} />
+              <Field label="Country" value={record.bankCountry} />
               <Field label="SWIFT" value={record.swiftNo} />
               <Field label="IBAN" value={record.ibanNo} />
             </div>

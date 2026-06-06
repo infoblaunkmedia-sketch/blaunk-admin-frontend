@@ -6,8 +6,14 @@ import { fetchSliderSummary } from '../../marketing/marketing.service';
 import { fetchDsaPayouts, saveDsaPayout } from '../../finance/finance.service';
 import { fetchDsaRecords } from '../channelPartners.service';
 import type { DsaPayoutSubmission, PaymentMode } from '../../finance/finance.types';
-import { isPendingPayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
+import {
+  isPendingPayoutStatus,
+  normalizePayoutStatus,
+  payoutStatusLabel,
+  type PayoutStatus,
+} from '../../../shared/constants/payoutStatus';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
+import { formatDsaPayinAmount, formatInrAmount } from '../../../shared/utils/dsaCurrencyFormat';
 import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { payoutCheckerLabel } from '../../finance/dsaPayouts/payoutChecker';
@@ -18,8 +24,15 @@ const inputClass =
 const disabledFieldClass =
   `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500`;
 
-function round2(n: number) {
-  return Number(n.toFixed(2));
+function rowLimitDisplay(limit: string): string {
+  const lim = Number(limit) || 0;
+  if (lim <= 0) return '';
+  return String(lim);
+}
+
+function payoutInrDisplay(p: DsaPayoutSubmission): string {
+  if (p.currencyInr != null && p.currencyInr > 0) return formatInrAmount(p.currencyInr);
+  return isPendingPayoutStatus(p.status) ? '' : formatInrAmount(p.currencyInr ?? 0);
 }
 
 type DraftRow = {
@@ -47,9 +60,19 @@ type DsaLimitTableRow = {
   currencyInr: string;
   limit: string;
   approval: string;
+  status: PayoutStatus;
+  remark: string;
   checker: string;
   draft?: DraftRow;
 };
+
+type StatusTab = 'new' | 'approved' | 'rejected';
+
+const STATUS_TABS: Array<{ id: StatusTab; label: string }> = [
+  { id: 'new', label: 'New' },
+  { id: 'approved', label: 'Approved' },
+  { id: 'rejected', label: 'Rejected' },
+];
 
 type Props = {
   refreshKey?: number;
@@ -60,11 +83,9 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
   const { user } = useAuth();
   const dsaCode = String(user?.code || '').trim().toUpperCase();
 
-  const [payinDate] = React.useState(formatDateDDMMYYYY(new Date().toISOString().slice(0, 10)));
-  const [payin, setPayin] = React.useState('');
-  const [ablBod, setAblBod] = React.useState('0');
+  const [availableBalance, setAvailableBalance] = React.useState('0');
   const [marginUsed, setMarginUsed] = React.useState('0');
-  const [limitRs, setLimitRs] = React.useState('0');
+  const [statusTab, setStatusTab] = React.useState<StatusTab>('new');
   const [shareRatio, setShareRatio] = React.useState(30);
   const [dsaName, setDsaName] = React.useState(user?.name || '');
   const [country, setCountry] = React.useState('India');
@@ -103,7 +124,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
         setShareRatio(Number(profile.shareRatio) || 30);
       }
 
-      setAblBod(String(summary.totalMargin ?? 0));
+      setAvailableBalance(String(Number(summary.availableMargin ?? 0)));
       setMarginUsed(String(summary.marginUsed ?? 0));
 
       const pending = payouts.some((p) => isPendingPayoutStatus(p.status));
@@ -124,35 +145,44 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           txnRef: p.transactionNumber || '',
           currencyType: p.currency === 'USD' ? '$' : 'Rs.',
           currencyPayin: String(p.submittedAmount || 0),
-          currencyInr: isPendingPayoutStatus(p.status) && p.currencyInr == null ? '' : String(p.currencyInr ?? 0),
-          limit: isPendingPayoutStatus(p.status) && p.calculatedLimit == null ? '' : String(p.calculatedLimit ?? 0),
+          currencyInr: payoutInrDisplay(p),
+          limit: isPendingPayoutStatus(p.status)
+            ? (p.calculatedLimit == null || Number(p.calculatedLimit) <= 0 ? '' : formatInrAmount(p.calculatedLimit))
+            : formatInrAmount(p.calculatedLimit ?? 0),
           approval: payoutStatusLabel(p.status),
+          status: normalizePayoutStatus(p.status),
+          remark: p.rejectionReason || '',
           checker: payoutCheckerLabel(p),
         };
       });
 
       setTableRows((prev) => {
-        if (pending) return historyRows;
-        const currentDraft = prev.find((r) => r.isDraft)?.draft ?? draft;
-        const draftRow: DsaLimitTableRow = {
-          id: 'draft',
-          isDraft: true,
-          date: payinDate,
-          dsaName: dsaName || profile?.companyName || '-',
-          country: profile?.country || country,
-          dsaCode,
-          shareRatio: srLabel,
-          mode: currentDraft.mode,
-          txnRef: currentDraft.txnRef,
-          currencyType: currentDraft.currencyType,
-          currencyPayin: currentDraft.currencyPayin,
-          currencyInr: currentDraft.currencyInr,
-          limit: currentDraft.calculatedLimit,
-          approval: 'Pending',
-          checker: '-',
-          draft: currentDraft,
-        };
-        return [draftRow, ...historyRows];
+        const rows = [...historyRows];
+        if (!pending) {
+          const currentDraft = prev.find((r) => r.isDraft)?.draft ?? draft;
+          const draftRow: DsaLimitTableRow = {
+            id: 'draft',
+            isDraft: true,
+            date: formatDateDDMMYYYY(new Date().toISOString().slice(0, 10)),
+            dsaName: dsaName || profile?.companyName || '-',
+            country: profile?.country || country,
+            dsaCode,
+            shareRatio: srLabel,
+            mode: currentDraft.mode,
+            txnRef: currentDraft.txnRef,
+            currencyType: currentDraft.currencyType,
+            currencyPayin: currentDraft.currencyPayin,
+            currencyInr: currentDraft.currencyInr,
+            limit: currentDraft.calculatedLimit,
+            approval: 'Pending',
+            status: 'PENDING',
+            remark: '',
+            checker: '-',
+            draft: currentDraft,
+          };
+          rows.unshift(draftRow);
+        }
+        return rows;
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load DSA limit data.');
@@ -165,12 +195,17 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
     void load();
   }, [load, refreshKey]);
 
-  React.useEffect(() => {
-    const pay = Number(payin) || 0;
-    const bod = Number(ablBod) || 0;
-    const used = Number(marginUsed) || 0;
-    setLimitRs(String(Math.max(0, round2(pay + bod - used))));
-  }, [payin, ablBod, marginUsed]);
+  const rowMatchesTab = React.useCallback((row: DsaLimitTableRow, tab: StatusTab): boolean => {
+    if (tab === 'new') return row.isDraft || isPendingPayoutStatus(row.status);
+    if (tab === 'approved') return !row.isDraft && row.status === 'APPROVED';
+    if (tab === 'rejected') return !row.isDraft && row.status === 'REJECTED';
+    return false;
+  }, []);
+
+  const filteredTableRows = React.useMemo(
+    () => tableRows.filter((row) => rowMatchesTab(row, statusTab)),
+    [rowMatchesTab, statusTab, tableRows],
+  );
 
   const updateDraft = React.useCallback((patch: Partial<DraftRow>) => {
     setDraft((d) => {
@@ -218,8 +253,8 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       return;
     }
 
-    const newAmount = Number(payin) || submittedAmount;
-    const bodBalance = Number(ablBod) || 0;
+    const newAmount = submittedAmount;
+    const bodBalance = Number(availableBalance) || 0;
     const usedValue = Number(marginUsed) || 0;
 
     setSaving(true);
@@ -243,7 +278,6 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
         usedValue,
       } as DsaPayoutSubmission);
       toast.success('Submission sent for approval. Media Upload margin updates after approval.');
-      setPayin('');
       setDraft({
         checked: true,
         mode: 'Cash',
@@ -366,7 +400,13 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       name: 'Amount-payin',
       cell: (row) => {
         if (!row.isDraft) {
-          return <input className={disabledFieldClass} readOnly value={row.currencyPayin} />;
+          return (
+            <input
+              className={disabledFieldClass}
+              readOnly
+              value={formatDsaPayinAmount(row.currencyPayin, row.currencyType)}
+            />
+          );
         }
         const d = row.draft!;
         return (
@@ -406,11 +446,38 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       minWidth: '7rem',
     },
     {
+      name: 'Avl Balance',
+      cell: (row) => {
+        const limit = row.isDraft ? row.draft?.calculatedLimit ?? '' : row.limit;
+        return (
+          <input
+            className={disabledFieldClass}
+            readOnly
+            disabled
+            value={rowLimitDisplay(limit) ? formatInrAmount(rowLimitDisplay(limit)) : ''}
+          />
+        );
+      },
+      minWidth: '7.5rem',
+    },
+    {
       name: 'Approval',
       cell: (row) => (
         <input className={disabledFieldClass} readOnly value={row.approval} />
       ),
       minWidth: '8rem',
+    },
+    {
+      name: 'Remark',
+      cell: (row) => (
+        <input
+          className={disabledFieldClass}
+          readOnly
+          value={row.remark || '—'}
+          title={row.remark || undefined}
+        />
+      ),
+      minWidth: '10rem',
     },
     {
       name: 'Checker',
@@ -425,52 +492,37 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
     <div className="flex flex-col gap-4">
       <h2 className="text-4xl font-bold text-primary">Limit</h2>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-700">Date</span>
-          <input type="text" readOnly value={payinDate} className={`${inputClass} bg-slate-100`} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-700">Pay-in</span>
-          <input
-            type="text"
-            value={payin}
-            onChange={(e) => setPayin(e.target.value.replace(/\D/g, ''))}
-            className={inputClass}
-            disabled={hasPending || loading}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-700">ABL-BOD</span>
-          <input
-            type="text"
-            value={ablBod}
-            onChange={(e) => setAblBod(e.target.value.replace(/[^\d.]/g, ''))}
-            className={inputClass}
-            disabled={hasPending || loading}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-700">Margin Used</span>
-          <input
-            type="text"
-            value={marginUsed}
-            onChange={(e) => setMarginUsed(e.target.value.replace(/[^\d.]/g, ''))}
-            className={inputClass}
-            disabled={hasPending || loading}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-700">Limit (Rs.)</span>
-          <input type="text" readOnly value={limitRs} className={`${inputClass} bg-slate-100`} />
-        </label>
+      <div className="flex flex-wrap items-center gap-2">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setStatusTab(tab.id)}
+            className={[
+              'rounded-lg border px-4 py-1.5 text-sm font-semibold transition',
+              statusTab === tab.id
+                ? 'border-primary bg-primary text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+            ].join(' ')}
+          >
+            {tab.label}
+          </button>
+        ))}
+        <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-slate-700">
+          <span className="whitespace-nowrap">
+            Margin Used: <span className="font-bold text-slate-900">{formatInrAmount(marginUsed)}</span>
+          </span>
+          <span className="whitespace-nowrap">
+            Available Balance: <span className="font-bold text-slate-900">{formatInrAmount(availableBalance)}</span>
+          </span>
+        </div>
       </div>
 
       <div className="flex items-end justify-between gap-3">
         <h2 className="text-4xl font-bold text-primary">DSA Details</h2>
         <button
           type="button"
-          disabled={saving || loading || hasPending}
+          disabled={saving || loading || hasPending || statusTab !== 'new'}
           onClick={() => void handleSave()}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:opacity-60"
         >
@@ -481,7 +533,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       <SectionCard title="" contentClassName="p-0 overflow-hidden">
         <DataTableWrapper
           columns={columns}
-          data={tableRows}
+          data={filteredTableRows}
           loading={loading}
           searchable={false}
           className="!rounded-none !border-0 !shadow-none"

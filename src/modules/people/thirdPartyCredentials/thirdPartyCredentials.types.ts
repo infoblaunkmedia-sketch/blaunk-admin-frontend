@@ -26,6 +26,8 @@ export interface ThirdPartyCredential {
   bankName: string;
   ifscCode: string;
   bankAccountNumber: string;
+  bankCity: string;
+  bankCountry: string;
   swiftNo: string;
   ibanNo: string;
   doj: string;

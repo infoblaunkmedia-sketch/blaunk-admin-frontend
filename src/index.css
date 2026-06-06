@@ -52,8 +52,8 @@ td {
 input:disabled,
 select:disabled,
 textarea:disabled {
-  background-color: #ffffff !important;
-  color: #64748b !important;
+  background-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
   cursor: not-allowed !important;
 }
 
@@ -157,4 +157,27 @@ textarea:disabled {
 .no-scrollbar {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
+}
+
+/* Wide admin tables — header row must match body width when scrolling */
+.dt-horizontal-scroll .rdt_Table,
+.dt-horizontal-scroll-table {
+  width: max-content !important;
+  min-width: 100%;
+}
+
+.dt-horizontal-scroll .rdt_TableHead,
+.dt-horizontal-scroll .rdt_TableHeadRow,
+.dt-horizontal-scroll .rdt_TableRow {
+  width: max-content !important;
+  min-width: 100%;
+}
+
+.dt-horizontal-scroll .rdt_TableCol {
+  background-color: var(--brand-primary);
+  flex: 0 0 auto !important;
+}
+
+.dt-horizontal-scroll .rdt_TableCell {
+  flex: 0 0 auto !important;
 }

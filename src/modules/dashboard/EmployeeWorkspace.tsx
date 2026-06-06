@@ -12,13 +12,13 @@ const MODULE_LABELS: Partial<Record<ModulePermission, string>> = {
   people: 'People',
   channelPartners: 'Channel Partners',
   finance: 'Finance',
-  platform: 'Platform & Products',
+  platform: 'Management',
   sales: 'Sales',
   it: 'IT',
   customers: 'Customers & Care',
   reports: 'Reports',
   corporate: 'Corporate',
-  settings: 'Settings',
+  retailManagement: 'Retail Management',
 };
 
 type MeResp = {
@@ -54,7 +54,7 @@ export const EmployeeWorkspacePage: React.FC = () => {
   const modules = (
     [
       'dashboard', 'cms', 'people', 'channelPartners', 'finance', 'platform',
-      'sales', 'it', 'customers', 'reports', 'corporate', 'settings',
+      'sales', 'it', 'customers', 'reports', 'corporate',
     ] as ModulePermission[]
   ).filter((m) => hasModuleAccess(user?.permissions ?? [], m));
 

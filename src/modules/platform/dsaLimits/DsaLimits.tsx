@@ -11,6 +11,7 @@ import type { PayoutStatus } from '../../../shared/constants/payoutStatus';
 import type { DsaLimitConfig, CurrencyRate } from '../platform.types';
 import type { DsaPayoutSubmission } from '../../finance/finance.types';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
@@ -59,7 +60,7 @@ export const DsaLimits: React.FC = () => {
   };
 
   const approvalColumns = [
-    { header: 'Entry Date', render: (r: DsaPayoutSubmission) => r.submissionDate },
+    { header: 'Entry Date', render: (r: DsaPayoutSubmission) => formatDateDDMMYYYY(r.submissionDate) || '—' },
     { header: 'DSA Code', render: (r: DsaPayoutSubmission) => <span className="font-bold text-primary">{r.dsaCode}</span> },
     { header: 'Country', render: (r: DsaPayoutSubmission) => r.country },
     { header: 'Mode', render: (r: DsaPayoutSubmission) => r.mode },

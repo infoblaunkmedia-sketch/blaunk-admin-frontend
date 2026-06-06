@@ -66,6 +66,12 @@ export const Vendors: React.FC = () => {
   const [actionLoading, setActionLoading] = React.useState(false);
   const [kycUploading, setKycUploading] = React.useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = React.useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = React.useState<
+    | { type: 'status'; row: VendorRecord; status: VendorRecord['status'] }
+    | { type: 'approve' }
+    | { type: 'reject' }
+    | null
+  >(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const VENDOR_STATUS_OPTIONS: VendorRecord['status'][] = ['Approved', 'Suspended', 'Deleted'];
@@ -156,53 +162,64 @@ export const Vendors: React.FC = () => {
     }
   };
 
-  const handleApprove = async () => {
-    if (!detail?.id) return;
-    setActionLoading(true);
-    try {
-      const { email } = await approveVendor(detail.id);
-      toast.success(email.sent ? 'Vendor approved — email sent' : 'Vendor approved (email stub — configure SMTP)');
-      setDetail(null);
-      load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Approve failed');
-    } finally {
-      setActionLoading(false);
-    }
+  const handleStatusChange = (row: VendorRecord, status: VendorRecord['status']) => {
+    if (!row.id || row.status === status) return;
+    setPendingConfirm({ type: 'status', row, status });
   };
 
-  const handleReject = async () => {
-    if (!detail?.id || !rejectReason.trim()) {
-      toast.error('Rejection reason is required');
+  const runPendingConfirm = async () => {
+    if (!pendingConfirm) return;
+    if (pendingConfirm.type === 'status') {
+      const { row, status } = pendingConfirm;
+      setStatusUpdatingId(row.id);
+      try {
+        await updateVendorStatus(row.id, status);
+        setRecords((prev) => prev.map((r) => (r.id === row.id ? { ...r, status } : r)));
+        if (detail?.id === row.id) setDetail((d) => (d ? { ...d, status } : d));
+        toast.success(`Vendor status set to ${status}`);
+        setPendingConfirm(null);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Status update failed');
+      } finally {
+        setStatusUpdatingId(null);
+      }
       return;
     }
-    setActionLoading(true);
-    try {
-      const { email } = await rejectVendor(detail.id, rejectReason.trim());
-      toast.success(email.sent ? 'Vendor rejected — email sent' : 'Vendor rejected (email stub — configure SMTP)');
-      setRejectOpen(false);
-      setRejectReason('');
-      setDetail(null);
-      load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Reject failed');
-    } finally {
-      setActionLoading(false);
+    if (pendingConfirm.type === 'approve') {
+      if (!detail?.id) return;
+      setActionLoading(true);
+      try {
+        const { email } = await approveVendor(detail.id);
+        toast.success(email.sent ? 'Vendor approved — email sent' : 'Vendor approved (email stub — configure SMTP)');
+        setDetail(null);
+        setPendingConfirm(null);
+        load();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Approve failed');
+      } finally {
+        setActionLoading(false);
+      }
+      return;
     }
-  };
-
-  const handleStatusChange = async (row: VendorRecord, status: VendorRecord['status']) => {
-    if (!row.id || row.status === status) return;
-    setStatusUpdatingId(row.id);
-    try {
-      await updateVendorStatus(row.id, status);
-      setRecords((prev) => prev.map((r) => (r.id === row.id ? { ...r, status } : r)));
-      if (detail?.id === row.id) setDetail((d) => (d ? { ...d, status } : d));
-      toast.success(`Vendor status set to ${status}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Status update failed');
-    } finally {
-      setStatusUpdatingId(null);
+    if (pendingConfirm.type === 'reject') {
+      if (!detail?.id || !rejectReason.trim()) {
+        toast.error('Rejection reason is required');
+        return;
+      }
+      setActionLoading(true);
+      try {
+        const { email } = await rejectVendor(detail.id, rejectReason.trim());
+        toast.success(email.sent ? 'Vendor rejected — email sent' : 'Vendor rejected (email stub — configure SMTP)');
+        setRejectOpen(false);
+        setRejectReason('');
+        setDetail(null);
+        setPendingConfirm(null);
+        load();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Reject failed');
+      } finally {
+        setActionLoading(false);
+      }
     }
   };
 
@@ -433,7 +450,7 @@ export const Vendors: React.FC = () => {
             <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
               {detail.approvalStatus === 'pending' ? (
                 <>
-                  <button type="button" disabled={actionLoading} onClick={handleApprove}
+                  <button type="button" disabled={actionLoading} onClick={() => setPendingConfirm({ type: 'approve' })}
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
                     Approve
                   </button>
@@ -464,7 +481,7 @@ export const Vendors: React.FC = () => {
             <textarea className={`${inputClass} mt-3 h-24 py-2`} value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)} placeholder="Reason for rejection…" />
             <div className="mt-4 flex gap-2">
-              <button type="button" disabled={actionLoading} onClick={handleReject}
+              <button type="button" disabled={actionLoading} onClick={() => { setRejectOpen(false); setPendingConfirm({ type: 'reject' }); }}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 Confirm reject
               </button>
@@ -478,9 +495,27 @@ export const Vendors: React.FC = () => {
       )}
 
       {confirmDel && (
-        <ConfirmDialog title="Delete Vendor" message={`Delete vendor ${confirmDel.vendorCode}?`}
+        <ConfirmDialog title="Delete Vendor" message={`Are you sure you want to delete vendor ${confirmDel.vendorCode}? This cannot be undone.`}
           confirmLabel="Delete" onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />
       )}
+
+      {pendingConfirm ? (
+        <ConfirmDialog
+          title="Confirm vendor action"
+          message={
+            pendingConfirm.type === 'status'
+              ? `Are you sure you want to change ${pendingConfirm.row.vendorCode} status to ${pendingConfirm.status}? This cannot be undone.`
+              : pendingConfirm.type === 'approve'
+                ? `Are you sure you want to approve vendor ${detail?.vendorCode}? This cannot be undone.`
+                : `Are you sure you want to reject vendor ${detail?.vendorCode}? This cannot be undone.`
+          }
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={actionLoading || Boolean(statusUpdatingId)}
+          onConfirm={() => void runPendingConfirm()}
+          onCancel={() => setPendingConfirm(null)}
+        />
+      ) : null}
     </ErrorBoundary>
   );
 };

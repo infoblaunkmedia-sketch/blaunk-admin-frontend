@@ -1,12 +1,10 @@
 import React from 'react';
 import {
-  PAYOUT_STATUS_OPTIONS,
+  PAYOUT_APPROVAL_OPTIONS,
   normalizePayoutStatus,
   type PayoutStatus,
 } from '../constants/payoutStatus';
-
-const selectClass =
-  'h-8 w-full min-w-[10rem] rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold outline-none focus:border-primary disabled:opacity-60';
+import { PAYOUT_SELECT_CLASS } from './payoutSelectStyles';
 
 interface PayoutStatusSelectProps {
   value: string;
@@ -22,12 +20,12 @@ export const PayoutStatusSelect: React.FC<PayoutStatusSelectProps> = ({
   className = '',
 }) => (
   <select
-    className={`${selectClass} ${className}`.trim()}
+    className={`${PAYOUT_SELECT_CLASS} ${className}`.trim()}
     value={normalizePayoutStatus(value)}
     disabled={disabled}
     onChange={(e) => onChange(e.target.value as PayoutStatus)}
   >
-    {PAYOUT_STATUS_OPTIONS.map((opt) => (
+    {PAYOUT_APPROVAL_OPTIONS.map((opt) => (
       <option key={opt.value} value={opt.value}>{opt.label}</option>
     ))}
   </select>

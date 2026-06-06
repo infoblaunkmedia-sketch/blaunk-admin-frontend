@@ -8,19 +8,26 @@ import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Vacancy } from '../people.types';
-import { fetchVacancies, saveVacancy, deleteVacancy } from '../people.service';
+import {
+  fetchVacancies,
+  fetchVacancyApplyEmail,
+  saveVacancy,
+  saveVacancyApplyEmail,
+  deleteVacancy,
+} from '../people.service';
 import { onIntegerInputKeyDown } from '../../../shared/utils/numericInput';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
-const emptyForm = (): Omit<Vacancy, 'id'> => ({
+type VacancyForm = Omit<Vacancy, 'id' | 'applyEmail'>;
+
+const emptyForm = (): VacancyForm => ({
   jobTitle: '',
   requiredExperience: '',
   location: '',
   packageLpa: '',
   qualification: '',
-  applyEmail: 'careers@blaunk.com',
   numberOfOpenings: 1,
 });
 
@@ -35,13 +42,16 @@ export const Vacancies: React.FC = () => {
   const [deleting, setDeleting] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [tableSearch, setTableSearch] = React.useState('');
+  const [applyEmail, setApplyEmail] = React.useState('careers@blaunk.com');
+  const [savingEmail, setSavingEmail] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await fetchVacancies();
+      const [data, email] = await Promise.all([fetchVacancies(), fetchVacancyApplyEmail()]);
       setVacancies(data);
+      setApplyEmail(email);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load vacancies';
       setLoadError(msg);
@@ -76,7 +86,6 @@ export const Vacancies: React.FC = () => {
       location: v.location,
       packageLpa: v.packageLpa,
       qualification: v.qualification,
-      applyEmail: v.applyEmail || 'careers@blaunk.com',
       numberOfOpenings: v.numberOfOpenings,
     });
     setEditId(v.id);
@@ -105,13 +114,9 @@ export const Vacancies: React.FC = () => {
       toast.error('Qualification is required');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.applyEmail.trim())) {
-      toast.error('Enter a valid apply email');
-      return;
-    }
     setSaving(true);
     try {
-      const vac: Vacancy = { ...form, id: editId ?? '' };
+      const vac: Vacancy = { ...form, id: editId ?? '', applyEmail };
       await saveVacancy(vac);
       toast.success(editId ? 'Vacancy updated' : 'Vacancy added');
       resetForm();
@@ -141,6 +146,23 @@ export const Vacancies: React.FC = () => {
 
   const setField = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSaveApplyEmail = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(applyEmail.trim())) {
+      toast.error('Enter a valid apply email');
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      const saved = await saveVacancyApplyEmail(applyEmail);
+      setApplyEmail(saved);
+      toast.success('Careers apply email updated');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save apply email');
+    } finally {
+      setSavingEmail(false);
+    }
+  };
 
   const columns: TableColumn<Vacancy>[] = [
     { name: 'Role', selector: (r) => r.jobTitle || '—', sortable: true, grow: 2 },
@@ -182,6 +204,31 @@ export const Vacancies: React.FC = () => {
         beforeActions={<ListTableSearchInput value={tableSearch} onChange={setTableSearch} />}
         actions={[{ label: '+ Add Vacancy', onClick: openAddForm }]}
       />
+
+      <SectionCard title="Careers apply email" className="mb-5">
+        <p className="mb-3 text-sm text-slate-600">
+          One shared email for all vacancy applications on the Careers page. Update here once — not per vacancy.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <FormField label="Apply / CV email" className="min-w-[16rem] flex-1">
+            <input
+              type="email"
+              className={inputClass}
+              value={applyEmail}
+              onChange={(e) => setApplyEmail(e.target.value)}
+              placeholder="careers@blaunk.com"
+            />
+          </FormField>
+          <button
+            type="button"
+            disabled={savingEmail || loading}
+            onClick={() => void handleSaveApplyEmail()}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+          >
+            {savingEmail ? 'Saving…' : 'Save email'}
+          </button>
+        </div>
+      </SectionCard>
 
       {loadError ? (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -242,21 +289,12 @@ export const Vacancies: React.FC = () => {
               onChange={(e) => setField('numberOfOpenings', parseInt(e.target.value, 10) || 1)}
             />
           </FormField>
-          <FormField label="Qualification" required className="sm:col-span-2">
+          <FormField label="Qualification" required className="sm:col-span-2 lg:col-span-3">
             <input
               className={inputClass}
               value={form.qualification}
               onChange={(e) => setField('qualification', e.target.value)}
               placeholder="e.g. B.Tech in Computer Science"
-            />
-          </FormField>
-          <FormField label="Apply / CV email" required>
-            <input
-              type="email"
-              className={inputClass}
-              value={form.applyEmail}
-              onChange={(e) => setField('applyEmail', e.target.value)}
-              placeholder="careers@blaunk.com"
             />
           </FormField>
         </div>

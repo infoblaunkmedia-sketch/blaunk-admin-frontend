@@ -11,11 +11,11 @@ const MODULE_LABELS: Partial<Record<ModulePermission, string>> = {
   people: 'People',
   channelPartners: 'Channel Partners',
   finance: 'Finance',
-  platform: 'Platform & Products',
+  platform: 'Management',
   customers: 'Customers & Care',
   reports: 'Reports',
   corporate: 'Corporate',
-  settings: 'Settings',
+  retailManagement: 'Retail Management',
 };
 
 type MeResp = {

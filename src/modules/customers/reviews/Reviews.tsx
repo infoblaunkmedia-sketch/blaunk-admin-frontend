@@ -5,6 +5,7 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { CustomerReview, ReviewStatus } from '../customers.types';
 import { fetchReviews, updateReviewStatus } from '../customers.service';
 
@@ -47,7 +48,7 @@ export const Reviews: React.FC = () => {
       selector: (r) => r.rating,
     },
     { name: 'Review', selector: (r) => r.reviewText, grow: 3, wrap: true },
-    { name: 'Date', selector: (r) => r.date, width: '105px', sortable: true },
+    { name: 'Date', selector: (r) => r.date, format: (r) => formatDateDDMMYYYY(r.date) || '—', width: '105px', sortable: true },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
     {
       name: 'Actions',

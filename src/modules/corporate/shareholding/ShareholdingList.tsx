@@ -6,6 +6,7 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { Shareholder } from '../corporate.types';
 import { deleteShareholder, fetchShareholders } from '../corporate.service';
 
@@ -108,7 +109,7 @@ export const ShareholdingList: React.FC = () => {
       sortable: true,
     },
     { name: 'Holding %', selector: (r) => r.holdingPercent, minWidth: '96px', width: '104px' },
-    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, minWidth: '132px', width: '148px' },
+    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, format: (r) => toDisplayDDMMYYYY(r.dateOfAllotment) || '—', minWidth: '132px', width: '148px' },
     {
       name: 'Actions',
       cell: (r) => (

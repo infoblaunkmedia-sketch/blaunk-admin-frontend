@@ -7,12 +7,12 @@ export type PresetRole = 'superAdmin' | 'hrManager' | 'financeManager' | 'operat
 export const PRESET_ROLES: Record<PresetRole, ModulePermission[]> = {
   superAdmin: [
     'dashboard', 'cms', 'people', 'channelPartners', 'finance',
-    'platform', 'sales', 'it', 'customers', 'reports', 'corporate', 'settings',
+    'platform', 'sales', 'it', 'customers', 'reports', 'corporate',
     'adminPersonnel',
   ],
   hrManager: ['dashboard', 'people', 'reports'],
   financeManager: ['dashboard', 'finance', 'reports', 'platform'],
-  operations: ['dashboard', 'settings', 'customers', 'reports'],
+  operations: ['dashboard', 'platform', 'customers', 'reports'],
 };
 
 export interface CaptchaEntry {

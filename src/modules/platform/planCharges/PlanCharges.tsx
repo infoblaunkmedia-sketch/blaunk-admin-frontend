@@ -2,6 +2,7 @@ import React from 'react';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { ProductPlanChargeRow, AdPlanChargeRow } from '../platform.types';
 import { AD_PLAN_TYPES } from '../platform.types';
@@ -66,6 +67,8 @@ export const PlanCharges: React.FC = () => {
   const [editingAd, setEditingAd] = React.useState(false);
   const [savingSub, setSavingSub] = React.useState(false);
   const [savingAd, setSavingAd] = React.useState(false);
+  const [confirmSubSave, setConfirmSubSave] = React.useState(false);
+  const [confirmAdSave, setConfirmAdSave] = React.useState(false);
 
   React.useEffect(() => {
     fetchProductPlanCharges().then(setProductConfig);
@@ -77,7 +80,9 @@ export const PlanCharges: React.FC = () => {
     try {
       await saveProductPlanCharges(productConfig);
       setEditingSub(false);
+      setConfirmSubSave(false);
       toast.success('Product plan charges saved');
+      fetchProductPlanCharges().then(setProductConfig);
     } catch {
       toast.error('Save failed');
     } finally {
@@ -90,6 +95,7 @@ export const PlanCharges: React.FC = () => {
     try {
       await saveAdPlanCharges(adConfig);
       setEditingAd(false);
+      setConfirmAdSave(false);
       toast.success('Advertisement plan charges saved');
     } catch {
       toast.error('Save failed');
@@ -108,7 +114,7 @@ export const PlanCharges: React.FC = () => {
         actions={
           editingSub ? (
             <div className="flex gap-2">
-              <button type="button" disabled={savingSub} onClick={handleSaveSub}
+              <button type="button" disabled={savingSub} onClick={() => setConfirmSubSave(true)}
                 className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-white hover:bg-primary-dark disabled:opacity-60">
                 {savingSub ? 'Saving…' : 'Save'}
               </button>
@@ -207,7 +213,7 @@ export const PlanCharges: React.FC = () => {
         actions={
           editingAd ? (
             <div className="flex gap-2">
-              <button type="button" disabled={savingAd} onClick={handleSaveAd}
+              <button type="button" disabled={savingAd} onClick={() => setConfirmAdSave(true)}
                 className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-white hover:bg-primary-dark disabled:opacity-60">
                 {savingAd ? 'Saving…' : 'Save'}
               </button>
@@ -293,6 +299,30 @@ export const PlanCharges: React.FC = () => {
           </table>
         </div>
       </SectionCard>
+
+      {confirmSubSave ? (
+        <ConfirmDialog
+          title="Update plan charges"
+          message="Update product plan charges? This will affect new DSA uploads."
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={savingSub}
+          onConfirm={() => void handleSaveSub()}
+          onCancel={() => setConfirmSubSave(false)}
+        />
+      ) : null}
+
+      {confirmAdSave ? (
+        <ConfirmDialog
+          title="Update plan charges"
+          message="Update advertisement plan charges? This will affect new DSA uploads."
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={savingAd}
+          onConfirm={() => void handleSaveAd()}
+          onCancel={() => setConfirmAdSave(false)}
+        />
+      ) : null}
     </ErrorBoundary>
   );
 };

@@ -31,17 +31,17 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
-  {
-    label: 'CMS',
-    path: '/cms',
-    permission: 'cms',
-    icon: (
-      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M3 10h18" />
-      </svg>
-    ),
-  },
+  // {
+  //   label: 'CMS',
+  //   path: '/cms',
+  //   permission: 'cms',
+  //   icon: (
+  //     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  //       <rect x="3" y="4" width="18" height="16" rx="2" />
+  //       <path d="M3 10h18" />
+  //     </svg>
+  //   ),
+  // },
   {
     label: 'People',
     path: '/people',
@@ -84,8 +84,8 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Platform & Products',
-    path: '/platform',
+    label: 'Management',
+    path: '/management',
     permission: 'platform',
     icon: (
       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -161,13 +161,14 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: 'Settings',
-    path: '/settings',
-    permission: 'settings',
+    label: 'Retail Management',
+    path: '/retail-management',
+    permission: 'retailManagement',
     icon: (
       <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z" />
+        <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+        <path d="M3 9l2.5-5h13L21 9" />
+        <path d="M9 13h6" />
       </svg>
     ),
   },

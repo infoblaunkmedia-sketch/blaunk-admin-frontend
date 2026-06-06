@@ -13,6 +13,7 @@ export type ModulePermission =
   | 'customers'
   | 'reports'
   | 'corporate'
+  | 'retailManagement'
   | 'settings'
   | 'adminPersonnel';
 

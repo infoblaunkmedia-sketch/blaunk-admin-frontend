@@ -631,7 +631,8 @@ export const Banners: React.FC = () => {
                       <ClickablePreviewImage
                         src={bannerImageUrl(String(form.imageUrl))}
                         alt={form.title || 'Banner preview'}
-                        title={form.title || undefined}
+                        title={`${posConfig.label} · ${posConfig.aspectLabel}`}
+                        aspectRatio={posConfig.aspect}
                       />
                     )}
                   </div>
@@ -811,7 +812,7 @@ export const Banners: React.FC = () => {
           open={Boolean(cropSrc)}
           imageSrc={cropSrc}
           aspect={posConfig.aspect}
-          title={`Crop — ${posConfig.label}`}
+          subtitle={`${posConfig.label} · Crop ${posConfig.aspectLabel} · Max 5MB · JPG, PNG, WebP · Drag to reposition · scroll to zoom`}
           onClose={() => {
             URL.revokeObjectURL(cropSrc);
             setCropSrc(null);

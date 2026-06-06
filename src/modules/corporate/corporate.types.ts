@@ -1,8 +1,42 @@
 export type ShareType = 'Fully Paid - EQ' | 'Partially Paid - EQ' | 'Convertible' | 'Debenture' | 'Preference Share';
 export type ShareMode = 'Physical' | 'Demat';
 export type Stakeholder = 'Board Member' | 'HNI' | 'Pledge Lender' | 'Investors' | 'Shareholders';
-export type ShareRemarks = 'Transferable' | 'Non-Transferable' | 'Partly Paid' | 'Partly Sold' | 'Lockin Period';
-export type Pledge = 'NA' | 'Un Pledge' | 'Pledge';
+export type ShareRemarks =
+  | 'Transferable'
+  | 'Non-Transferable'
+  | 'Partly Paid'
+  | 'Partly Sold'
+  | 'Lockin Period'
+  | 'Buy Back by Director'
+  | '3P Trf Restricted';
+
+export const SHARE_REMARK_OPTIONS: ShareRemarks[] = [
+  'Transferable',
+  'Non-Transferable',
+  'Partly Paid',
+  'Partly Sold',
+  'Lockin Period',
+  'Buy Back by Director',
+  '3P Trf Restricted',
+];
+
+export type Pledge =
+  | ''
+  | 'Pledge with Bank'
+  | 'Pledge with Director'
+  | 'Pledge with Investor'
+  | 'Free Stock';
+
+export const PLEDGE_OPTIONS: Exclude<Pledge, ''>[] = [
+  'Pledge with Bank',
+  'Pledge with Director',
+  'Pledge with Investor',
+  'Free Stock',
+];
+
+export type ShareStatus = '' | 'Active' | 'Sold' | 'Hold';
+
+export const SHARE_STATUS_OPTIONS: Exclude<ShareStatus, ''>[] = ['Active', 'Sold', 'Hold'];
 
 export interface Nominee {
   name: string;
@@ -50,7 +84,10 @@ export interface Shareholder {
   bankName: string;
   ifscCode: string;
   bankAccountNumber: string;
+  bankCity: string;
+  bankCountry: string;
   pledge: Pledge;
+  shareStatus: ShareStatus;
   nominees: Nominee[];
 }
 

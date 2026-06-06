@@ -6,6 +6,7 @@ import { DataTableWrapper, ListTableSearchInput } from '../../../shared/componen
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { EmployeeForm } from './EmployeeForm';
 import type { Employee } from '../people.types';
 import { fetchEmployees, deleteEmployee } from '../people.service';
@@ -113,7 +114,7 @@ export const Employees: React.FC = () => {
     { name: 'Name', selector: (r) => r.fullName, sortable: true, grow: 2 },
     { name: 'Department', selector: (r) => r.department, sortable: true },
     { name: 'Designation', selector: (r) => r.designation, sortable: true },
-    { name: 'DOJ', selector: (r) => r.dateOfJoining, sortable: true, width: '110px' },
+    { name: 'DOJ', selector: (r) => r.dateOfJoining, format: (r) => formatDateDDMMYYYY(r.dateOfJoining) || '—', sortable: true, width: '110px' },
     {
       name: 'Status',
       cell: (r) => <StatusBadge status={r.status} />,

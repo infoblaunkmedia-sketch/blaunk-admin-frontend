@@ -6,6 +6,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { IpEntry } from '../settings.types';
 import {
   createIpWhitelistEntry,
@@ -229,7 +230,7 @@ export const IpManagement: React.FC = () => {
                       {entry.addedBy}
                     </td>
                     <td className="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">
-                      {entry.addedAt ? new Date(entry.addedAt).toLocaleDateString() : '—'}
+                      {entry.addedAt ? formatDateDDMMYYYY(String(entry.addedAt)) : '—'}
                     </td>
                     <td className="border-b border-slate-100 px-4 py-2.5">
                       <StatusBadge status={entry.status} />

@@ -19,8 +19,8 @@ export const FinancePage: React.FC = () => (
         <Route index element={<Navigate to="b2b" replace />} />
         <Route path="b2b" element={<B2BPayments />} />
         <Route path="dsa-limit" element={<DsaPayouts />} />
-        <Route path="dsa-payouts" element={<Navigate to="/finance/dsa-limit" replace />} />
         <Route path="dsa-limit-check" element={<Navigate to="/finance/dsa-limit" replace />} />
+        <Route path="dsa-payouts" element={<Navigate to="/finance/dsa-limit" replace />} />
         <Route path="bank-accounts" element={<BgtBankAccounts />} />
       </Routes>
     </ModuleLayout>

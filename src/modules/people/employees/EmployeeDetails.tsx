@@ -7,6 +7,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Employee } from '../people.types';
 import { fetchEmployeeByPan } from '../people.service';
+import { formatDateDDMMYYYY, toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -106,7 +107,7 @@ export const EmployeeDetails: React.FC = () => {
               <Field label="Name" value={emp.fullName} />
               <Field label="Department" value={emp.department} />
               <Field label="Designation" value={emp.designation} />
-              <Field label="Date of Joining" value={emp.dateOfJoining} />
+              <Field label="Date of Joining" value={toDisplayDDMMYYYY(String(emp.dateOfJoining || ''))} />
               <Field label="Mobile" value={emp.mobile} />
               <Field label="Email" value={emp.email} />
               <Field label="Aadhaar" value={emp.aadhaarNumber} />
@@ -117,12 +118,12 @@ export const EmployeeDetails: React.FC = () => {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Centre Name" value={emp.centreName} />
               <Field label="Confirmation Status" value={emp.confirmationStatus} />
-              <Field label="DOC" value={emp.doc} />
+              <Field label="DOC" value={toDisplayDDMMYYYY(String(emp.doc || ''))} />
               <Field label="Monthly Leaves" value={emp.monthlyLeaves} />
               <Field label="Job Grade" value={emp.jobGrade} />
               <Field label="UAN" value={emp.uan} />
               <Field label="PF" value={emp.pf} />
-              <Field label="Exit Date" value={emp.exitDate} />
+              <Field label="Exit Date" value={toDisplayDDMMYYYY(String(emp.exitDate || ''))} />
               <Field label="Remarks" value={emp.remarks} />
             </div>
           </SectionCard>

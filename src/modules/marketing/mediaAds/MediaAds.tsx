@@ -4,40 +4,64 @@ import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
-import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { ImageCropDialog } from '../../../shared/components/ImageCropDialog';
+import { ImagePreviewDialog } from '../../../shared/components/ImagePreview';
+import { PlacementImageUpload } from '../../../shared/components/PlacementImageUpload';
 import { FormField } from '../../../shared/components/FormField';
 import { useAuth } from '../../../auth/useAuth';
 import type { DsaSlider, DsaSlotStatus, SliderStatus, DsaPayoutHistory } from '../marketing.types';
 import {
   createDsaSlider,
   fetchDsaPayoutHistory,
-  fetchDsaUploadLimitStatus,
+  fetchDsaSliderById,
   fetchDsaSlotStatus,
   fetchSliderSummary,
   updateDsaSlider,
   validateMatchDoe,
 } from '../marketing.service';
 import { parseApiErrorBody } from '../../../shared/utils/apiErrorMessage';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 import { resolveAdPlanFees } from '../../platform/platform.service';
+import { uploadGiffImage } from '../../cms/giff/giff.service';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { isNegativePayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
 import {
   COUNTRIES,
   PLANS,
-  SECTIONS,
   STATUSES,
   planOptionLabel,
   toAbsoluteMediaUrl,
 } from './constants';
+import {
+  BANNER_CMS_PAGES,
+  defaultSlotForPage,
+  dsaPlacementSlotOptions,
+  pageLabel,
+  placementImageCrop,
+  placementImageMaxSize,
+  slotLabel,
+  type BannerCmsPage,
+  type BannerCmsSlot,
+} from '../../../shared/placements/cmsBannerPlacements';
 
 const DEFAULT_MEDIA_TAB = 'Slider';
 const DEFAULT_CATEGORY = 'Banner';
+const GIFF_FORMATS = ['gif', 'jpg'] as const;
 
-const inputClass = 'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-primary';
+function isGiffPage(page: BannerCmsPage) {
+  return page === 'giff';
+}
 
-const emptyForm = (section = 'HOMEPAGE') => ({
-  section,
+function mediaTabForPage(page: BannerCmsPage) {
+  return isGiffPage(page) ? 'GIFF' : DEFAULT_MEDIA_TAB;
+}
+
+const emptyForm = (cmsPage: BannerCmsPage = 'home', cmsPosition?: BannerCmsSlot) => ({
+  cmsPage,
+  cmsPosition: cmsPosition ?? defaultSlotForPage(cmsPage),
+  section: '',
   country: 'India',
   category: DEFAULT_CATEGORY,
   plan: 'Bronze',
@@ -48,7 +72,11 @@ const emptyForm = (section = 'HOMEPAGE') => ({
   toPay: 0,
   imageUrl: '',
   status: 'Active' as SliderStatus,
+  giffFormat: 'gif' as 'gif' | 'jpg',
+  giffSortOrder: 1,
 });
+
+const inputClass = 'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-primary';
 
 function getErrorMessage(error: unknown, fallback: string) {
   const raw = error instanceof Error ? error.message : '';
@@ -68,59 +96,71 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState(emptyForm());
-  const [marginInput, setMarginInput] = React.useState('0');
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [initialEditToPay, setInitialEditToPay] = React.useState(0);
+  const editingIdRef = React.useRef<string | null>(null);
   const [summary, setSummary] = React.useState({ totalMargin: 50000, marginUsed: 0, availableMargin: 50000 });
   const [slotStatus, setSlotStatus] = React.useState<DsaSlotStatus | null>(null);
   const [financeHistory, setFinanceHistory] = React.useState<DsaPayoutHistory[]>([]);
-  const [dsaUploadLimit, setDsaUploadLimit] = React.useState({
-    maxSlots: 0,
-    activeUploads: 0,
-    remainingSlots: null as number | null,
-  });
+  const [imageUploading, setImageUploading] = React.useState(false);
+  const [cropSrc, setCropSrc] = React.useState<string | null>(null);
+  const [imagePreviewOpen, setImagePreviewOpen] = React.useState(false);
+  const [confirmEditSave, setConfirmEditSave] = React.useState(false);
+  const imageInputRef = React.useRef<HTMLInputElement>(null);
+
+  const placementCrop = React.useMemo(
+    () => placementImageCrop(form.cmsPage, form.cmsPosition),
+    [form.cmsPage, form.cmsPosition],
+  );
+  const placementMaxSize = React.useMemo(() => placementImageMaxSize(form.cmsPage), [form.cmsPage]);
+  const cropSubtitle = `${placementCrop.label} · Crop ${placementCrop.aspectLabel} · Max ${placementMaxSize.hint} · JPG, PNG, WebP · Drag to reposition · scroll to zoom`;
+
+  React.useEffect(() => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset crop when placement changes
+  }, [form.cmsPage, form.cmsPosition]);
   const load = React.useCallback(
-    async (slotCtx?: { section: string; country: string }) => {
-      const section = slotCtx?.section ?? form.section;
+    async (slotCtx?: { cmsPage: BannerCmsPage; cmsPosition: BannerCmsSlot; country: string }) => {
+      const cmsPage = slotCtx?.cmsPage ?? form.cmsPage;
+      const cmsPosition = slotCtx?.cmsPosition ?? form.cmsPosition;
       const country = slotCtx?.country ?? form.country;
       setLoading(true);
+      const mt = mediaTabForPage(cmsPage);
       try {
-        const [sum, slot, payouts, uploadLimit] = await Promise.all([
-          fetchSliderSummary({ mediaTab: DEFAULT_MEDIA_TAB, dsaCode }),
+        const [sum, slot, payouts] = await Promise.all([
+          fetchSliderSummary({ dsaCode }),
           fetchDsaSlotStatus({
-            mediaTab: DEFAULT_MEDIA_TAB,
-            section,
+            mediaTab: mt,
+            cmsPage,
+            cmsPosition,
             country,
           }),
           fetchDsaPayoutHistory({ dsaCode }),
-          fetchDsaUploadLimitStatus(dsaCode),
         ]);
         setSummary(sum);
-        setMarginInput(String(sum.marginUsed ?? 0));
         setSlotStatus(slot);
         setFinanceHistory(payouts);
-        setDsaUploadLimit({
-          maxSlots: uploadLimit.maxSlots,
-          activeUploads: uploadLimit.activeUploads,
-          remainingSlots: uploadLimit.remainingSlots,
-        });
       } catch (e) {
         toast.error(getErrorMessage(e, 'Failed to load sliders'));
       } finally {
         setLoading(false);
       }
     },
-    [dsaCode, form.section, form.country],
+    [dsaCode, form.cmsPage, form.cmsPosition, form.country],
   );
 
   React.useEffect(() => {
     void load();
   }, [load, refreshKey]);
 
-  React.useEffect(() => {
-    const payload = (location.state as { editSlider?: DsaSlider } | null)?.editSlider;
-    if (!payload) return;
+  const applySliderToForm = React.useCallback((payload: DsaSlider) => {
+    editingIdRef.current = payload.id;
     setEditingId(payload.id);
+    setInitialEditToPay(Number(payload.toPay || 0));
     setForm({
+      cmsPage: (payload.cmsPage || 'home') as BannerCmsPage,
+      cmsPosition: (payload.cmsPosition || defaultSlotForPage((payload.cmsPage || 'home') as BannerCmsPage)) as BannerCmsSlot,
       section: payload.section,
       country: payload.country,
       category: payload.category || DEFAULT_CATEGORY,
@@ -132,28 +172,49 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       toPay: Number(payload.toPay || 0),
       imageUrl: payload.imageUrl,
       status: payload.status,
+      giffFormat: (payload.giffFormat === 'jpg' ? 'jpg' : 'gif') as 'gif' | 'jpg',
+      giffSortOrder: Number(payload.giffSortOrder) || 1,
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [location.state]);
+  }, []);
+
+  React.useEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
+
+  React.useEffect(() => {
+    const payload = (location.state as { editSlider?: DsaSlider } | null)?.editSlider;
+    if (!payload?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const record = await fetchDsaSliderById(payload.id);
+        if (!cancelled) applySliderToForm(record);
+      } catch {
+        if (!cancelled) applySliderToForm(payload);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.state, applySliderToForm]);
 
   const slotsFull = Boolean(
     !editingId && slotStatus && slotStatus.usedSlots >= slotStatus.maxSlots,
   );
-  const dsaUploadLimitReached = Boolean(
-    !editingId
-      && dsaUploadLimit.maxSlots > 0
-      && dsaUploadLimit.remainingSlots != null
-      && dsaUploadLimit.remainingSlots <= 0,
-  );
   const limitAmount = Number(summary.totalMargin || 0);
-  const marginValue = Number(marginInput) || 0;
-  const availableLimit = Math.max(0, limitAmount - marginValue);
+  const marginPreviewDelta = editingId
+    ? Number(form.toPay || 0) - initialEditToPay
+    : Number(form.toPay || 0);
+  const displayMarginUsed = Number(summary.marginUsed || 0) + marginPreviewDelta;
+  const availableLimit = Math.max(0, limitAmount - displayMarginUsed);
 
   React.useEffect(() => {
+    if (!form.plan || editingIdRef.current) return;
     let cancelled = false;
     (async () => {
-      const fees = await resolveAdPlanFees(DEFAULT_MEDIA_TAB, form.plan);
-      if (cancelled) return;
+      const fees = await resolveAdPlanFees(mediaTabForPage(form.cmsPage), form.plan);
+      if (cancelled || editingIdRef.current) return;
       setForm((p) => ({
         ...p,
         planCharge: fees.basicFees,
@@ -161,11 +222,53 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       }));
     })();
     return () => { cancelled = true; };
-  }, [form.plan]);
+  }, [form.plan, form.cmsPage]);
 
   React.useEffect(() => {
     setForm((p) => ({ ...p, toPay: Number((Number(p.planCharge || 0) + Number(p.luxuryFees || 0) - Number(p.discount || 0)).toFixed(2)) }));
   }, [form.planCharge, form.luxuryFees, form.discount]);
+
+  const handlePickImage = () => imageInputRef.current?.click();
+
+  const handleImageFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      e.target.value = '';
+      return;
+    }
+    const maxBytes = placementMaxSize.maxBytes;
+    if (file.size > maxBytes) {
+      toast.error(`Image must be ${placementMaxSize.hint} or smaller`);
+      e.target.value = '';
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setCropSrc(url);
+    e.target.value = '';
+  };
+
+  const closeCropDialog = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
+  const handleCropComplete = async (file: File, previewUrl: string) => {
+    setImageUploading(true);
+    try {
+      const url = isGiffPage(form.cmsPage)
+        ? await uploadGiffImage(file, String(form.cmsPosition))
+        : await uploadSliderImage(file);
+      setForm((p) => ({ ...p, imageUrl: url }));
+      if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+      toast.success('Image uploaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setImageUploading(false);
+    }
+  };
 
   const uploadSliderImage = async (file: File) => {
     const base = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -184,12 +287,13 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   };
 
   const handleSave = async () => {
-    if (!editingId && slotStatus && slotStatus.usedSlots >= slotStatus.maxSlots) {
-      toast.error('All slots are full for this section.');
+    const placementLabel = `${pageLabel(form.cmsPage)} · ${slotLabel(form.cmsPage, form.cmsPosition)}`;
+    if (!editingId && availableLimit <= 0) {
+      toast.error(`No approved limit available for ${placementLabel}. Save blocked.`);
       return;
     }
-    if (dsaUploadLimitReached) {
-      toast.error('Upload limit reached for this DSA.');
+    if (!editingId && slotStatus && slotStatus.usedSlots >= slotStatus.maxSlots) {
+      toast.error('All slots are full for this placement.');
       return;
     }
     if (!form.country) return toast.error('Country is required');
@@ -206,17 +310,22 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
       const payload = {
         ...form,
         productId: '',
-        mediaTab: DEFAULT_MEDIA_TAB,
+        mediaTab: mediaTabForPage(form.cmsPage),
         category: form.category || DEFAULT_CATEGORY,
+        giffFormat: isGiffPage(form.cmsPage) ? form.giffFormat : undefined,
+        giffSortOrder: isGiffPage(form.cmsPage) ? form.giffSortOrder : undefined,
         dsaCode,
       };
       if (editingId) await updateDsaSlider(editingId, payload);
       else await createDsaSlider(payload);
-      toast.success(editingId ? 'Slider updated' : 'Slider created');
+      toast.success(`${editingId ? 'Slider updated' : 'Slider created'}. ${placementLabel}`);
+      setConfirmEditSave(false);
+      editingIdRef.current = null;
       setEditingId(null);
-      const next = emptyForm('HOMEPAGE');
+      setInitialEditToPay(0);
+      const next = emptyForm();
       setForm(next);
-      await load({ section: next.section, country: next.country });
+      await load({ cmsPage: next.cmsPage, cmsPosition: next.cmsPosition, country: next.country });
     } catch (e) {
       toast.error(getErrorMessage(e, 'Save failed'));
     } finally {
@@ -224,41 +333,42 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
     }
   };
 
+  const requestSave = () => {
+    if (editingId) {
+      setConfirmEditSave(true);
+      return;
+    }
+    void handleSave();
+  };
+
   return (
     <ErrorBoundary>
-      <PageHeader title="Media Upload" subtitle="Advertisement upload for DSA" />
+      <PageHeader
+        title="Media Upload"
+        subtitle="Advertisement upload for DSA"
+        className="mb-2"
+      />
 
-      <SectionCard title="" className="mb-6" contentClassName="p-0 overflow-hidden">
+      <SectionCard title="" className="mb-3" contentClassName="p-0 overflow-hidden">
         <div>
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2">
             <div className="min-w-0">
-              <h3 className="text-xl font-bold text-slate-800">Media Upload</h3>
-              <p className="mt-0.5 text-xs font-semibold text-slate-600">
+              <p className="text-xs font-semibold text-slate-600">
                 {slotStatus
-                  ? `${slotStatus.usedSlots} / ${slotStatus.maxSlots} Slots Used · ${slotStatus.section} · ${slotStatus.country}`
+                  ? `${slotStatus.usedSlots} / ${slotStatus.maxSlots} Slots Used · ${slotStatus.pageLabel || pageLabel(slotStatus.cmsPage as BannerCmsPage)} · ${slotStatus.slotLabel || slotLabel(slotStatus.cmsPage as BannerCmsPage, slotStatus.cmsPosition as BannerCmsSlot)} · ${slotStatus.country}`
                   : 'Slot status…'}
-                {dsaUploadLimit.maxSlots > 0
-                  ? ` · Ad Slot ${dsaUploadLimit.activeUploads}/${dsaUploadLimit.maxSlots}`
-                  : ''}
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 text-xs font-semibold text-slate-600 sm:gap-4">
-              <span className="whitespace-nowrap">DSA Code: {dsaCode}</span>
-              <span className="whitespace-nowrap">Limit: ₹{limitAmount.toLocaleString()}</span>
-              <label className="flex items-center gap-2 whitespace-nowrap">
-                Margin
-                <input
-                  type="number"
-                  min={0}
-                  className="h-8 w-28 rounded border border-slate-300 px-2 text-sm font-semibold text-slate-800 outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
-                  value={marginInput}
-                  title="Loaded from sum of Active/Draft upload To Pay; editable to adjust available balance"
-                  onKeyDown={onNumericInputKeyDown}
-                  onChange={(e) => setMarginInput(e.target.value)}
-                />
-              </label>
+              <span className="whitespace-nowrap">
+                Limit: <span className="font-bold text-slate-800">₹{limitAmount.toLocaleString()}</span>
+              </span>
+              <span className="whitespace-nowrap">
+                Margin Used (total):{' '}
+                <span className="font-bold text-slate-800">₹{displayMarginUsed.toLocaleString()}</span>
+              </span>
               <span className="whitespace-nowrap font-semibold text-emerald-700">
-                Available: ₹{availableLimit.toLocaleString()}
+                Available: <span className="font-bold">₹{availableLimit.toLocaleString()}</span>
               </span>
             </div>
           </div>
@@ -268,27 +378,68 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
             </div>
           ) : null}
 
-          {dsaUploadLimitReached ? (
-            <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-center text-sm font-semibold text-red-800">
-              Upload limit reached for this DSA. Increase limit or wait for ads to expire.
-            </div>
-          ) : null}
-
           {slotsFull ? (
             <div className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-center text-sm font-semibold text-amber-900">
-              All slots are full for this section.
+              All slots are full for this placement.
             </div>
           ) : null}
 
           <div className="space-y-3 px-4 py-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <FormField label="Section" required>
-                <select className={inputClass} value={form.section} onChange={(e) => setForm((p) => ({ ...p, section: e.target.value }))}>
-                  {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              <FormField label="Page" required>
+                <select
+                  className={inputClass}
+                  value={form.cmsPage}
+                  onChange={(e) => {
+                    const cmsPage = e.target.value as BannerCmsPage;
+                    const cmsPosition = defaultSlotForPage(cmsPage);
+                    setForm((p) => ({ ...p, cmsPage, cmsPosition }));
+                    void load({ cmsPage, cmsPosition, country: form.country });
+                  }}
+                >
+                  {BANNER_CMS_PAGES.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
                 </select>
               </FormField>
+              <FormField label={isGiffPage(form.cmsPage) ? 'Category' : 'Slot / Position'} required>
+                <select
+                  className={inputClass}
+                  value={form.cmsPosition}
+                  onChange={(e) => {
+                    const cmsPosition = e.target.value as BannerCmsSlot;
+                    setForm((p) => ({ ...p, cmsPosition }));
+                    void load({ cmsPage: form.cmsPage, cmsPosition, country: form.country });
+                  }}
+                >
+                  {dsaPlacementSlotOptions(form.cmsPage).map((s) => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </FormField>
+              {isGiffPage(form.cmsPage) ? (
+                <FormField label="Format" required>
+                  <select
+                    className={inputClass}
+                    value={form.giffFormat}
+                    onChange={(e) => setForm((p) => ({ ...p, giffFormat: e.target.value as 'gif' | 'jpg' }))}
+                  >
+                    {GIFF_FORMATS.map((f) => (
+                      <option key={f} value={f}>{f.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </FormField>
+              ) : null}
               <FormField label="Country" required>
-                <select className={inputClass} value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}>
+                <select
+                  className={inputClass}
+                  value={form.country}
+                  onChange={(e) => {
+                    const country = e.target.value;
+                    setForm((p) => ({ ...p, country }));
+                    void load({ cmsPage: form.cmsPage, cmsPosition: form.cmsPosition, country });
+                  }}
+                >
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </FormField>
@@ -307,6 +458,8 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   autoComplete="off"
                 />
               </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <FormField label="Status">
                 <select
                   className={inputClass}
@@ -318,8 +471,6 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   ))}
                 </select>
               </FormField>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <FormField label="Plan Charge">
                 <input
                   type="number"
@@ -327,7 +478,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   className={`${inputClass} bg-slate-50`}
                   value={form.planCharge}
                   readOnly
-                  title="From Platform & Products → Adv Plan"
+                  title="From Management → Adv Plan"
                 />
               </FormField>
               <FormField label="Luxury Fees">
@@ -353,37 +504,40 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
               <FormField label="To Pay">
                 <input className={`${inputClass} bg-slate-50`} value={form.toPay} readOnly />
               </FormField>
-              <div className="hidden lg:block" aria-hidden />
             </div>
           </div>
 
           <div className="px-4 py-4">
-            <p className="mb-3 text-2xl font-bold text-slate-800">Upload Image</p>
-            <div className="flex flex-wrap items-end gap-6">
-              <div className={slotsFull && !editingId ? 'pointer-events-none opacity-50' : ''}>
-                <ImageUploader
-                  label="Image"
-                  currentPreview={toAbsoluteMediaUrl(form.imageUrl)}
-                  onFile={async (file) => {
-                    try {
-                      const url = await uploadSliderImage(file);
-                      setForm((p) => ({ ...p, imageUrl: url }));
-                      toast.success('Image uploaded');
-                    } catch (e) {
-                      toast.error(e instanceof Error ? e.message : 'Upload failed');
-                    }
-                  }}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
+            <PlacementImageUpload
+              placementLabel={placementCrop.label}
+              aspectLabel={placementCrop.aspectLabel}
+              aspect={placementCrop.aspect}
+              maxSizeHint={placementMaxSize.hint}
+              imageUrl={form.imageUrl}
+              uploading={imageUploading}
+              disabled={Boolean(slotsFull && !editingId)}
+              resolveImageUrl={toAbsoluteMediaUrl}
+              onPickImage={handlePickImage}
+              onPreviewClick={() => setImagePreviewOpen(true)}
+              fileInputRef={imageInputRef}
+              onFileChange={handleImageFileChange}
+              accept={
+                isGiffPage(form.cmsPage) && form.giffFormat === 'jpg'
+                  ? 'image/jpeg,image/jpg'
+                  : isGiffPage(form.cmsPage)
+                    ? 'image/gif'
+                    : 'image/*'
+              }
+              headerActions={
+                <>
                   <button
                     type="button"
                     onClick={() => {
+                      editingIdRef.current = null;
                       setEditingId(null);
-                      const base = emptyForm('HOMEPAGE');
+                      const base = emptyForm();
                       setForm(base);
-                      void load({ section: base.section, country: base.country });
+                      void load({ cmsPage: base.cmsPage, cmsPosition: base.cmsPosition, country: base.country });
                     }}
                     className="rounded bg-slate-500 px-4 py-2 text-xs font-bold text-white"
                   >
@@ -391,18 +545,20 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   </button>
                   <button
                     type="button"
-                    disabled={saving || (slotsFull && !editingId) || dsaUploadLimitReached || loading}
-                    onClick={handleSave}
+                    disabled={saving || imageUploading || (slotsFull && !editingId) || loading}
+                    onClick={requestSave}
                     className="rounded bg-emerald-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
                   >
                     {saving ? 'Saving...' : 'Apply'}
                   </button>
-                </div>
-                {slotsFull && !editingId ? (
-                  <p className="max-w-xs text-xs font-semibold text-amber-800">All slots are full for this section.</p>
-                ) : null}
-              </div>
-            </div>
+                </>
+              }
+              footnote={
+                slotsFull && !editingId ? (
+                  <p className="mt-2 text-xs font-semibold text-amber-800">All slots are full for this section.</p>
+                ) : null
+              }
+            />
           </div>
         </div>
       </SectionCard>
@@ -428,7 +584,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
               <tbody>
                 {financeHistory.map((row, idx) => (
                   <tr key={row.id} className={idx % 2 ? 'bg-slate-50' : 'bg-white'}>
-                    <td className="border-b px-3 py-2">{row.submissionDate || (row.createdAt || '').slice(0, 10) || '-'}</td>
+                    <td className="border-b px-3 py-2">{formatDateDDMMYYYY(String(row.submissionDate || row.createdAt || '')) || '-'}</td>
                     <td className="border-b px-3 py-2 font-semibold">{row.dsaCode}</td>
                     <td className="border-b px-3 py-2">{row.mode || '-'}</td>
                     <td className="border-b px-3 py-2">{row.currency}</td>
@@ -439,9 +595,9 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                     </td>
                     <td className="border-b px-3 py-2 text-xs text-slate-700">
                       {row.status === 'APPROVED'
-                        ? `Approved by ${row.approvedBy || '-'}${row.approvedAt ? ` on ${String(row.approvedAt).slice(0, 10)}` : ''}${row.approvalNote ? ` • ${row.approvalNote}` : ''}`
+                        ? `Approved by ${row.approvedBy || '-'}${row.approvedAt ? ` on ${formatDateDDMMYYYY(String(row.approvedAt))}` : ''}${row.approvalNote ? ` • ${row.approvalNote}` : ''}`
                         : isNegativePayoutStatus(row.status)
-                          ? `${payoutStatusLabel(row.status)} by ${row.rejectedBy || '-'}${row.rejectedAt ? ` on ${String(row.rejectedAt).slice(0, 10)}` : ''}${row.rejectionReason ? ` • ${row.rejectionReason}` : ''}`
+                          ? `${payoutStatusLabel(row.status)} by ${row.rejectedBy || '-'}${row.rejectedAt ? ` on ${formatDateDDMMYYYY(String(row.rejectedAt))}` : ''}${row.rejectionReason ? ` • ${row.rejectionReason}` : ''}`
                           : row.approvalNote
                             ? `${payoutStatusLabel(row.status)} • ${row.approvalNote}`
                             : payoutStatusLabel(row.status)}
@@ -453,6 +609,40 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
           </div>
         )}
       </SectionCard>
+
+      {cropSrc ? (
+        <ImageCropDialog
+          open
+          imageSrc={cropSrc}
+          aspect={placementCrop.aspect}
+          subtitle={cropSubtitle}
+          onClose={closeCropDialog}
+          onComplete={handleCropComplete}
+        />
+      ) : null}
+
+      {form.imageUrl ? (
+        <ImagePreviewDialog
+          open={imagePreviewOpen}
+          src={toAbsoluteMediaUrl(form.imageUrl)}
+          alt={placementCrop.label}
+          title={`${placementCrop.label} · ${placementCrop.aspectLabel}`}
+          aspectRatio={placementCrop.aspect}
+          onClose={() => setImagePreviewOpen(false)}
+        />
+      ) : null}
+
+      {confirmEditSave ? (
+        <ConfirmDialog
+          title="Save advertisement"
+          message="Are you sure you want to save changes to this advertisement? This cannot be undone."
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={saving}
+          onConfirm={() => void handleSave()}
+          onCancel={() => setConfirmEditSave(false)}
+        />
+      ) : null}
     </ErrorBoundary>
   );
 };

@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { PageContentBlock, PageContentStatus } from '../cms.types';
 import { fetchPageContent, savePageContent, deletePageContent, updatePageContentStatus } from '../cms.service';
 
@@ -91,7 +92,7 @@ export const PageContent: React.FC = () => {
     { name: 'Page', selector: (r) => r.page, width: '130px', sortable: true },
     { name: 'Section', selector: (r) => r.section, width: '120px' },
     { name: 'Title', selector: (r) => r.title, sortable: true, grow: 2 },
-    { name: 'Last Updated', selector: (r) => r.updatedAt.slice(0, 10), width: '120px', sortable: true },
+    { name: 'Last Updated', selector: (r) => r.updatedAt, format: (r) => formatDateDDMMYYYY(String(r.updatedAt || '')), width: '120px', sortable: true },
     { name: 'Updated By', selector: (r) => r.updatedBy, width: '110px' },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
     {

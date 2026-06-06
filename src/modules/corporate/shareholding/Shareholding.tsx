@@ -9,13 +9,19 @@ import { BankNameInput } from '../../../shared/components/BankNameInput';
 import { sanitizePan } from '../../../utils/inputFormats';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { Shareholder, Nominee } from '../corporate.types';
+import { SHARE_REMARK_OPTIONS, PLEDGE_OPTIONS, SHARE_STATUS_OPTIONS } from '../corporate.types';
 import { fetchShareholders, saveShareholder, deleteShareholder } from '../corporate.service';
 import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { toDateInputValue } from '../../../shared/utils/dateFormat';
 import { findNomineeContactIssue } from '../../../shared/validation/contactFormMessages';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+const disabledFieldClass =
+  'h-9 w-full min-w-[5rem] cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-400 outline-none';
 
 const emptyNominee = (): Nominee => ({ name: '', mobile: '', relation: '', percentage: '', pan: '' });
 
@@ -27,7 +33,8 @@ const emptyForm = (): Omit<Shareholder, 'id'> => ({
   distinctiveFrom: '', distinctiveTo: '', yearOfIssuance: '',
   stakeholder: '', dateOfAllotment: '', remarks: '', exitDate: '',
   year: '', projectKey: '', bankName: '', ifscCode: '', bankAccountNumber: '',
-  pledge: 'NA',
+  bankCity: '', bankCountry: '',
+  pledge: '', shareStatus: '',
   historyId: '',
   nominees: [emptyNominee(), emptyNominee(), emptyNominee()],
 });
@@ -64,9 +71,31 @@ export const Shareholding: React.FC = () => {
 
   const openEdit = (sh: Shareholder) => {
     const { id, ...rest } = sh;
-    setForm({ ...rest, nominees: rest.nominees.length >= 3 ? rest.nominees : [...rest.nominees, ...Array(3 - rest.nominees.length).fill(null).map(emptyNominee)] });
+    setForm({
+      ...rest,
+      yearOfIssuance: toDateInputValue(rest.yearOfIssuance),
+      nominees: rest.nominees.length >= 3 ? rest.nominees : [...rest.nominees, ...Array(3 - rest.nominees.length).fill(null).map(emptyNominee)],
+    });
     setEditId(id);
     setShowForm(true);
+  };
+
+  const setMode = (next: Shareholder['mode']) => {
+    setForm((p) => {
+      const patch: Partial<typeof form> = { mode: next };
+      if (p.mode && p.mode !== next) {
+        if (next === 'Physical') {
+          patch.isinCode = '';
+          patch.dpNumber = '';
+          patch.beneficiaryDpId = '';
+        } else if (next === 'Demat') {
+          patch.folioNumber = '';
+          patch.distinctiveFrom = '';
+          patch.distinctiveTo = '';
+        }
+      }
+      return { ...p, ...patch };
+    });
   };
 
   const handleSave = async () => {
@@ -112,7 +141,7 @@ export const Shareholding: React.FC = () => {
       sortable: true,
     },
     { name: 'Holding %', selector: (r) => r.holdingPercent, minWidth: '96px', width: '104px' },
-    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, minWidth: '132px', width: '148px' },
+    { name: 'Allotment Date', selector: (r) => r.dateOfAllotment, format: (r) => toDisplayDDMMYYYY(r.dateOfAllotment) || '—', minWidth: '132px', width: '148px' },
     {
       name: 'Actions',
       cell: (r) => (
@@ -194,12 +223,22 @@ export const Shareholding: React.FC = () => {
               <SectionCard title="Share Details">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <FormField label="Beneficiary DP ID">
-                    <input className={inputClass} maxLength={16} value={form.beneficiaryDpId}
-                      onChange={(e) => setField('beneficiaryDpId', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16))} />
+                    <input
+                      className={form.mode === 'Physical' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Physical'}
+                      maxLength={16}
+                      value={form.beneficiaryDpId}
+                      onChange={(e) => setField('beneficiaryDpId', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16))}
+                    />
                   </FormField>
                   <FormField label="Folio Number">
-                    <input className={inputClass} maxLength={12} value={form.folioNumber}
-                      onChange={(e) => setField('folioNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12))} />
+                    <input
+                      className={form.mode === 'Demat' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Demat'}
+                      maxLength={12}
+                      value={form.folioNumber}
+                      onChange={(e) => setField('folioNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12))}
+                    />
                   </FormField>
                   <FormField label="Share Type">
                     <select className={inputClass} value={form.shareType} onChange={(e) => setField('shareType', e.target.value as typeof form.shareType)}>
@@ -236,25 +275,55 @@ export const Shareholding: React.FC = () => {
                     />
                   </FormField>
                   <FormField label="Mode">
-                    <select className={inputClass} value={form.mode} onChange={(e) => setField('mode', e.target.value as typeof form.mode)}>
+                    <select className={inputClass} value={form.mode} onChange={(e) => setMode(e.target.value as typeof form.mode)}>
                       <option value="">Select…</option><option>Physical</option><option>Demat</option>
                     </select>
                   </FormField>
                   <FormField label="ISIN Code">
-                    <input className={inputClass} maxLength={12} value={form.isinCode}
-                      onChange={(e) => setField('isinCode', e.target.value.replace(/\D/g, '').slice(0, 12))} />
+                    <input
+                      className={form.mode === 'Physical' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Physical'}
+                      maxLength={12}
+                      value={form.isinCode}
+                      onChange={(e) => setField('isinCode', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    />
                   </FormField>
                   <FormField label="DP Number">
-                    <input className={inputClass} maxLength={16} value={form.dpNumber}
-                      onChange={(e) => setField('dpNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16))} />
+                    <input
+                      className={form.mode === 'Physical' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Physical'}
+                      maxLength={16}
+                      value={form.dpNumber}
+                      onChange={(e) => setField('dpNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16))}
+                    />
                   </FormField>
                   <FormField label="Distinctive From">
-                    <input className={inputClass} value={form.distinctiveFrom}
-                      onChange={(e) => setField('distinctiveFrom', e.target.value.replace(/\D/g, '').slice(0, 12))} />
+                    <input
+                      className={form.mode === 'Demat' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Demat'}
+                      inputMode="numeric"
+                      onKeyDown={onIntegerInputKeyDown}
+                      value={form.distinctiveFrom}
+                      onChange={(e) => setField('distinctiveFrom', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    />
                   </FormField>
                   <FormField label="Distinctive To">
-                    <input className={inputClass} value={form.distinctiveTo}
-                      onChange={(e) => setField('distinctiveTo', e.target.value.replace(/\D/g, '').slice(0, 12))} />
+                    <input
+                      className={form.mode === 'Demat' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Demat'}
+                      inputMode="numeric"
+                      onKeyDown={onIntegerInputKeyDown}
+                      value={form.distinctiveTo}
+                      onChange={(e) => setField('distinctiveTo', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    />
+                  </FormField>
+                  <FormField label="Year of Issuance">
+                    <input
+                      type="date"
+                      className={`${inputClass} [color-scheme:light]`}
+                      value={form.yearOfIssuance}
+                      onChange={(e) => setField('yearOfIssuance', e.target.value)}
+                    />
                   </FormField>
                   <FormField label="Stakeholder">
                     <select className={inputClass} value={form.stakeholder} onChange={(e) => setField('stakeholder', e.target.value as typeof form.stakeholder)}>
@@ -266,12 +335,6 @@ export const Shareholding: React.FC = () => {
                   <FormField label="Date of Allotment">
                     <input type="date" className={`${inputClass} [color-scheme:light]`} value={form.dateOfAllotment}
                       onChange={(e) => setField('dateOfAllotment', e.target.value)} />
-                  </FormField>
-                  <FormField label="Year of Issuance">
-                    <select className={inputClass} value={form.yearOfIssuance} onChange={(e) => setField('yearOfIssuance', e.target.value)}>
-                      <option value="">Select…</option>
-                      <option>2024-2025</option><option>2025-2026</option><option>2026-2027</option><option>2027-2028</option>
-                    </select>
                   </FormField>
                   <FormField label="Year">
                     <select className={inputClass} value={form.year} onChange={(e) => setField('year', e.target.value)}>
@@ -290,20 +353,32 @@ export const Shareholding: React.FC = () => {
                   <FormField label="Remarks">
                     <select className={inputClass} value={form.remarks} onChange={(e) => setField('remarks', e.target.value as typeof form.remarks)}>
                       <option value="">Select…</option>
-                      <option>Transferable</option><option>Non-Transferable</option>
-                      <option>Partly Paid</option><option>Partly Sold</option><option>Lockin Period</option>
+                      {SHARE_REMARK_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
                     </select>
                   </FormField>
                   <FormField label="Pledge">
                     <select className={inputClass} value={form.pledge} onChange={(e) => setField('pledge', e.target.value as typeof form.pledge)}>
-                      <option>NA</option><option>Un Pledge</option><option>Pledge</option>
+                      <option value="">Select…</option>
+                      {PLEDGE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                  <FormField label="Status">
+                    <select className={inputClass} value={form.shareStatus} onChange={(e) => setField('shareStatus', e.target.value as typeof form.shareStatus)}>
+                      <option value="">Select…</option>
+                      {SHARE_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
                     </select>
                   </FormField>
                 </div>
               </SectionCard>
 
               <SectionCard title="Bank Details">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <FormField label="Bank Name">
                     <BankNameInput
                       className={inputClass}
@@ -324,6 +399,14 @@ export const Shareholding: React.FC = () => {
                       onKeyDown={onIntegerInputKeyDown}
                       onChange={(e) => setField('bankAccountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
                     />
+                  </FormField>
+                  <FormField label="City">
+                    <input className={inputClass} value={form.bankCity}
+                      onChange={(e) => setField('bankCity', e.target.value)} />
+                  </FormField>
+                  <FormField label="Country">
+                    <input className={inputClass} value={form.bankCountry}
+                      onChange={(e) => setField('bankCountry', e.target.value)} />
                   </FormField>
                 </div>
               </SectionCard>

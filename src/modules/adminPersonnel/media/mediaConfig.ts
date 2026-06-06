@@ -37,6 +37,8 @@ export type ExpandableImageConfig = {
   group?: string;
   aspect: number;
   aspectLabel: string;
+  /** First slot number (default 1). Use 4 for social banners, 5 for become-a-seller bottom. */
+  startSlot?: number;
   titlePlaceholder?: string;
   titleHint?: string;
 };
@@ -48,8 +50,10 @@ export type MediaSectionConfig = {
   imageSlots: MediaImageSlotDef[];
   urlSlots?: MediaUrlSlotDef[];
   maxSizeKb: number;
-  /** Show + Add to grow image slots; optional editable card title per slot. */
+  /** Show + Add to grow image slots from slot 1; optional editable card title per slot. */
   expandableImages?: ExpandableImageConfig;
+  /** Additional + Add groups (e.g. bottom slider, social banners) alongside fixed imageSlots. */
+  expandableImageGroups?: ExpandableImageConfig[];
   /** Per-slot title field in admin (e.g. boutique cards, Cakes & Bakes). */
   editableCardTitle?: boolean;
 };
@@ -94,14 +98,22 @@ export const MEDIA_SECTIONS: MediaSectionConfig[] = [
     label: 'Social Media',
     kind: 'mixed',
     maxSizeKb: 1024,
-    imageSlots: [
-      heroSlot(4, 'Banner 1', 'Banners'),
-      heroSlot(5, 'Banner 2', 'Banners'),
-    ],
+    imageSlots: [],
     urlSlots: SOCIAL_MEDIA_SLOT_TITLES.map((title, i) => ({
       slot: i + 1,
       label: title,
     })),
+    expandableImageGroups: [
+      {
+        startSlot: 4,
+        minSlots: 1,
+        maxSlots: 10,
+        labelPrefix: 'Banner',
+        group: 'Banners',
+        aspect: ASPECT_HERO,
+        aspectLabel: ASPECT_HERO_LABEL,
+      },
+    ],
   },
   {
     id: 'become-a-seller',
@@ -113,8 +125,17 @@ export const MEDIA_SECTIONS: MediaSectionConfig[] = [
       sliderSlot(2, 'Hero slide 1', 'Hero slider (top)'),
       sliderSlot(3, 'Hero slide 2', 'Hero slider (top)'),
       sliderSlot(4, 'Hero slide 3', 'Hero slider (top)'),
-      heroSlot(5, 'Bottom slide 1', 'Bottom slider'),
-      heroSlot(6, 'Bottom slide 2', 'Bottom slider'),
+    ],
+    expandableImageGroups: [
+      {
+        startSlot: 5,
+        minSlots: 1,
+        maxSlots: 10,
+        labelPrefix: 'Bottom banner',
+        group: 'Bottom slider',
+        aspect: ASPECT_HERO,
+        aspectLabel: ASPECT_HERO_LABEL,
+      },
     ],
   },
   {
@@ -248,18 +269,38 @@ export function previewAspectClass(slot: MediaImageSlotDef): string {
   return 'h-20 w-[187px] shrink-0';
 }
 
+export function expandableGroupKey(sectionId: MediaSectionId, config: ExpandableImageConfig): string {
+  return `${sectionId}:${config.startSlot ?? 1}`;
+}
+
 export function buildExpandableSlotDefs(
   config: ExpandableImageConfig,
   visibleCount: number,
 ): MediaImageSlotDef[] {
+  const start = config.startSlot ?? 1;
   const count = Math.min(Math.max(visibleCount, config.minSlots), config.maxSlots);
   return Array.from({ length: count }, (_, i) => ({
-    slot: i + 1,
+    slot: start + i,
     label: `${config.labelPrefix} ${i + 1}`,
     aspect: config.aspect,
     aspectLabel: config.aspectLabel,
     group: config.group,
   }));
+}
+
+export function usedSlotCountInRange(
+  sectionId: MediaSectionId,
+  imageSlots: Record<string, { previewUrl?: string; cloudinaryUrl?: string } | undefined>,
+  startSlot: number,
+  maxSlots: number,
+): number {
+  let max = 0;
+  for (let s = startSlot; s < startSlot + maxSlots; s++) {
+    const key = slotStorageKey(sectionId, s);
+    const val = imageSlots[key];
+    if (val?.previewUrl || val?.cloudinaryUrl) max = s - startSlot + 1;
+  }
+  return max;
 }
 
 export function maxUsedImageSlot(

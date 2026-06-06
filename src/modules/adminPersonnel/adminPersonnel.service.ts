@@ -48,6 +48,7 @@ export type ContestQuizForm = {
   question: string;
   options: string[];
   validUntil: string;
+  correctOptionIndex?: number | '';
 };
 
 export type ContestQuizAdmin =
@@ -59,6 +60,7 @@ export type ContestQuizAdmin =
       options: string[];
       validUntil: string;
       deadlinePreview: string;
+      correctOptionIndex: number | null;
     };
 
 export type ContestSubmissionRow = {

@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { Contest, ContestStatus } from '../marketing.types';
 import { fetchContests, saveContest, deleteContest } from '../marketing.service';
 
@@ -79,8 +80,8 @@ export const Contests: React.FC = () => {
   const columns: TableColumn<Contest>[] = [
     { name: 'Contest Name', selector: (r) => r.name, sortable: true, grow: 2 },
     { name: 'Prize', selector: (r) => r.prize },
-    { name: 'Start Date', selector: (r) => r.startDate, width: '110px' },
-    { name: 'End Date', selector: (r) => r.endDate, width: '110px' },
+    { name: 'Start Date', selector: (r) => r.startDate, format: (r) => formatDateDDMMYYYY(r.startDate) || '—', width: '110px' },
+    { name: 'End Date', selector: (r) => r.endDate, format: (r) => formatDateDDMMYYYY(r.endDate) || '—', width: '110px' },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
     {
       name: 'Actions',

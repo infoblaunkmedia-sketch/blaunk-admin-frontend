@@ -400,6 +400,18 @@ function mapVacancy(dto: VacancyDto): Vacancy {
   };
 }
 
+export async function fetchVacancyApplyEmail(): Promise<string> {
+  const res = await api.get<{ applyEmail: string }>('/api/vacancies/settings/apply-email');
+  return (res.applyEmail || 'careers@blaunk.com').trim();
+}
+
+export async function saveVacancyApplyEmail(applyEmail: string): Promise<string> {
+  const res = await api.put<{ applyEmail: string }>('/api/vacancies/settings/apply-email', {
+    applyEmail: applyEmail.trim(),
+  });
+  return (res.applyEmail || applyEmail).trim();
+}
+
 export async function fetchVacancies(): Promise<Vacancy[]> {
   const res = await api.get<{ records: VacancyDto[] }>(
     `/api/vacancies?_=${Date.now()}`,
@@ -418,7 +430,6 @@ export async function saveVacancy(vac: Vacancy): Promise<Vacancy> {
     location: vac.location.trim(),
     packageLpa: vac.packageLpa.trim(),
     qualification: vac.qualification.trim(),
-    applyEmail: (vac.applyEmail || 'careers@blaunk.com').trim(),
   };
   const res = await api.post<{ record: VacancyDto }>('/api/vacancies', body);
   if (!res.record) throw new Error('Save succeeded but no record was returned.');

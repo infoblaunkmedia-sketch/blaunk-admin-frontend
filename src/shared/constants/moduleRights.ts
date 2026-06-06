@@ -21,7 +21,6 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'giff', label: 'GIFF' },
       { key: 'local-stores', label: 'B-Store Shops' },
       { key: 'store-categories', label: 'B-Store Categories' },
-      { key: 'pages', label: 'Page Content' },
     ],
   },
   {
@@ -53,13 +52,15 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
   },
   {
     key: 'platform',
-    label: 'Platform & Products',
+    label: 'Management',
     children: [
       { key: 'plan-charges', label: 'Plan Charges' },
       { key: 'commission', label: 'Commission' },
       { key: 'vouchers', label: 'Vouchers' },
       { key: 'products', label: 'Products' },
       { key: 'categories', label: 'Categories' },
+      { key: 'rights', label: 'User Rights' },
+      { key: 'match-code', label: 'Match Code' },
     ],
   },
   { key: 'sales', label: 'Sales' },
@@ -88,16 +89,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'profile', label: 'Company Profile' },
     ],
   },
-  {
-    key: 'settings',
-    label: 'Settings',
-    children: [
-      { key: 'rights', label: 'User Rights' },
-      { key: 'security', label: 'Security' },
-      { key: 'slot-settings', label: 'Slot Settings' },
-      { key: 'match-code', label: 'Match Code' },
-    ],
-  },
+  { key: 'retailManagement', label: 'Retail Management' },
   {
     key: 'adminPersonnel',
     label: 'Admin & Personnel',
@@ -121,9 +113,19 @@ export function parseSectionPermission(value: string): { module: string; child: 
   return { module: value.slice(0, i), child: value.slice(i + 1) };
 }
 
+const MANAGEMENT_LEGACY_SECTIONS = new Set([
+  'rights',
+  'match-code',
+]);
+
 export function hasModuleAccess(permissions: string[], module: ModulePermission): boolean {
   if (permissions.includes(module)) return true;
   if (permissions.some((p) => p.startsWith(`${module}:`))) return true;
+  // Legacy: Settings module merged into Management (platform)
+  if (module === 'platform') {
+    if (permissions.includes('settings')) return true;
+    if (permissions.some((p) => p.startsWith('settings:'))) return true;
+  }
   // Legacy: grant IT module when only old Settings IP right exists
   if (module === 'it' && permissions.includes('settings:ip-management')) return true;
   // Legacy: top-level payslip grant maps to People module
@@ -142,11 +144,12 @@ export function hasSectionAccess(
   if (module === 'it' && childKey === 'ip-management' && permissions.includes('settings:ip-management')) {
     return true;
   }
-  if (module === 'settings' && childKey === 'slot-settings' && permissions.includes('marketing:slot-settings')) {
-    return true;
+  if (module === 'platform' && MANAGEMENT_LEGACY_SECTIONS.has(childKey)) {
+    if (permissions.includes(`settings:${childKey}`)) return true;
+    if (permissions.includes('settings')) return true;
   }
   if (
-    module === 'settings' &&
+    module === 'platform' &&
     childKey === 'match-code' &&
     (permissions.includes('marketing:match-doe') || permissions.includes('marketing:match-code'))
   ) {

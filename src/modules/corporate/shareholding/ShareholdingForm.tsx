@@ -7,14 +7,19 @@ import { SectionCard } from '../../../shared/components/SectionCard';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Nominee, Shareholder } from '../corporate.types';
+import { SHARE_REMARK_OPTIONS, PLEDGE_OPTIONS, SHARE_STATUS_OPTIONS } from '../corporate.types';
 import { fetchShareholderByPan, saveShareholder } from '../corporate.service';
 import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { toDateInputValue } from '../../../shared/utils/dateFormat';
 import { BankNameInput } from '../../../shared/components/BankNameInput';
 import { PanNumberInput } from '../../../shared/components/PanNumberInput';
 import { isValidIndianPan } from '../../../utils/inputFormats';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+const disabledFieldClass =
+  'h-9 w-full min-w-[5rem] cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 text-sm font-semibold text-slate-400 outline-none';
 
 type FormValues = Omit<Shareholder, 'id'>;
 type NomineeErrors = { pan?: { message?: string } };
@@ -55,8 +60,11 @@ const defaultValues: FormValues = {
   bankName: '',
   ifscCode: '',
   bankAccountNumber: '',
+  bankCity: '',
+  bankCountry: '',
 
-  pledge: 'NA',
+  pledge: '',
+  shareStatus: '',
   historyId: '',
   nominees: [emptyNominee(), emptyNominee(), emptyNominee()],
 };
@@ -138,6 +146,7 @@ export const ShareholdingForm: React.FC = () => {
     watch,
     formState: { errors },
   } = useForm<FormValues>({ defaultValues });
+  const prevModeRef = React.useRef('');
 
   React.useEffect(() => {
     let mounted = true;
@@ -154,8 +163,19 @@ export const ShareholdingForm: React.FC = () => {
         (Object.keys(defaultValues) as (keyof FormValues)[]).forEach((k) => {
           const map = merged as unknown as Record<string, unknown>;
           const fallback = defaultValues as unknown as Record<string, unknown>;
-          setValue(k, (map[k] ?? fallback[k]) as any, { shouldDirty: false });
+          let val = (map[k] ?? fallback[k]) as FormValues[keyof FormValues];
+          if (k === 'yearOfIssuance' && val) {
+            val = toDateInputValue(String(val)) as FormValues[keyof FormValues];
+          }
+          if (k === 'dateOfAllotment' && val) {
+            val = toDateInputValue(String(val)) as FormValues[keyof FormValues];
+          }
+          if (k === 'exitDate' && val) {
+            val = toDateInputValue(String(val)) as FormValues[keyof FormValues];
+          }
+          setValue(k, val as any, { shouldDirty: false });
         });
+        prevModeRef.current = String(merged.mode || '');
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load shareholder.');
         navigate('/corporate/shareholding', { replace: true });
@@ -214,6 +234,25 @@ export const ShareholdingForm: React.FC = () => {
   };
 
   const nominees = watch('nominees');
+  const mode = watch('mode');
+  const isPhysical = mode === 'Physical';
+  const isDemat = mode === 'Demat';
+
+  React.useEffect(() => {
+    if (!mode || mode === prevModeRef.current) return;
+    if (prevModeRef.current) {
+      if (mode === 'Physical') {
+        setValue('isinCode', '');
+        setValue('dpNumber', '');
+        setValue('beneficiaryDpId', '');
+      } else if (mode === 'Demat') {
+        setValue('folioNumber', '');
+        setValue('distinctiveFrom', '');
+        setValue('distinctiveTo', '');
+      }
+    }
+    prevModeRef.current = mode;
+  }, [mode, setValue]);
 
   return (
     <ErrorBoundary>
@@ -422,25 +461,69 @@ export const ShareholdingForm: React.FC = () => {
                 </select>
               </FormField>
               <FormField label="ISIN Code">
-                <input className={inputClass} {...register('isinCode')} />
+                <input
+                  {...register('isinCode')}
+                  className={isPhysical ? disabledFieldClass : inputClass}
+                  disabled={isPhysical}
+                />
               </FormField>
               <FormField label="DP Number">
-                <input className={inputClass} {...register('dpNumber')} />
+                <input
+                  {...register('dpNumber')}
+                  className={isPhysical ? disabledFieldClass : inputClass}
+                  disabled={isPhysical}
+                />
               </FormField>
               <FormField label="Beneficiary DP ID">
-                <input className={inputClass} {...register('beneficiaryDpId')} />
+                <input
+                  {...register('beneficiaryDpId')}
+                  className={isPhysical ? disabledFieldClass : inputClass}
+                  disabled={isPhysical}
+                />
               </FormField>
               <FormField label="Folio Number">
-                <input className={inputClass} {...register('folioNumber')} />
+                <input
+                  {...register('folioNumber')}
+                  className={isDemat ? disabledFieldClass : inputClass}
+                  disabled={isDemat}
+                />
               </FormField>
-              <FormField label="Distinctive No(s) From">
-                <input className={inputClass} {...register('distinctiveFrom')} />
+              <FormField label="Distinctive No(s) From" error={errors.distinctiveFrom?.message}>
+                <input
+                  {...register('distinctiveFrom', {
+                    setValueAs: (v) => String(v || '').replace(/\D/g, ''),
+                    validate: (v) => {
+                      if (isDemat || !v) return true;
+                      return /^\d+$/.test(String(v)) || 'Enter numbers only.';
+                    },
+                  })}
+                  className={isDemat ? disabledFieldClass : inputClass}
+                  disabled={isDemat}
+                  inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
+                />
               </FormField>
-              <FormField label="Distinctive No(s) To">
-                <input className={inputClass} {...register('distinctiveTo')} />
+              <FormField label="Distinctive No(s) To" error={errors.distinctiveTo?.message}>
+                <input
+                  {...register('distinctiveTo', {
+                    setValueAs: (v) => String(v || '').replace(/\D/g, ''),
+                    validate: (v) => {
+                      if (isDemat || !v) return true;
+                      return /^\d+$/.test(String(v)) || 'Enter numbers only.';
+                    },
+                  })}
+                  className={isDemat ? disabledFieldClass : inputClass}
+                  disabled={isDemat}
+                  inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
+                />
               </FormField>
               <FormField label="Year of Issuance">
-                <input className={inputClass} {...register('yearOfIssuance')} />
+                <input
+                  type="date"
+                  className={`${inputClass} [color-scheme:light]`}
+                  {...register('yearOfIssuance')}
+                />
               </FormField>
               <FormField label="Stakeholder">
                 <select className={inputClass} {...register('stakeholder')}>
@@ -453,29 +536,36 @@ export const ShareholdingForm: React.FC = () => {
                 </select>
               </FormField>
               <FormField label="Date of Allotment">
-                <input type="date" className={inputClass} {...register('dateOfAllotment')} />
+                <input type="date" className={`${inputClass} [color-scheme:light]`} {...register('dateOfAllotment')} />
               </FormField>
               <FormField label="Remarks">
                 <select className={inputClass} {...register('remarks')}>
                   <option value="">Select…</option>
-                  <option>Transferable</option>
-                  <option>Non-Transferable</option>
-                  <option>Partly Paid</option>
-                  <option>Partly Sold</option>
-                  <option>Lockin Period</option>
+                  {SHARE_REMARK_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
                 </select>
               </FormField>
               <FormField label="Exit Date">
-                <input type="date" className={inputClass} {...register('exitDate')} />
+                <input type="date" className={`${inputClass} [color-scheme:light]`} {...register('exitDate')} />
               </FormField>
-              <input type="hidden" {...register('historyId')} />
               <FormField label="Pledge">
                 <select className={inputClass} {...register('pledge')}>
-                  <option>NA</option>
-                  <option>Un Pledge</option>
-                  <option>Pledge</option>
+                  <option value="">Select…</option>
+                  {PLEDGE_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
                 </select>
               </FormField>
+              <FormField label="Status">
+                <select className={inputClass} {...register('shareStatus')}>
+                  <option value="">Select…</option>
+                  {SHARE_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </FormField>
+              <input type="hidden" {...register('historyId')} />
             </div>
           </SectionCard>
 
@@ -500,6 +590,12 @@ export const ShareholdingForm: React.FC = () => {
                     setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 18),
                   })}
                 />
+              </FormField>
+              <FormField label="City">
+                <input className={inputClass} {...register('bankCity')} />
+              </FormField>
+              <FormField label="Country">
+                <input className={inputClass} {...register('bankCountry')} />
               </FormField>
             </div>
           </SectionCard>

@@ -59,10 +59,15 @@ export const INDIAN_STATES = [
 export type IndianState = (typeof INDIAN_STATES)[number];
 
 export const DEPARTMENTS = [
-  'Channel Partners',
+  'DSA',
   'Verifiers',
   'Retail Management',
 ] as const;
+
+/** Legacy 3P department label stored before rename to DSA. */
+export function normalizeThirdPartyDepartment(department: string): string {
+  return department === 'Channel Partners' ? 'DSA' : department;
+}
 
 export type Department = (typeof DEPARTMENTS)[number];
 

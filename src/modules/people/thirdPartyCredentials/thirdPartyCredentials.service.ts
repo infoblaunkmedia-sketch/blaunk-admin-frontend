@@ -29,6 +29,8 @@ type RecordDto = {
   bankName?: string;
   ifscCode?: string;
   bankAccountNumber?: string;
+  bankCity?: string;
+  bankCountry?: string;
   swiftNo?: string;
   ibanNo?: string;
   doj?: string;
@@ -80,6 +82,8 @@ function toRecord(dto: RecordDto): ThirdPartyCredential {
     bankName: dto.bankName || '',
     ifscCode: dto.ifscCode || '',
     bankAccountNumber: dto.bankAccountNumber || '',
+    bankCity: dto.bankCity || '',
+    bankCountry: dto.bankCountry || '',
     swiftNo: dto.swiftNo || '',
     ibanNo: dto.ibanNo || '',
     doj: dto.doj || '',

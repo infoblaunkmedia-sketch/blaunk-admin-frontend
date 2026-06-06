@@ -8,10 +8,12 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import {
   MEDIA_SECTIONS,
   buildExpandableSlotDefs,
+  expandableGroupKey,
   getMediaSection,
   groupImageSlots,
-  maxUsedImageSlot,
   slotStorageKey,
+  usedSlotCountInRange,
+  type ExpandableImageConfig,
   type MediaImageSlotDef,
   type MediaSectionId,
 } from './mediaConfig';
@@ -37,7 +39,7 @@ export const Media: React.FC = () => {
   const [socialUrls, setSocialUrls] = React.useState<Record<string, string>>({});
   const [loading, setLoading] = React.useState(true);
   const [deleting, setDeleting] = React.useState(false);
-  const [expandableVisible, setExpandableVisible] = React.useState(1);
+  const [expandableVisibleCounts, setExpandableVisibleCounts] = React.useState<Record<string, number>>({});
   const [confirmDelete, setConfirmDelete] = React.useState<{
     sectionId: MediaSectionId;
     slot: number;
@@ -74,12 +76,24 @@ export const Media: React.FC = () => {
     };
   }, []);
 
+  const allExpandableConfigs = React.useMemo((): ExpandableImageConfig[] => {
+    const groups = section.expandableImageGroups ?? [];
+    return section.expandableImages ? [section.expandableImages, ...groups] : groups;
+  }, [section]);
+
   React.useEffect(() => {
-    const expandable = section.expandableImages;
-    if (!expandable) return;
-    const used = maxUsedImageSlot(section.id, imageSlots, expandable.maxSlots);
-    setExpandableVisible(Math.max(expandable.minSlots, used || expandable.minSlots));
-  }, [sectionId, section, imageSlots, loading]);
+    if (allExpandableConfigs.length === 0) return;
+    setExpandableVisibleCounts((prev) => {
+      const next = { ...prev };
+      for (const config of allExpandableConfigs) {
+        const key = expandableGroupKey(section.id, config);
+        const start = config.startSlot ?? 1;
+        const used = usedSlotCountInRange(section.id, imageSlots, start, config.maxSlots);
+        next[key] = Math.max(config.minSlots, used || config.minSlots);
+      }
+      return next;
+    });
+  }, [sectionId, section.id, allExpandableConfigs, imageSlots, loading]);
 
   const setSlotValue = React.useCallback((slot: number, value: ImageSlotValue | undefined) => {
     const key = slotStorageKey(sectionId, slot);
@@ -187,11 +201,23 @@ export const Media: React.FC = () => {
     [imageSlots, sectionId],
   );
 
+  const visibleCountFor = (config: ExpandableImageConfig): number => {
+    const key = expandableGroupKey(section.id, config);
+    return expandableVisibleCounts[key] ?? config.minSlots;
+  };
+
   const resolveImageSlots = (): MediaImageSlotDef[] => {
-    if (section.expandableImages) {
-      return buildExpandableSlotDefs(section.expandableImages, expandableVisible);
+    if (section.expandableImages && !section.imageSlots.length && !section.expandableImageGroups?.length) {
+      return buildExpandableSlotDefs(section.expandableImages, visibleCountFor(section.expandableImages));
     }
-    return section.imageSlots;
+    const slots = [...section.imageSlots];
+    for (const config of allExpandableConfigs) {
+      if (section.expandableImages && config === section.expandableImages && section.imageSlots.length) {
+        continue;
+      }
+      slots.push(...buildExpandableSlotDefs(config, visibleCountFor(config)));
+    }
+    return slots;
   };
 
   const renderImageSlot = (slotDef: MediaImageSlotDef) => {
@@ -213,10 +239,10 @@ export const Media: React.FC = () => {
     );
   };
 
-  const renderAddBannerButton = () => {
-    const expandable = section.expandableImages;
-    if (!expandable) return null;
-    const atMax = expandableVisible >= expandable.maxSlots;
+  const renderAddBannerButton = (config: ExpandableImageConfig) => {
+    const key = expandableGroupKey(section.id, config);
+    const visible = expandableVisibleCounts[key] ?? config.minSlots;
+    const atMax = visible >= config.maxSlots;
     return (
       <button
         type="button"
@@ -224,10 +250,13 @@ export const Media: React.FC = () => {
         disabled={atMax || deleting}
         onClick={() => {
           if (atMax) {
-            toast.info(`Maximum ${expandable.maxSlots} banners`);
+            toast.info(`Maximum ${config.maxSlots} items`);
             return;
           }
-          setExpandableVisible((n) => Math.min(n + 1, expandable.maxSlots));
+          setExpandableVisibleCounts((prev) => ({
+            ...prev,
+            [key]: Math.min(visible + 1, config.maxSlots),
+          }));
         }}
       >
         + Add
@@ -235,10 +264,17 @@ export const Media: React.FC = () => {
     );
   };
 
+  const expandableConfigForGroup = (groupTitle: string | null): ExpandableImageConfig | null => {
+    for (const config of allExpandableConfigs) {
+      if ((config.group ?? null) === groupTitle) return config;
+    }
+    return null;
+  };
+
   const renderImageGroup = (
     group: { title: string | null; slots: MediaImageSlotDef[] },
     gi: number,
-    showAdd?: boolean,
+    addConfig?: ExpandableImageConfig | null,
   ) => (
     <div key={group.title ?? `group-${gi}`} className={gi > 0 ? 'mt-6' : ''}>
       {group.title ? (
@@ -248,7 +284,7 @@ export const Media: React.FC = () => {
       ) : null}
       <div className="flex flex-wrap items-start gap-3">
         {group.slots.map((slotDef) => renderImageSlot(slotDef))}
-        {showAdd ? renderAddBannerButton() : null}
+        {addConfig ? renderAddBannerButton(addConfig) : null}
       </div>
     </div>
   );
@@ -256,17 +292,22 @@ export const Media: React.FC = () => {
   const renderImageSections = () => {
     const slots = resolveImageSlots();
     const groups = groupImageSlots(slots);
-    const isExpandable = Boolean(section.expandableImages);
     return groups.map((group, gi) =>
-      renderImageGroup(group, gi, isExpandable && gi === groups.length - 1),
+      renderImageGroup(group, gi, expandableConfigForGroup(group.title)),
     );
   };
 
   const renderSocialMedia = () => {
-    const bannerGroups = groupImageSlots(section.imageSlots);
+    const bannerConfig = section.expandableImageGroups?.[0];
+    const bannerSlots = bannerConfig
+      ? buildExpandableSlotDefs(bannerConfig, visibleCountFor(bannerConfig))
+      : section.imageSlots;
+    const bannerGroups = groupImageSlots(bannerSlots);
     return (
       <div className="flex flex-col gap-6">
-        {bannerGroups.map((group, gi) => renderImageGroup(group, gi))}
+        {bannerGroups.map((group, gi) =>
+          renderImageGroup(group, gi, bannerConfig ?? null),
+        )}
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-600">
             Social links

@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { CustomerIssue, IssueStatus } from '../customers.types';
 import { fetchIssues, saveIssue, deleteIssue } from '../customers.service';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
@@ -62,6 +63,7 @@ export const Issues: React.FC = () => {
   const [editId, setEditId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
+  const [pendingAdvance, setPendingAdvance] = React.useState<CustomerIssue | null>(null);
   const [statusFilter, setStatusFilter] = React.useState('');
   const [tableSearch, setTableSearch] = React.useState('');
 
@@ -117,6 +119,7 @@ export const Issues: React.FC = () => {
     };
     await saveIssue(updated);
     toast.success(`Status → ${next}`);
+    setPendingAdvance(null);
     load();
   };
 
@@ -137,7 +140,7 @@ export const Issues: React.FC = () => {
     { name: 'Vendor', selector: (r) => r.vendorName, grow: 1 },
     { name: 'Penalty (₹)', selector: (r) => r.penaltyAmount, width: '100px', sortable: true },
     { name: 'Country', selector: (r) => r.country, width: '90px' },
-    { name: 'Raised', selector: (r) => r.raisedDate, width: '105px', sortable: true },
+    { name: 'Raised', selector: (r) => r.raisedDate, format: (r) => formatDateDDMMYYYY(r.raisedDate) || '—', width: '105px', sortable: true },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '110px' },
     {
       name: 'Actions',
@@ -146,7 +149,7 @@ export const Issues: React.FC = () => {
           <button type="button" onClick={() => openEdit(r)}
             className="rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10">Edit</button>
           {NEXT_STATUS[r.status] && (
-            <button type="button" onClick={() => handleAdvanceStatus(r)}
+            <button type="button" onClick={() => setPendingAdvance(r)}
               className="rounded px-2 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-50">
               → {NEXT_STATUS[r.status]}
             </button>
@@ -249,9 +252,20 @@ export const Issues: React.FC = () => {
         filterText={tableSearch} onFilterTextChange={setTableSearch} hideSearchInput />
 
       {confirmDel && (
-        <ConfirmDialog title="Delete Issue" message="Delete this issue record permanently?"
+        <ConfirmDialog title="Delete Issue" message="Are you sure you want to delete this issue record? This cannot be undone."
           confirmLabel="Delete" onConfirm={handleDelete} onCancel={() => setConfirmDel(null)} />
       )}
+
+      {pendingAdvance ? (
+        <ConfirmDialog
+          title="Update issue status"
+          message={`Are you sure you want to advance issue ${pendingAdvance.rnNumber} to ${NEXT_STATUS[pendingAdvance.status]}? This cannot be undone.`}
+          confirmLabel="Confirm"
+          variant="primary"
+          onConfirm={() => void handleAdvanceStatus(pendingAdvance)}
+          onCancel={() => setPendingAdvance(null)}
+        />
+      ) : null}
     </ErrorBoundary>
   );
 };

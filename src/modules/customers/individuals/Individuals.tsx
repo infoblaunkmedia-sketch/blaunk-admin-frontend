@@ -6,7 +6,9 @@ import { SectionCard } from '../../../shared/components/SectionCard';
 import { DataTableWrapper, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { Individual, CustomerStatus } from '../customers.types';
 import {
   fetchIndividuals,
@@ -24,6 +26,7 @@ export const Individuals: React.FC = () => {
   const [notesDraft, setNotesDraft] = React.useState('');
   const [statusDraft, setStatusDraft] = React.useState<CustomerStatus>('Active');
   const [saving, setSaving] = React.useState(false);
+  const [confirmSave, setConfirmSave] = React.useState(false);
   const [tableSearch, setTableSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<CustomerStatus | ''>('');
   const [total, setTotal] = React.useState(0);
@@ -72,6 +75,7 @@ export const Individuals: React.FC = () => {
         internalNotes: notesDraft,
       });
       toast.success('Customer profile updated');
+      setConfirmSave(false);
       setSelected(null);
       load();
     } catch (err) {
@@ -87,8 +91,8 @@ export const Individuals: React.FC = () => {
     { name: 'Email', selector: (r) => r.email, grow: 2 },
     { name: 'Mobile', selector: (r) => r.mobile, width: '130px' },
     { name: 'Country', selector: (r) => r.country, width: '110px' },
-    { name: 'Registered', selector: (r) => r.registrationDate, width: '110px', sortable: true },
-    { name: 'Last Login', selector: (r) => r.lastLoginDate, width: '110px' },
+    { name: 'Registered', selector: (r) => r.registrationDate, format: (r) => formatDateDDMMYYYY(r.registrationDate) || '—', width: '110px', sortable: true },
+    { name: 'Last Login', selector: (r) => r.lastLoginDate, format: (r) => formatDateDDMMYYYY(r.lastLoginDate) || '—', width: '110px' },
     { name: 'Orders', selector: (r) => r.totalOrders, width: '80px', sortable: true },
     { name: 'Status', cell: (r) => <StatusBadge status={r.accountStatus} />, width: '100px' },
     {
@@ -141,7 +145,7 @@ export const Individuals: React.FC = () => {
                 <div><span className="font-semibold text-slate-500">Email:</span> <span>{selected.email}</span></div>
                 <div><span className="font-semibold text-slate-500">Mobile:</span> <span>{selected.mobile}</span></div>
                 <div><span className="font-semibold text-slate-500">Country:</span> <span>{selected.country}</span></div>
-                <div><span className="font-semibold text-slate-500">Registered:</span> <span>{selected.registrationDate}</span></div>
+                <div><span className="font-semibold text-slate-500">Registered:</span> <span>{formatDateDDMMYYYY(selected.registrationDate) || '—'}</span></div>
                 <div><span className="font-semibold text-slate-500">Last Login:</span> <span>{selected.lastLoginDate}</span></div>
               </div>
               <SectionCard title="Account Status">
@@ -161,7 +165,7 @@ export const Individuals: React.FC = () => {
               </SectionCard>
             </div>
             <div className="flex gap-3 border-t border-slate-100 px-5 py-4">
-              <button type="button" disabled={saving} onClick={handleSave}
+              <button type="button" disabled={saving} onClick={() => setConfirmSave(true)}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
@@ -173,6 +177,18 @@ export const Individuals: React.FC = () => {
           </div>
         </div>
       )}
+
+      {confirmSave && selected ? (
+        <ConfirmDialog
+          title="Update customer"
+          message={`Are you sure you want to update ${selected.fullName} (status: ${statusDraft})? This cannot be undone.`}
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={saving}
+          onConfirm={() => void handleSave()}
+          onCancel={() => setConfirmSave(false)}
+        />
+      ) : null}
     </ErrorBoundary>
   );
 };

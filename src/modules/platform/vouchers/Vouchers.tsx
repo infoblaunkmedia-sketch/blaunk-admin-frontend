@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { SUBSCRIPTION_PLAN_NAMES } from '../platform.types';
 import type { Voucher, VoucherStatus } from '../platform.types';
 import { fetchVouchers, saveVoucher, deleteVoucher, generateVoucherCode } from '../platform.service';
@@ -93,7 +94,7 @@ export const Vouchers: React.FC = () => {
     { name: 'Plan Tier', selector: (r) => r.planTier, sortable: true, width: '110px' },
     { name: 'Discount', selector: (r) => r.discount, format: (r) => `${r.discount}%`, width: '90px' },
     { name: 'Usage Type', selector: (r) => r.usageType, format: (r) => r.usageType === 'one-time-individual' ? 'Individual' : 'Vendor' },
-    { name: 'Expiry', selector: (r) => r.expiryDate, width: '110px' },
+    { name: 'Expiry', selector: (r) => r.expiryDate, format: (r) => formatDateDDMMYYYY(r.expiryDate) || '—', width: '110px' },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
     { name: 'Created By', selector: (r) => r.createdBy, width: '110px' },
     {

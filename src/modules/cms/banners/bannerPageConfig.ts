@@ -2,6 +2,7 @@ import {
   HOMEPAGE_BANNER_POSITIONS,
   type HomepageBannerPosition,
   type HomepageBannerPositionConfig,
+  type HomepageBannerField,
   getPositionConfig as getHomepagePositionConfig,
   canAddRecordForPosition as canAddHomepageRecord,
 } from './homepageBannerConfig';
@@ -20,15 +21,22 @@ import {
   getBoutiquePositionConfig,
   canAddBoutiqueRecord,
 } from './boutiqueBannerConfig';
+import {
+  GIFF_CATEGORIES,
+  GIFF_ASPECT,
+  GIFF_ASPECT_LABEL,
+  type GiffCategoryId,
+} from '../giff/giffConfig';
 
 /** CMS Upload — first dropdown (maps to API page). */
-export type BannerCmsPage = 'home' | 'bgt' | 'bgt-view-more' | 'boutique';
+export type BannerCmsPage = 'home' | 'bgt' | 'bgt-view-more' | 'boutique' | 'giff';
 
 export type BannerCmsSlot =
   | HomepageBannerPosition
   | BgtMainBannerPosition
   | BgtViewMoreBannerPosition
   | BoutiqueBannerPosition
+  | GiffCategoryId
   | 'testimonials';
 
 export const BANNER_CMS_PAGES: { id: BannerCmsPage; label: string }[] = [
@@ -36,6 +44,7 @@ export const BANNER_CMS_PAGES: { id: BannerCmsPage; label: string }[] = [
   { id: 'bgt', label: 'BGT' },
   { id: 'bgt-view-more', label: 'BGT View More' },
   { id: 'boutique', label: 'Boutique' },
+  { id: 'giff', label: 'GIFF' },
 ];
 
 export type BannerPositionConfig = HomepageBannerPositionConfig;
@@ -55,6 +64,8 @@ export function defaultSlotForPage(page: BannerCmsPage): BannerCmsSlot {
       return 'view-more-hero';
     case 'boutique':
       return 'hero';
+    case 'giff':
+      return 'home-page-cake-giff';
     default:
       return 'hero';
   }
@@ -68,6 +79,17 @@ export function positionOptionsForPage(page: BannerCmsPage): BannerPositionConfi
       return BGT_VIEW_MORE_BANNER_POSITIONS;
     case 'boutique':
       return BOUTIQUE_BANNER_POSITIONS;
+    case 'giff':
+      return GIFF_CATEGORIES.map((c) => ({
+        id: c.id,
+        label: c.label,
+        hint: c.label,
+        aspect: GIFF_ASPECT,
+        aspectLabel: GIFF_ASPECT_LABEL,
+        fields: ['image'] as HomepageBannerField[],
+        imageRequired: true,
+        maxRecords: c.maxRecords,
+      }));
     default:
       return HOMEPAGE_BANNER_POSITIONS;
   }
@@ -78,6 +100,20 @@ export function getSlotConfig(
   slot: BannerCmsSlot,
 ): BannerPositionConfig | null {
   if (slot === 'testimonials') return null;
+  if (page === 'giff') {
+    const cat = GIFF_CATEGORIES.find((c) => c.id === slot);
+    if (!cat) return null;
+    return {
+      id: cat.id,
+      label: cat.label,
+      hint: cat.label,
+      aspect: GIFF_ASPECT,
+      aspectLabel: GIFF_ASPECT_LABEL,
+      fields: ['image'] as HomepageBannerField[],
+      imageRequired: true,
+      maxRecords: cat.maxRecords,
+    };
+  }
   if (page === 'home') return getHomepagePositionConfig(slot as HomepageBannerPosition);
   if (page === 'boutique') return getBoutiquePositionConfig(slot as BoutiqueBannerPosition);
   return getBgtCommonPositionConfig(slot as BgtCommonBannerPosition);
@@ -89,6 +125,11 @@ export function canAddRecordForSlot(
   existingCount: number,
 ): boolean {
   if (slot === 'testimonials') return true;
+  if (page === 'giff') {
+    const cat = GIFF_CATEGORIES.find((c) => c.id === slot);
+    if (!cat) return false;
+    return existingCount < cat.maxRecords;
+  }
   if (page === 'home') return canAddHomepageRecord(slot as HomepageBannerPosition, existingCount);
   if (page === 'boutique') return canAddBoutiqueRecord(slot as BoutiqueBannerPosition, existingCount);
   return canAddBgtCommonRecord(slot as BgtCommonBannerPosition, existingCount);

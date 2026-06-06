@@ -7,6 +7,8 @@ type ImageCropDialogProps = {
   imageSrc: string;
   aspect: number;
   title?: string;
+  /** Placement hint shown under the title, e.g. "Hero carousel · Crop 21:9 · Max 5MB" */
+  subtitle?: string;
   onClose: () => void;
   onComplete: (file: File, previewUrl: string) => void;
 };
@@ -15,7 +17,8 @@ export const ImageCropDialog: React.FC<ImageCropDialogProps> = ({
   open,
   imageSrc,
   aspect,
-  title = 'Crop image',
+  title = 'Upload Image',
+  subtitle,
   onClose,
   onComplete,
 }) => {
@@ -50,12 +53,33 @@ export const ImageCropDialog: React.FC<ImageCropDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="border-b border-slate-200 px-4 py-3">
-          <h3 className="text-sm font-bold text-primary">{title}</h3>
-          <p className="text-xs text-slate-500">Drag to reposition · scroll to zoom</p>
+      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+            <p className="mt-0.5 text-xs font-semibold text-slate-500">
+              {subtitle || 'Drag to reposition · scroll to zoom'}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded bg-slate-500 px-4 py-2 text-xs font-bold text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={saving || !croppedAreaPixels}
+              onClick={() => void handleSave()}
+              className="rounded bg-emerald-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : 'Apply'}
+            </button>
+          </div>
         </div>
-        <div className="relative h-[min(50vh,360px)] bg-slate-900">
+        <div className="relative h-[min(55vh,420px)] bg-slate-900">
           <Cropper
             image={imageSrc}
             crop={crop}
@@ -66,8 +90,8 @@ export const ImageCropDialog: React.FC<ImageCropDialogProps> = ({
             onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
           />
         </div>
-        <div className="flex items-center gap-3 border-t border-slate-200 px-4 py-3">
-          <label className="flex flex-1 items-center gap-2 text-xs text-slate-600">
+        <div className="border-t border-slate-200 px-4 py-3">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
             Zoom
             <input
               type="range"
@@ -79,17 +103,6 @@ export const ImageCropDialog: React.FC<ImageCropDialogProps> = ({
               className="flex-1"
             />
           </label>
-          <button type="button" onClick={onClose} className="text-sm text-slate-600">
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={saving || !croppedAreaPixels}
-            onClick={() => void handleSave()}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Apply crop'}
-          </button>
         </div>
       </div>
     </div>

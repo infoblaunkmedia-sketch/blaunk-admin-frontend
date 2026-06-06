@@ -8,6 +8,7 @@ import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { ClickableImageThumb } from '../../../shared/components/ImagePreview';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { CmsImage, ImageStatus } from '../cms.types';
@@ -110,7 +111,7 @@ export const ImageLibrary: React.FC = () => {
     { name: 'File Name', selector: (r) => r.fileName, sortable: true, grow: 2 },
     { name: 'Section', selector: (r) => r.sectionTag, width: '150px', sortable: true },
     { name: 'Size', selector: (r) => `${r.sizeKb} KB`, width: '90px' },
-    { name: 'Uploaded', selector: (r) => r.uploadDate, width: '110px', sortable: true },
+    { name: 'Uploaded', selector: (r) => r.uploadDate, format: (r) => formatDateDDMMYYYY(r.uploadDate) || '—', width: '110px', sortable: true },
     { name: 'Status', cell: (r) => <StatusBadge status={r.status} />, width: '100px' },
     {
       name: 'Actions',

@@ -12,10 +12,27 @@ export const PAYOUT_STATUSES = [
 
 export type PayoutStatus = typeof PAYOUT_STATUSES[number];
 
-export const PAYOUT_STATUS_OPTIONS: { value: PayoutStatus; label: string }[] = [
+/** Admin approval dropdown — Pending, Approved, Rejected only. */
+export const PAYOUT_APPROVAL_OPTIONS: { value: PayoutStatus; label: string }[] = [
   { value: 'PENDING', label: 'Pending' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },
+];
+
+/** Remark options when approval is Rejected (visible to DSA on their Limit table). */
+export const PAYOUT_REMARK_OPTIONS = [
+  'Reversed Back',
+  'Duplicate Entry',
+  'Journal Voucher Reversal',
+  'Management Not Approved',
+  'DSA Closed & Transferred',
+  'Bank Entry Missing',
+] as const;
+
+export type PayoutRemark = typeof PAYOUT_REMARK_OPTIONS[number];
+
+export const PAYOUT_STATUS_OPTIONS: { value: PayoutStatus; label: string }[] = [
+  ...PAYOUT_APPROVAL_OPTIONS,
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: 'REVERSE_BACK', label: 'Reverse Back' },
   { value: 'ON_HOLD', label: 'On Hold' },
@@ -72,6 +89,9 @@ export function isPendingPayoutStatus(raw: string): boolean {
 }
 
 export function isNegativePayoutStatus(raw: string): boolean {
-  const norm = normalizePayoutStatus(raw);
-  return norm === 'REJECTED' || norm === 'CANCELLED' || norm === 'ENTRY_MISSING';
+  return normalizePayoutStatus(raw) === 'REJECTED';
+}
+
+export function isPayoutRemark(value: string): value is PayoutRemark {
+  return PAYOUT_REMARK_OPTIONS.includes(value as PayoutRemark);
 }

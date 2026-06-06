@@ -57,6 +57,7 @@ export const UserRights: React.FC = () => {
     variant: 'danger' | 'primary';
     run: () => Promise<void>;
   }>(null);
+  const [pendingSaveCode, setPendingSaveCode] = React.useState<string | null>(null);
   const currentUser = useAuthStore((s) => s.user);
   const loginAction = useAuthStore((s) => s.login);
   const currentToken = useAuthStore((s) => s.token);
@@ -140,6 +141,7 @@ export const UserRights: React.FC = () => {
         loginAction(currentToken, { ...currentUser, permissions: getPerms(code) });
       }
       toast.success(`Permissions saved for ${code}`);
+      setPendingSaveCode(null);
     } catch {
       toast.error('Failed to save permissions');
     } finally {
@@ -526,7 +528,7 @@ export const UserRights: React.FC = () => {
                     <button
                       type="button"
                       disabled={saving === code}
-                      onClick={() => handleSave(code)}
+                      onClick={() => setPendingSaveCode(code)}
                       className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
                     >
                       {saving === code ? 'Saving…' : 'Save Rights'}
@@ -547,6 +549,18 @@ export const UserRights: React.FC = () => {
           loading={statusSaving || pwSaving}
           onConfirm={runConfirmedAction}
           onCancel={() => setConfirmAction(null)}
+        />
+      ) : null}
+
+      {pendingSaveCode ? (
+        <ConfirmDialog
+          title="Save user rights"
+          message={`Are you sure you want to save permission changes for ${pendingSaveCode}? This cannot be undone.`}
+          confirmLabel="Confirm"
+          variant="primary"
+          loading={saving === pendingSaveCode}
+          onConfirm={() => void handleSave(pendingSaveCode)}
+          onCancel={() => setPendingSaveCode(null)}
         />
       ) : null}
     </ErrorBoundary>

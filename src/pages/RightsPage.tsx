@@ -7,7 +7,6 @@ import { PlanCharges } from '../components/PlanCharges';
 import { CommissionPage } from './CommissionPage';
 import { PaybankPage } from '../components/PaybankPage';
 import { VoucherPage } from './VoucherPage';
-import { DsaLimitCheckPage } from './DsaLimitCheckPage';
 import { CompanyDetailsPage } from './CompanyDetailsPage';
 import { MisReports } from '../components/MisReports';
 
@@ -54,7 +53,6 @@ export const RightsPage: React.FC = () => {
     'MIS',
     'Paybank',
     'Voucher',
-    'DSA Limit',
     'Company Details',
   ];
 
@@ -156,14 +154,6 @@ export const RightsPage: React.FC = () => {
       );
     }
 
-    if (activeTab === 'DSA Limit') {
-      return (
-        <section className="w-full p-0 sm:p-0">
-          <DsaLimitCheckPage />
-        </section>
-      );
-    }
-
     if (activeTab === 'Company Details') {
       return (
         <section className="w-full p-0 sm:p-0">
@@ -205,16 +195,13 @@ export const RightsPage: React.FC = () => {
       {/* Page title */}
       {activeTab === 'Commission' ||
       activeTab === 'Voucher' ||
-      activeTab === 'DSA Limit' ||
       activeTab === 'Company Details' ? (
         <h1 className="sr-only">
           {activeTab === 'Voucher'
             ? 'Voucher Management'
-            : activeTab === 'DSA Limit'
-              ? 'DSA Limit'
-              : activeTab === 'Company Details'
-                ? 'Company Details'
-                : 'Commission'}
+            : activeTab === 'Company Details'
+              ? 'Company Details'
+              : 'Commission'}
         </h1>
       ) : (
         <h1 className="text-2xl font-bold text-slate-800">{activeTab}</h1>

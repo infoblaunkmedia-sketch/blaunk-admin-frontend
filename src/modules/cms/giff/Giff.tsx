@@ -308,6 +308,8 @@ export const Giff: React.FC = () => {
                     <ClickablePreviewImage
                       src={giffImageUrl(form.imageUrl)}
                       alt="GIFF preview"
+                      title={`${catConfig.label} · ${GIFF_ASPECT_LABEL}`}
+                      aspectRatio={GIFF_ASPECT}
                     />
                   )}
                 </div>
@@ -357,7 +359,7 @@ export const Giff: React.FC = () => {
           open={Boolean(cropSrc)}
           imageSrc={cropSrc}
           aspect={GIFF_ASPECT}
-          title={`Crop — ${catConfig.label}`}
+          subtitle={`${catConfig.label} · Crop ${GIFF_ASPECT_LABEL} · Max 700KB · Drag to reposition · scroll to zoom`}
           onClose={() => {
             URL.revokeObjectURL(cropSrc);
             setCropSrc(null);

@@ -15,14 +15,17 @@ const MODULE_BY_PREFIX: Array<{ prefix: string; permission: ModulePermission }> 
     { prefix: '/people', permission: 'people' },
     { prefix: '/channel-partners', permission: 'channelPartners' },
     { prefix: '/finance', permission: 'finance' },
+    { prefix: '/management', permission: 'platform' },
     { prefix: '/platform', permission: 'platform' },
+    { prefix: '/settings', permission: 'platform' },
     { prefix: '/marketing', permission: 'marketing' },
     { prefix: '/sales', permission: 'sales' },
     { prefix: '/it', permission: 'it' },
     { prefix: '/customers', permission: 'customers' },
     { prefix: '/reports', permission: 'reports' },
     { prefix: '/corporate', permission: 'corporate' },
-    { prefix: '/settings', permission: 'settings' },
+    { prefix: '/retail-management', permission: 'retailManagement' },
+    { prefix: '/admin-personnel', permission: 'adminPersonnel' },
   ];
 
 /** First module permission keyed by pathname, if any (home routes excluded). */
@@ -43,20 +46,17 @@ export function sectionKeyForPath(pathname: string): string | null {
   return rest.split('/')[0] || null;
 }
 
-function legacyMarketingPathToSettings(pathname: string): { module: ModulePermission; section: string } | null {
+function legacyMarketingPathToManagement(pathname: string): { module: ModulePermission; section: string } | null {
   if (!pathname.startsWith('/marketing')) return null;
   if (pathname.includes('match-doe') || pathname.includes('match-code')) {
-    return { module: 'settings', section: 'match-code' };
+    return { module: 'platform', section: 'match-code' };
   }
-  if (pathname.includes('slot-settings')) {
-    return { module: 'settings', section: 'slot-settings' };
-  }
-  return { module: 'settings', section: 'slot-settings' };
+  return { module: 'platform', section: 'plan-charges' };
 }
 
 export function canAccessPath(user: AuthUser | null, pathname: string): boolean {
   if (!user || user.role === 'admin') return true;
-  const legacy = legacyMarketingPathToSettings(pathname);
+  const legacy = legacyMarketingPathToManagement(pathname);
   if (legacy) {
     if (!hasModuleAccess(user.permissions, legacy.module)) return false;
     return hasSectionAccess(user.permissions, legacy.module, legacy.section);

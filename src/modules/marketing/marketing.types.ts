@@ -35,14 +35,13 @@ export interface Contest {
   status: ContestStatus;
 }
 
-export interface MediaSlotTabConfig {
-  mediaTab: string;
-  maxSlots: number;
-  updatedAt?: string | null;
-}
-
 export interface DsaSlotStatus {
   mediaTab: string;
+  cmsPage: string;
+  cmsPosition: string;
+  pageLabel?: string;
+  slotLabel?: string;
+  /** Legacy section code; prefer cmsPage + cmsPosition */
   section: string;
   country: string;
   maxSlots: number;
@@ -53,6 +52,9 @@ export interface DsaSlider {
   id: string;
   mediaTab: string;
   imageUrl: string;
+  cmsPage: string;
+  cmsPosition: string;
+  /** Legacy; synced from placement */
   section: string;
   country: string;
   category: string;
@@ -69,6 +71,8 @@ export interface DsaSlider {
   status: SliderStatus;
   uploadDate?: string | null;
   expiryDate?: string | null;
+  giffFormat?: string;
+  giffSortOrder?: number;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -6,14 +6,11 @@ import { Banners } from './banners/Banners';
 import { Giff } from './giff/Giff';
 import { Shops } from './localStores/Shops';
 import { ShopCategories } from './localStores/ShopCategories';
-import { PageContent } from './pages/PageContent';
-
 const TABS = [
   { label: 'Upload', path: '/cms/banners', section: 'banners' },
   { label: 'GIFF', path: '/cms/giff', section: 'giff' },
   { label: 'B-Store Shops', path: '/cms/local-stores', section: 'local-stores' },
   { label: 'B-Store Categories', path: '/cms/store-categories', section: 'store-categories' },
-  { label: 'Page Content', path: '/cms/pages', section: 'pages' },
 ];
 
 export const CmsPage: React.FC = () => (
@@ -26,7 +23,7 @@ export const CmsPage: React.FC = () => (
         <Route path="local-stores" element={<Shops />} />
         <Route path="store-categories" element={<ShopCategories />} />
         <Route path="images" element={<Navigate to="/cms/banners" replace />} />
-        <Route path="pages" element={<PageContent />} />
+        <Route path="pages" element={<Navigate to="/cms/banners" replace />} />
       </Routes>
     </ModuleLayout>
   </ErrorBoundary>
