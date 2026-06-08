@@ -19,8 +19,9 @@ import {
   type PayoutStatus,
 } from '../../../shared/constants/payoutStatus';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
+import { useCountries } from '../../../shared/hooks/useCountries';
 import { formatDsaPayinAmount, formatInrAmount } from '../../../shared/utils/dsaCurrencyFormat';
-import { payoutCheckerLabel } from './payoutChecker';
+import { payoutCheckerDate, payoutCheckerId } from './payoutChecker';
 
 const inputClass =
   'h-9 w-full min-w-[5rem] rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
@@ -28,8 +29,11 @@ const inputClass =
 const readOnlyClass =
   `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500`;
 
-function formatCurrencyPayin(row: DsaPayoutSubmission): string {
-  return formatDsaPayinAmount(row.submittedAmount || 0, row.currency);
+function formatCurrencyPayin(
+  row: DsaPayoutSubmission,
+  countries: Parameters<typeof formatDsaPayinAmount>[2],
+): string {
+  return formatDsaPayinAmount(row.submittedAmount || 0, row.currency, countries);
 }
 
 function shareRatioLabel(shareRatio: number | undefined): string {
@@ -51,6 +55,30 @@ function calcLimitFromInr(currencyInr: number, shareRatio: number): string {
   return String(Number((inr * sr / 100).toFixed(2)));
 }
 
+/** Display total = Currency-INR entered + share portion (stored calculatedLimit is share only). */
+function formatTotalLimit(
+  currencyInr: string | number,
+  shareRatio: number,
+  calculatedLimit?: string | number,
+): string {
+  const inr = Number(currencyInr) || 0;
+  const share = Number(calculatedLimit) || (inr > 0 ? Number(calcLimitFromInr(inr, shareRatio)) : 0);
+  const total = inr + share;
+  if (total <= 0) return '';
+  return formatInrAmount(total);
+}
+
+function totalLimitTitle(
+  currencyInr: string | number,
+  shareRatio: number,
+  calculatedLimit?: string | number,
+): string {
+  const inr = Number(currencyInr) || 0;
+  const share = Number(calculatedLimit) || (inr > 0 ? Number(calcLimitFromInr(inr, shareRatio)) : 0);
+  if (inr <= 0 && share <= 0) return 'Total limit';
+  return `Total: ${formatInrAmount(inr)} + ${shareRatioLabel(shareRatio)} share ${formatInrAmount(share)}`;
+}
+
 function seedFieldEdits(row: DsaPayoutSubmission) {
   const currencyInr = row.currencyInr != null ? String(row.currencyInr) : '';
   const calculatedLimit = row.calculatedLimit != null && row.calculatedLimit > 0
@@ -61,6 +89,7 @@ function seedFieldEdits(row: DsaPayoutSubmission) {
 
 export const DsaPayouts: React.FC = () => {
   const { user } = useAuth();
+  const { countries } = useCountries();
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
   const [records, setRecords] = React.useState<DsaPayoutSubmission[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -69,8 +98,9 @@ export const DsaPayouts: React.FC = () => {
   const [filterStatus, setFilterStatus] = React.useState<'' | PayoutStatus>('');
   const [actioningId, setActioningId] = React.useState<string | null>(null);
   const [fieldEdits, setFieldEdits] = React.useState<Record<string, { currencyInr: string; calculatedLimit: string }>>({});
-  /** Row ids where admin chose Rejected and must pick a Remark before save. */
-  const [pendingRejectIds, setPendingRejectIds] = React.useState<Record<string, true>>({});
+  const [pendingApprovalById, setPendingApprovalById] = React.useState<Record<string, PayoutStatus>>({});
+  const [pendingRemarkById, setPendingRemarkById] = React.useState<Record<string, string>>({});
+  const [focusRowId, setFocusRowId] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -79,10 +109,14 @@ export const DsaPayouts: React.FC = () => {
       setRecords(rows);
       setFieldEdits((prev) => {
         const next: Record<string, { currencyInr: string; calculatedLimit: string }> = {};
+        const nextApproval: Record<string, PayoutStatus> = {};
         for (const row of rows) {
           if (!isPendingPayoutStatus(row.status)) continue;
           next[row.id] = prev[row.id] ?? seedFieldEdits(row);
+          nextApproval[row.id] = normalizePayoutStatus(row.status);
         }
+        setPendingApprovalById(nextApproval);
+        setPendingRemarkById({});
         return next;
       });
     } catch (e) {
@@ -113,6 +147,7 @@ export const DsaPayouts: React.FC = () => {
     row: DsaPayoutSubmission,
     patch: Partial<{ currencyInr: string; calculatedLimit: string }>,
   ) => {
+    if (isPendingPayoutStatus(row.status)) setFocusRowId(row.id);
     setFieldEdits((p) => {
       const current = p[row.id] ?? seedFieldEdits(row);
       const next = { ...current, ...patch };
@@ -170,11 +205,6 @@ export const DsaPayouts: React.FC = () => {
         await saveFieldEdits(row, ['currencyInr', 'calculatedLimit']);
       }
       await updatePayoutStatusById(row.id, nextStatus, note);
-      setPendingRejectIds((prev) => {
-        const next = { ...prev };
-        delete next[row.id];
-        return next;
-      });
       toast.success(payoutStatusToastMessage(nextStatus));
       await load();
     } catch (e) {
@@ -184,22 +214,42 @@ export const DsaPayouts: React.FC = () => {
     }
   }, [getFieldEdit, load, saveFieldEdits]);
 
-  const handleApprovalChange = React.useCallback(async (row: DsaPayoutSubmission, nextStatus: PayoutStatus) => {
-    const current = normalizePayoutStatus(row.status);
-    if (nextStatus === current && !pendingRejectIds[row.id]) return;
+  const handleApprovalChange = React.useCallback((row: DsaPayoutSubmission, nextStatus: PayoutStatus) => {
+    setFocusRowId(row.id);
+    setPendingApprovalById((prev) => ({ ...prev, [row.id]: nextStatus }));
+    if (nextStatus !== 'REJECTED') {
+      setPendingRemarkById((prev) => {
+        const next = { ...prev };
+        delete next[row.id];
+        return next;
+      });
+    }
+  }, []);
 
-    if (nextStatus === 'REJECTED') {
-      setPendingRejectIds((prev) => ({ ...prev, [row.id]: true }));
+  const handleRemarkChange = React.useCallback((row: DsaPayoutSubmission, remark: string) => {
+    if (!remark) return;
+    if (!isPayoutRemark(remark)) {
+      toast.error('Select a valid remark.');
       return;
     }
+    setFocusRowId(row.id);
+    setPendingRemarkById((prev) => ({ ...prev, [row.id]: remark }));
+  }, []);
 
-    setPendingRejectIds((prev) => {
-      const next = { ...prev };
-      delete next[row.id];
-      return next;
-    });
-    await submitApproval(row, nextStatus);
-  }, [pendingRejectIds, submitApproval]);
+  const focusRow = React.useMemo(
+    () => (focusRowId ? records.find((r) => r.id === focusRowId) ?? null : null),
+    [focusRowId, records],
+  );
+
+  const handleRowSave = React.useCallback(async (row: DsaPayoutSubmission) => {
+    const nextStatus = pendingApprovalById[row.id] ?? normalizePayoutStatus(row.status);
+    const remark = pendingRemarkById[row.id] || '';
+    if (nextStatus === 'REJECTED' && !remark) {
+      toast.error('Select a remark before rejecting.');
+      return;
+    }
+    await submitApproval(row, nextStatus, remark);
+  }, [pendingApprovalById, pendingRemarkById, submitApproval]);
 
   const filteredRecords = React.useMemo(() => {
     return records.filter((row) => {
@@ -211,15 +261,6 @@ export const DsaPayouts: React.FC = () => {
       return true;
     });
   }, [filterDate, filterStatus, records]);
-
-  const handleRemarkChange = React.useCallback(async (row: DsaPayoutSubmission, remark: string) => {
-    if (!remark) return;
-    if (!isPayoutRemark(remark)) {
-      toast.error('Select a valid remark.');
-      return;
-    }
-    await submitApproval(row, 'REJECTED', remark);
-  }, [submitApproval]);
 
   const columns = React.useMemo((): TableColumn<DsaPayoutSubmission>[] => [
     {
@@ -256,7 +297,8 @@ export const DsaPayouts: React.FC = () => {
       name: 'Sharing Ratio',
       selector: (row) => shareRatioLabel(row.shareRatio),
       sortable: true,
-      minWidth: '6.5rem',
+      minWidth: '7.5rem',
+      width: '7.5rem',
     },
     {
       name: 'Mode',
@@ -264,16 +306,18 @@ export const DsaPayouts: React.FC = () => {
       minWidth: '6.5rem',
     },
     {
-      name: 'Currency-Payin',
-      cell: (row) => <input className={readOnlyClass} readOnly value={formatCurrencyPayin(row)} />,
-      minWidth: '8.5rem',
-    },
-    {
-      name: 'Txn Ref No.',
+      name: 'Transaction Ref No.',
       cell: (row) => (
         <input className={readOnlyClass} readOnly value={row.transactionNumber || '-'} />
       ),
-      minWidth: '7.5rem',
+      minWidth: '10rem',
+      width: '10rem',
+    },
+    {
+      name: 'Currency-Payin',
+      cell: (row) => <input className={readOnlyClass} readOnly value={formatCurrencyPayin(row, countries)} />,
+      minWidth: '9rem',
+      width: '9rem',
     },
     {
       name: 'Currency-INR',
@@ -292,112 +336,121 @@ export const DsaPayouts: React.FC = () => {
               const currencyInr = e.target.value.replace(/[^\d.]/g, '');
               setFieldEdit(row, { currencyInr });
             }}
-            onBlur={
-              canEditInrLimit
-                ? () => {
-                    const edit = getFieldEdit(row);
-                    if (!edit.currencyInr.trim()) return;
-                    void saveFieldEdits(row, ['currencyInr', 'calculatedLimit']).catch(() => toast.error('Failed to save Currency-INR'));
-                  }
-                : undefined
-            }
           />
         );
       },
-      minWidth: '7.5rem',
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
       name: 'Limit',
       cell: (row) => {
         const edit = getFieldEdit(row);
         const displayLimit = isPendingPayoutStatus(row.status)
-          ? edit.calculatedLimit
-          : formatInrAmount(row.calculatedLimit ?? '');
+          ? formatTotalLimit(edit.currencyInr, row.shareRatio, edit.calculatedLimit)
+          : formatTotalLimit(row.currencyInr ?? '', row.shareRatio, row.calculatedLimit ?? '');
+        const title = totalLimitTitle(
+          isPendingPayoutStatus(row.status) ? edit.currencyInr : (row.currencyInr ?? ''),
+          row.shareRatio,
+          isPendingPayoutStatus(row.status) ? edit.calculatedLimit : (row.calculatedLimit ?? ''),
+        );
         return (
           <input
             type="text"
             className={readOnlyClass}
             readOnly
             value={displayLimit}
-            title={isPendingPayoutStatus(row.status) ? `${shareRatioLabel(row.shareRatio)} of Currency-INR` : undefined}
+            title={title}
           />
         );
       },
-      minWidth: '7rem',
+      minWidth: '11rem',
     },
     {
       name: 'Approval',
-      cell: (row) => (
-        isAdmin ? (
-          <PayoutStatusSelect
-            value={pendingRejectIds[row.id] ? 'REJECTED' : row.status}
-            disabled={actioningId === row.id}
-            onChange={(status) => void handleApprovalChange(row, status)}
-          />
-        ) : (
-          <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />
-        )
-      ),
-      minWidth: '11rem',
+      cell: (row) => {
+        if (!isAdmin) {
+          return <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />;
+        }
+        if (!isPendingPayoutStatus(row.status)) {
+          return <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />;
+        }
+        const selectedStatus = pendingApprovalById[row.id] ?? normalizePayoutStatus(row.status);
+        return (
+          <div className="min-w-0 py-1">
+            <PayoutStatusSelect
+              value={selectedStatus}
+              disabled={actioningId === row.id}
+              onChange={(status) => handleApprovalChange(row, status)}
+            />
+          </div>
+        );
+      },
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
       name: 'Remark',
       cell: (row) => {
         const isRejected = normalizePayoutStatus(row.status) === 'REJECTED';
-        const awaitingRemark = Boolean(pendingRejectIds[row.id]);
+        const selectedStatus = pendingApprovalById[row.id] ?? normalizePayoutStatus(row.status);
+        const awaitingRemark = isPendingPayoutStatus(row.status) && selectedStatus === 'REJECTED';
         if (!isRejected && !awaitingRemark) {
           return <span className="text-slate-400">—</span>;
         }
         if (isAdmin && awaitingRemark) {
           return (
-            <PayoutRemarkSelect
-              disabled={actioningId === row.id}
-              onChange={(remark) => void handleRemarkChange(row, remark)}
-            />
+            <div className="min-w-0 py-1">
+              <PayoutRemarkSelect
+                disabled={actioningId === row.id}
+                value={pendingRemarkById[row.id] || ''}
+                onChange={(remark) => handleRemarkChange(row, remark)}
+              />
+            </div>
           );
         }
         return (
-          <span className="font-semibold text-slate-800">
+          <span className="block max-w-[16rem] py-1 text-sm font-semibold leading-snug text-slate-800">
             {row.rejectionReason || '—'}
           </span>
         );
       },
-      minWidth: '11rem',
+      minWidth: '14.5rem',
+      width: '14.5rem',
     },
     {
-      name: 'Checker',
-      selector: (row) => payoutCheckerLabel(row),
-      cell: (row) => {
-        const checker = payoutCheckerLabel(row);
-        const actedAt = row.lastActedAt || row.approvedAt || row.rejectedAt;
-        return (
-          <div className="min-w-[5.5rem]">
-            <p className="font-semibold text-slate-800">{checker}</p>
-            {checker !== '-' && actedAt ? (
-              <p className="text-xs text-slate-500">{formatDateDDMMYYYY(String(actedAt))}</p>
-            ) : null}
-          </div>
-        );
-      },
+      name: 'Checker Date',
+      selector: (row) => payoutCheckerDate(row),
+      cell: (row) => (
+        <span className="whitespace-nowrap text-sm font-semibold text-slate-800">
+          {payoutCheckerDate(row)}
+        </span>
+      ),
       sortable: true,
-      minWidth: '6.5rem',
+      minWidth: '9rem',
+      width: '9rem',
     },
     {
-      name: 'Empl Code',
-      selector: (row) => row.dsaCode,
-      cell: (row) => <span className="uppercase">{row.dsaCode}</span>,
+      name: 'Checker Id',
+      selector: (row) => payoutCheckerId(row),
+      cell: (row) => (
+        <span className="whitespace-nowrap font-semibold uppercase text-slate-800">
+          {payoutCheckerId(row)}
+        </span>
+      ),
       sortable: true,
-      minWidth: '6rem',
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
   ], [
     actioningId,
+    countries,
     getFieldEdit,
     handleApprovalChange,
     handleRemarkChange,
     isAdmin,
-    pendingRejectIds,
-    records,
-    saveFieldEdits,
+    pendingApprovalById,
+    pendingRemarkById,
     setFieldEdit,
   ]);
 
@@ -405,7 +458,7 @@ export const DsaPayouts: React.FC = () => {
     <ErrorBoundary>
       <PageHeader
         title="DSA Limit"
-        subtitle="Enter Currency-INR — Limit auto-fills from sharing ratio (e.g. 30:70 → 30% of INR). Then set Approval."
+        subtitle="Enter Currency-INR — Limit shows total (INR + share). Set Approval, then Save from the bar above the table."
         beforeActions={
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -437,6 +490,28 @@ export const DsaPayouts: React.FC = () => {
       />
 
       <SectionCard title="" contentClassName="p-0 overflow-hidden">
+        {isAdmin && focusRow && isPendingPayoutStatus(focusRow.status) ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-sm text-slate-600">
+              <span className="font-semibold text-slate-800">{focusRow.dsaName || focusRow.dsaCode}</span>
+              {' · '}
+              {formatDateDDMMYYYY(focusRow.submissionDate)}
+              {' · '}
+              Approval:{' '}
+              <span className="font-semibold text-slate-800">
+                {payoutStatusLabel(pendingApprovalById[focusRow.id] ?? normalizePayoutStatus(focusRow.status))}
+              </span>
+            </p>
+            <button
+              type="button"
+              disabled={actioningId === focusRow.id}
+              onClick={() => void handleRowSave(focusRow)}
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-dark disabled:opacity-60"
+            >
+              {actioningId === focusRow.id ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        ) : null}
         <DataTableWrapper
           className="!rounded-none !border-0 !shadow-none"
           columns={columns}

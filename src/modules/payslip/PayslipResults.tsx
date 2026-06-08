@@ -1,87 +1,90 @@
 import React from 'react';
+import { toast } from 'react-toastify';
 import type { DetailedPayslip } from './payslip.service';
+import { downloadPayslipPdf } from './downloadPayslipPdf';
+import { YearlyPayslipSheet } from './YearlyPayslipSheet';
+import { NotAvailableReportSheet } from './NotAvailableReportSheet';
+import { PayslipSheet } from './MonthlyPayslipSheet';
+import { PayslipPreviewViewport } from './PayslipPreviewViewport';
+import { canDownloadPayslipPdf, isUnavailableReport } from './payrollReportConfig';
 
 type Props = {
   payslips: DetailedPayslip[];
-  onPrint: () => void;
+  reportLabel?: string;
 };
 
-export const PayslipResults: React.FC<Props> = ({ payslips, onPrint }) => {
+function reportSlug(p: DetailedPayslip): string {
+  const type = String(p.reportType || 'payslip').replace(/\s+/g, '-').toLowerCase();
+  return `${p.employeeCode}-${type}`.replace(/\s+/g, '-');
+}
+
+function PayslipDocument({ p }: { p: DetailedPayslip }) {
+  const rt = String(p.reportType || '').toLowerCase();
+
+  if (isUnavailableReport(rt)) {
+    return <NotAvailableReportSheet />;
+  }
+
+  if (rt === 'yearly-payslip') {
+    return <YearlyPayslipSheet p={p} />;
+  }
+
+  return <PayslipSheet p={p} />;
+}
+
+export const PayslipResults: React.FC<Props> = ({ payslips }) => {
+  const [downloading, setDownloading] = React.useState(false);
+  const primary = payslips[0];
+  const allowDownload = primary ? canDownloadPayslipPdf(String(primary.reportType || '')) : false;
+  const isWideReport = primary
+    ? String(primary.reportType || '').toLowerCase() === 'yearly-payslip'
+    : false;
+
+  const handleDownload = async () => {
+    if (!payslips.length || !allowDownload) return;
+    setDownloading(true);
+    try {
+      const p = payslips[0];
+      await downloadPayslipPdf('payslip-print-area', `${reportSlug(p)}.pdf`);
+      toast.success('PDF downloaded.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to download PDF');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (!payslips.length) {
     return <p className="py-8 text-center text-sm text-slate-500">No payslip records for the selected filters.</p>;
   }
 
+  const printArea = (
+    <div id="payslip-print-area" className="inline-block max-w-none">
+      {payslips.map((p) => (
+        <PayslipDocument key={`${p.employeeCode}-${p.month}-${p.reportType}`} p={p} />
+      ))}
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end gap-2 print:hidden">
-        <button
-          type="button"
-          onClick={onPrint}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
-        >
-          Print / Save as PDF
-        </button>
-      </div>
-      <div id="payslip-print-area" className="space-y-6 sm:space-y-8">
-        {payslips.map((p) => (
-          <article
-            key={`${p.employeeCode}-${p.month}-${p.reportType}`}
-            className="break-inside-avoid rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
+    <div className="min-w-0 space-y-4">
+      {allowDownload ? (
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={downloading}
+            onClick={() => void handleDownload()}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark disabled:opacity-60"
           >
-            <header className="mb-4 border-b border-slate-200 pb-3">
-              <h3 className="text-lg font-bold text-primary">{p.employeeName}</h3>
-              <p className="text-sm text-slate-600">
-                {p.employeeCode} · {p.department} · {p.financialYear} · {p.month || p.period}
-              </p>
-            </header>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-primary text-white">
-                    <th className="px-2 py-1 text-left">Earnings</th>
-                    <th className="px-2 py-1 text-right">Actual</th>
-                    <th className="px-2 py-1 text-right">Ded.</th>
-                    <th className="px-2 py-1 text-right">Earned</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.earnings.map((row) => (
-                    <tr key={row.label} className="border-b border-slate-100">
-                      <td className="px-2 py-1">{row.label}</td>
-                      <td className="px-2 py-1 text-right">{row.actual.toFixed(2)}</td>
-                      <td className="px-2 py-1 text-right">{row.deduction.toFixed(2)}</td>
-                      <td className="px-2 py-1 text-right font-semibold">{row.earned.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-primary text-white">
-                    <th className="px-2 py-1 text-left">Deductions</th>
-                    <th className="px-2 py-1 text-right">Ded.</th>
-                    <th className="px-2 py-1 text-right">Actual</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.deductions.map((row) => (
-                    <tr key={row.label} className="border-b border-slate-100">
-                      <td className="px-2 py-1">{row.label}</td>
-                      <td className="px-2 py-1 text-right">{row.deduction.toFixed(2)}</td>
-                      <td className="px-2 py-1 text-right">{row.actual.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <footer className="mt-4 grid gap-1 border-t border-slate-200 pt-3 text-sm font-semibold text-slate-800">
-              <p>Gross earnings: ₹{p.grossEarnings.toLocaleString()}</p>
-              <p>Net salary: ₹{p.nettSalaryRelease.toLocaleString()}</p>
-              <p className="text-xs font-normal text-slate-600">{p.amountInWords}</p>
-            </footer>
-          </article>
-        ))}
-      </div>
+            {downloading ? 'Downloading…' : 'Download PDF'}
+          </button>
+        </div>
+      ) : null}
+      {isWideReport ? (
+        <PayslipPreviewViewport>{printArea}</PayslipPreviewViewport>
+      ) : (
+        <div className="w-full max-w-full overflow-x-auto">{printArea}</div>
+      )}
     </div>
   );
 };

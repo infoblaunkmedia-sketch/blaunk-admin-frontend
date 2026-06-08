@@ -21,6 +21,8 @@ export interface MatchDoeEntry {
   code: string;
   generatedAt: string;
   generatedBy: string;
+  generatorFor: string;
+  validUntil: string;
   isActive: boolean;
 }
 

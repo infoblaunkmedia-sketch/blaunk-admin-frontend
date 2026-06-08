@@ -15,11 +15,19 @@ const PORTAL_FIELDS: { key: keyof CommissionConfig; label: string }[] = [
   { key: 'tour', label: 'Tour' },
   { key: 'cake', label: 'Cake' },
   { key: 'store', label: 'Store' },
+  { key: 'boutique', label: 'Boutique' },
+  { key: 'bgt', label: 'BGT' },
+  { key: 'hotel', label: 'Hotel' },
 ];
+
+function displayPortalValue(config: CommissionConfig, key: keyof CommissionConfig): string {
+  const n = config[key];
+  return n > 0 ? String(n) : '';
+}
 
 export const Commission: React.FC = () => {
   const [config, setConfig] = React.useState<CommissionConfig>({
-    tour: 0, cake: 0, store: 0, gstRate: 0, bgtRate: 0,
+    tour: 0, cake: 0, store: 0, boutique: 0, bgt: 0, hotel: 0, gstRate: 0, bgtRate: 0,
   });
   const [editingPortal, setEditingPortal] = React.useState(false);
   const [editingRates, setEditingRates] = React.useState(false);
@@ -27,7 +35,12 @@ export const Commission: React.FC = () => {
   const [savingRates, setSavingRates] = React.useState(false);
 
   React.useEffect(() => {
-    fetchCommission().then(setConfig);
+    fetchCommission().then((loaded) => {
+      setConfig({
+        tour: 0, cake: 0, store: 0, boutique: 0, bgt: 0, hotel: 0, gstRate: 0, bgtRate: 0,
+        ...loaded,
+      });
+    });
   }, []);
 
   const set = <K extends keyof CommissionConfig>(k: K, v: string) =>
@@ -85,19 +98,28 @@ export const Commission: React.FC = () => {
             editing={editingPortal} saving={savingPortal}
             onEdit={() => setEditingPortal(true)}
             onSave={handleSavePortal}
-            onCancel={() => setEditingPortal(false)}
+            onCancel={() => { setEditingPortal(false); fetchCommission().then(setConfig); }}
           />
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PORTAL_FIELDS.map(({ key, label }) => (
-            <FormField key={key} label={`${label} (%)`}>
+            <FormField key={key} label={label}>
               {editingPortal ? (
-                <input type="number" min={0} max={100} step="0.01" className={inputClass}
-                  value={config[key] || ''} onKeyDown={onNumericInputKeyDown} onChange={(e) => set(key, e.target.value)} />
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  className={inputClass}
+                  placeholder="Enter..."
+                  value={displayPortalValue(config, key)}
+                  onKeyDown={onNumericInputKeyDown}
+                  onChange={(e) => set(key, e.target.value)}
+                />
               ) : (
                 <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
-                  {config[key]}%
+                  {displayPortalValue(config, key) || '—'}
                 </div>
               )}
             </FormField>
@@ -112,7 +134,7 @@ export const Commission: React.FC = () => {
             editing={editingRates} saving={savingRates}
             onEdit={() => setEditingRates(true)}
             onSave={handleSaveRates}
-            onCancel={() => setEditingRates(false)}
+            onCancel={() => { setEditingRates(false); fetchCommission().then(setConfig); }}
           />
         }
       >

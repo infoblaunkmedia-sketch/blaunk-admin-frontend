@@ -1,6 +1,6 @@
 import React from 'react';
 import { PAYOUT_REMARK_OPTIONS, type PayoutRemark } from '../constants/payoutStatus';
-import { PAYOUT_SELECT_CLASS } from './payoutSelectStyles';
+import { PAYOUT_REMARK_SELECT_CLASS } from './payoutSelectStyles';
 
 interface PayoutRemarkSelectProps {
   value?: string;
@@ -18,7 +18,7 @@ export const PayoutRemarkSelect: React.FC<PayoutRemarkSelectProps> = ({
   className = '',
 }) => (
   <select
-    className={`${PAYOUT_SELECT_CLASS} ${className}`.trim()}
+    className={`${PAYOUT_REMARK_SELECT_CLASS} ${className}`.trim()}
     value={value}
     disabled={disabled}
     onChange={(e) => onChange(e.target.value as PayoutRemark)}

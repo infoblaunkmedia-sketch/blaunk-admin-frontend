@@ -39,6 +39,8 @@ export interface ThirdPartyCredential {
   businessDeposit: string;
   sharingThreeP: string;
   sharingBlaunk: string;
+  commissionSubscriber: string;
+  commissionRenewal: string;
 
   references: { name: string; mobile: string; designation: string; city: string }[];
   /** Address proof image URL (persisted as employeePhotoUrl for API compatibility). */

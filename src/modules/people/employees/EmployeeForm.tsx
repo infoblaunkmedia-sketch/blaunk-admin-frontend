@@ -4,12 +4,12 @@ import { toast } from 'react-toastify';
 import { Stepper } from '../../../shared/components/Stepper';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { FormField } from '../../../shared/components/FormField';
+import { CountryNameSelect } from '../../../shared/components/CountryNameSelect';
 import { ImageUploader } from '../../../shared/components/ImageUploader';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import {
   BONUS_OPTIONS,
   CONFIRMATION_STATUS_OPTIONS,
-  COUNTRIES,
   CTC_DIVISOR_OPTIONS,
   DESIGNATIONS,
   EMPLOYEE_STATUSES,
@@ -406,10 +406,17 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               </select>
             </FormField>
             <FormField label="Country">
-              <select className={selectClass} {...register('country')}>
-                <option value="">Select Country</option>
-                {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Controller
+                name="country"
+                control={control}
+                render={({ field }) => (
+                  <CountryNameSelect
+                    className={selectClass}
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </FormField>
             <Controller
               name="pincode"
@@ -471,7 +478,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             <FormField label="Department" required error={errors.department?.message}>
               <select className={selectClass} {...register('department', { required: 'Please select a department.' })}>
                 <option value="">Select</option>
-                {NORMAL_EMPLOYEE_DEPARTMENTS.map((d) => (
+                {NORMAL_EMPLOYEE_DEPARTMENTS.map((d: string) => (
                   <option key={d} value={d}>
                     {d}
                   </option>

@@ -48,6 +48,9 @@ export interface CommissionConfig {
   tour: number;
   cake: number;
   store: number;
+  boutique: number;
+  bgt: number;
+  hotel: number;
   gstRate: number;
   bgtRate: number;
 }

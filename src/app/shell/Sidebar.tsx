@@ -212,6 +212,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
   const workspaceHome =
     user && user.role !== 'admin' ? getWorkspaceHomePath(user) : null;
 
+  const showMyPayslip =
+    Boolean(user && user.role !== 'admin' && String(user.employeeType || '').toLowerCase() !== '3pc');
+
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (item.permission === 'dashboard' && user?.role !== 'admin') return false;
     return hasPermission(item.permission);
@@ -313,6 +316,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, collapsed = false, onClo
             >
               <span className={collapsed ? '' : 'mr-2'} aria-hidden>{HOME_ICON}</span>
               {!collapsed ? <span className="flex-1 leading-snug">Home</span> : null}
+            </NavLink>
+          ) : null}
+          {showMyPayslip ? (
+            <NavLink
+              to="/my-payslip"
+              onClick={onClose}
+              {...collapsedLabelProps('Payslip')}
+              className={({ isActive }) =>
+                [
+                  'flex items-center rounded-lg px-3 text-sm font-bold transition-colors',
+                  collapsed ? 'justify-center' : 'py-2.5',
+                  isActive ? 'bg-primary text-white' : 'text-black hover:bg-slate-50',
+                ].join(' ')
+              }
+            >
+              <span className={collapsed ? '' : 'mr-2'} aria-hidden>
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6M8 13h8M8 17h5" />
+                </svg>
+              </span>
+              {!collapsed ? <span className="flex-1 leading-snug">Payslip</span> : null}
             </NavLink>
           ) : null}
           {visibleItems.map((item) => {

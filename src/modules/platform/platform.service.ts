@@ -97,7 +97,9 @@ export function planLabelToTier(planLabel: string): string {
   if (m[1] === 'Premium') return 'Platinum';
   return m[1];
 }
-const DEFAULT_COMMISSION: CommissionConfig = { tour: 0, cake: 0, store: 0, gstRate: 0, bgtRate: 0 };
+const DEFAULT_COMMISSION: CommissionConfig = {
+  tour: 0, cake: 0, store: 0, boutique: 0, bgt: 0, hotel: 0, gstRate: 0, bgtRate: 0,
+};
 const DEFAULT_DSA_LIMIT: DsaLimitConfig = {
   globalCreditLimit: 0,
   currencyRates: [

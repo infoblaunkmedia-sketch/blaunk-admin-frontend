@@ -59,6 +59,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'vouchers', label: 'Vouchers' },
       { key: 'products', label: 'Products' },
       { key: 'categories', label: 'Categories' },
+      { key: 'countries', label: 'Countries' },
       { key: 'rights', label: 'User Rights' },
       { key: 'match-code', label: 'Match Code' },
     ],
@@ -67,7 +68,10 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
   {
     key: 'it',
     label: 'IT',
-    children: [{ key: 'ip-management', label: 'IP Management' }],
+    children: [
+      { key: 'ip-management', label: 'IP Management' },
+      { key: 'rights', label: 'User Rights' },
+    ],
   },
   {
     key: 'customers',
@@ -142,6 +146,10 @@ export function hasSectionAccess(
   if (permissions.includes(sectionPermissionKey(module, childKey))) return true;
   // Legacy: IP Management moved from Settings → IT
   if (module === 'it' && childKey === 'ip-management' && permissions.includes('settings:ip-management')) {
+    return true;
+  }
+  // Legacy: User Rights / Match Code moved from Management → IT
+  if (module === 'it' && childKey === 'rights' && (permissions.includes('platform:rights') || permissions.includes('settings:rights'))) {
     return true;
   }
   if (module === 'platform' && MANAGEMENT_LEGACY_SECTIONS.has(childKey)) {

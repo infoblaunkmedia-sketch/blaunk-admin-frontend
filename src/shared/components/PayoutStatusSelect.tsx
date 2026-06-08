@@ -4,7 +4,7 @@ import {
   normalizePayoutStatus,
   type PayoutStatus,
 } from '../constants/payoutStatus';
-import { PAYOUT_SELECT_CLASS } from './payoutSelectStyles';
+import { PAYOUT_STATUS_SELECT_CLASS } from './payoutSelectStyles';
 
 interface PayoutStatusSelectProps {
   value: string;
@@ -20,7 +20,7 @@ export const PayoutStatusSelect: React.FC<PayoutStatusSelectProps> = ({
   className = '',
 }) => (
   <select
-    className={`${PAYOUT_SELECT_CLASS} ${className}`.trim()}
+    className={`${PAYOUT_STATUS_SELECT_CLASS} ${className}`.trim()}
     value={normalizePayoutStatus(value)}
     disabled={disabled}
     onChange={(e) => onChange(e.target.value as PayoutStatus)}

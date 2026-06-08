@@ -22,6 +22,8 @@ import {
   THIRD_PARTY_STATUS_OPTIONS,
   THIRD_PARTY_VERIFIED_STATUS_OPTIONS,
 } from '../shared/constants/hrConstants';
+import { DepartmentSelectOptions } from '../shared/components/DepartmentSelectOptions';
+import { CountryNameSelect } from '../shared/components/CountryNameSelect';
 import { onIntegerInputKeyDown } from '../shared/utils/numericInput';
 import {
   applySharingRatioEdit,
@@ -583,27 +585,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">Country</label>
-                  <select
+                  <CountryNameSelect
                     className={FIELD_CLASSES}
                     value={form.country}
-                    onChange={(event) => updateField('country', event.target.value)}
-                  >
-                    <option value="">Select Country</option>
-                    <option value="India">India</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Bhutan">Bhutan</option>
-                    <option value="Indonesia">Indonesia</option>
-                    <option value="Jordan">Jordan</option>
-                    <option value="Malaysia">Malaysia</option>
-                    <option value="Maldives">Maldives</option>
-                    <option value="Philippines">Philippines</option>
-                    <option value="Singapore">Singapore</option>
-                    <option value="Sri Lanka">Sri Lanka</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Thailand">Thailand</option>
-                    <option value="UAE-Dubai">UAE-Dubai</option>
-                    <option value="Vietnam">Vietnam</option>
-                  </select>
+                    onChange={(v) => updateField('country', v)}
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">State</label>
@@ -640,21 +626,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
                     value={form.department}
                     onChange={(event) => updateField('department', event.target.value)}
                   >
-                    <option value="">Select Department</option>
-                    <option value="Management">Management</option>
-                    <option value="Finance">Finance</option>
-                    <option value="HR">HR</option>
-                    <option value="M&A">M&A</option>
-                    <option value="Customer Care">Customer Care</option>
-                    <option value="Admin & Personnel">Admin & Personnel</option>
-                    <option value="IT">IT</option>
-                    <option value="DSA">DSA</option>
-                    <option value="Legal">Legal</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Retail Store">Retail Store</option>
-                    <option value="Company Secretary">Company Secretary</option>
-                    <option value="RETAIL MANAGEMENT">RETAIL MANAGEMENT</option>
-                    <option value="Verifier">Verifier</option>
+                    <DepartmentSelectOptions placeholder="Select Department" />
                   </select>
                 </div>
                 <div>
@@ -1286,21 +1258,7 @@ export const EmployeeCredentialsPage: React.FC = () => {
               value={vacancyDepartment}
               onChange={(event) => setVacancyDepartment(event.target.value)}
             >
-              <option value="">Select Department</option>
-              <option value="Management">Management</option>
-              <option value="Finance">Finance</option>
-              <option value="M & A">M & A</option>
-              <option value="Sales">Sales</option>
-              <option value="Company Secretary">Company Secretary</option>
-              <option value="HR">HR</option>
-              <option value="Payslip">Payslip</option>
-              <option value="IT Dept">IT Dept</option>
-              <option value="Admin & Personnel">Admin & Personnel</option>
-              <option value="Customer Care">Customer Care</option>
-              <option value="Retail Shop">Retail Shop</option>
-              <option value="DSA">DSA</option>
-              <option value="Verifier">Verifier</option>
-              <option value="RETAIL MANAGEMENT">RETAIL MANAGEMENT</option>
+              <DepartmentSelectOptions placeholder="Select Department" />
             </select>
           </div>
 
@@ -1833,27 +1791,11 @@ export const EmployeeCredentialsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">Country</label>
-                  <select
+                  <CountryNameSelect
                     className={FIELD_CLASSES}
                     value={thirdPartyForm.country}
-                    onChange={(event) => updateThirdPartyField('country', event.target.value)}
-                  >
-                    <option value="">Select Country</option>
-                    <option value="India">India</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Bhutan">Bhutan</option>
-                    <option value="Indonesia">Indonesia</option>
-                    <option value="Jordan">Jordan</option>
-                    <option value="Malaysia">Malaysia</option>
-                    <option value="Maldives">Maldives</option>
-                    <option value="Philippines">Philippines</option>
-                    <option value="Singapore">Singapore</option>
-                    <option value="Sri Lanka">Sri Lanka</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Thailand">Thailand</option>
-                    <option value="UAE-Dubai">UAE-Dubai</option>
-                    <option value="Vietnam">Vietnam</option>
-                  </select>
+                    onChange={(v) => updateThirdPartyField('country', v)}
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700">State</label>

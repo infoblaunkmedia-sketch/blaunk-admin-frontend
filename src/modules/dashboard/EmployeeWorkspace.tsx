@@ -3,23 +3,12 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { SectionCard } from '../../shared/components/SectionCard';
 import { useAuth } from '../../auth/useAuth';
 import { api } from '../../shared/services/apiService';
-import type { ModulePermission } from '../../shared/types/auth.types';
-import { hasModuleAccess } from '../../shared/constants/moduleRights';
-
-const MODULE_LABELS: Partial<Record<ModulePermission, string>> = {
-  dashboard: 'Home',
-  cms: 'CMS',
-  people: 'People',
-  channelPartners: 'Channel Partners',
-  finance: 'Finance',
-  platform: 'Management',
-  sales: 'Sales',
-  it: 'IT',
-  customers: 'Customers & Care',
-  reports: 'Reports',
-  corporate: 'Corporate',
-  retailManagement: 'Retail Management',
-};
+import {
+  WelcomeHero,
+  QuickLinksGrid,
+  EmployeeTipsCard,
+  buildWorkspaceQuickLinks,
+} from './workspaceHome';
 
 type MeResp = {
   user: {
@@ -51,61 +40,51 @@ export const EmployeeWorkspacePage: React.FC = () => {
     };
   }, []);
 
-  const modules = (
-    [
-      'dashboard', 'cms', 'people', 'channelPartners', 'finance', 'platform',
-      'sales', 'it', 'customers', 'reports', 'corporate',
-    ] as ModulePermission[]
-  ).filter((m) => hasModuleAccess(user?.permissions ?? [], m));
+  const displayName = me?.username ?? user?.username ?? 'there';
+  const code = me?.employeeCode ?? user?.code ?? null;
+  const quickLinks = buildWorkspaceQuickLinks(user?.permissions ?? []);
 
   return (
     <>
       <PageHeader
         title="Workspace"
-        subtitle="Overview for internal employees"
+        subtitle="Your home base for day-to-day work"
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard title="Profile">
-          {err ? <p className="text-sm text-red-600">{err}</p> : null}
-          <dl className="grid gap-3 text-sm">
-            <div>
-              <dt className="font-semibold text-slate-500">Username</dt>
-              <dd className="text-slate-900">{me?.username ?? user?.username ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-500">Employee code</dt>
-              <dd className="text-slate-900">{me?.employeeCode ?? user?.code ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-500">Email</dt>
-              <dd className="text-slate-900">{me?.email ?? user?.email ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-500">Department</dt>
-              <dd className="text-slate-900">{me?.department ?? '—'}</dd>
-            </div>
-          </dl>
-        </SectionCard>
+      <div className="space-y-6">
+        <WelcomeHero
+          title={`Welcome back, ${displayName}`}
+          subtitle="Jump into your tools below or use the sidebar for full navigation."
+          code={code}
+          department={me?.department}
+        />
 
-        <SectionCard title="Areas you can open">
-          {modules.length === 0 ? (
-            <p className="text-sm text-slate-600">
-              You do not currently have module access assigned. If something looks wrong,
-              please contact your administrator.
-            </p>
-          ) : (
-            <ul className="flex flex-wrap gap-2">
-              {modules.map((p) => (
-                <li
-                  key={p}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
-                >
-                  {MODULE_LABELS[p] ?? p}
-                </li>
-              ))}
-            </ul>
-          )}
+        {err ? <p className="text-sm text-red-600">{err}</p> : null}
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <SectionCard title="Quick access" className="lg:col-span-2">
+            <QuickLinksGrid
+              links={quickLinks}
+              emptyMessage="No modules are assigned yet. Contact your administrator if you need access."
+            />
+          </SectionCard>
+
+          <SectionCard title="Profile">
+            <dl className="grid gap-3 text-sm">
+              <div>
+                <dt className="font-semibold text-slate-500">Email</dt>
+                <dd className="text-slate-900">{me?.email ?? user?.email ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">Role</dt>
+                <dd className="capitalize text-slate-900">{me?.role ?? user?.role ?? '—'}</dd>
+              </div>
+            </dl>
+          </SectionCard>
+        </div>
+
+        <SectionCard title="Getting started">
+          <EmployeeTipsCard />
         </SectionCard>
       </div>
     </>

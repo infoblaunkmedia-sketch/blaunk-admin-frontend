@@ -21,38 +21,49 @@ function persist(key: string, data: unknown): void {
 }
 
 // Match Doe
-export async function fetchMatchDoeHistory(): Promise<MatchDoeEntry[]> {
-  const res = await api.get<{ entries: Array<{ _id?: string; code?: string; generatedBy?: string; generatedAt?: string; createdAt?: string; isActive?: boolean }> }>('/api/match-code/history');
-  return (res.entries || []).map((e) => ({
+type MatchCodeDto = {
+  _id?: string;
+  code?: string;
+  generatedBy?: string;
+  generatorFor?: string;
+  generatedAt?: string;
+  createdAt?: string;
+  validUntil?: string;
+  isActive?: boolean;
+};
+
+function mapMatchEntry(e: MatchCodeDto, fallbackBy = ''): MatchDoeEntry {
+  return {
     id: String(e._id || crypto.randomUUID()),
     code: String(e.code || ''),
     generatedAt: String(e.generatedAt || e.createdAt || ''),
-    generatedBy: String(e.generatedBy || ''),
+    generatedBy: String(e.generatedBy || fallbackBy),
+    generatorFor: String(e.generatorFor || '').toUpperCase(),
+    validUntil: String(e.validUntil || ''),
     isActive: !!e.isActive,
-  }));
+  };
+}
+
+export async function fetchMatchDoeHistory(): Promise<MatchDoeEntry[]> {
+  const res = await api.get<{ entries: MatchCodeDto[] }>('/api/match-code/history');
+  return (res.entries || []).map((e) => mapMatchEntry(e));
 }
 export async function getActiveMatchDoe(): Promise<MatchDoeEntry | null> {
-  const res = await api.get<{ entry?: { _id?: string; code?: string; generatedBy?: string; generatedAt?: string; createdAt?: string; isActive?: boolean } | null }>('/api/match-code/active');
+  const res = await api.get<{ entry?: MatchCodeDto | null }>('/api/match-code/active');
   const e = res.entry;
   if (!e) return null;
-  return {
-    id: String(e._id || crypto.randomUUID()),
-    code: String(e.code || ''),
-    generatedAt: String(e.generatedAt || e.createdAt || ''),
-    generatedBy: String(e.generatedBy || ''),
-    isActive: !!e.isActive,
-  };
+  return mapMatchEntry(e);
 }
-export async function generateNewMatchDoe(generatedBy: string): Promise<MatchDoeEntry> {
-  const res = await api.post<{ entry: { _id?: string; code?: string; generatedBy?: string; generatedAt?: string; createdAt?: string; isActive?: boolean } }>('/api/match-code/generate', { generatedBy });
-  const e = res.entry;
-  return {
-    id: String(e._id || crypto.randomUUID()),
-    code: String(e.code || ''),
-    generatedAt: String(e.generatedAt || e.createdAt || ''),
-    generatedBy: String(e.generatedBy || generatedBy),
-    isActive: !!e.isActive,
-  };
+export async function generateNewMatchDoe(generatedBy: string, threePEmplCode: string): Promise<MatchDoeEntry> {
+  const res = await api.post<{ entry: MatchCodeDto }>('/api/match-code/generate', {
+    generatedBy,
+    threePEmplCode,
+  });
+  return mapMatchEntry(res.entry, generatedBy);
+}
+export async function updateMatchDoeStatus(id: string, isActive: boolean): Promise<MatchDoeEntry> {
+  const res = await api.patch<{ entry: MatchCodeDto }>(`/api/match-code/${encodeURIComponent(id)}/status`, { isActive });
+  return mapMatchEntry(res.entry);
 }
 export async function validateMatchDoe(code: string): Promise<boolean> {
   const digits = String(code || '').replace(/\D/g, '').trim();

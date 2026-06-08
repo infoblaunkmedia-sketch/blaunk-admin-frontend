@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -27,8 +26,8 @@ import { resolveAdPlanFees } from '../../platform/platform.service';
 import { uploadGiffImage } from '../../cms/giff/giff.service';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { isNegativePayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
+import { CountryNameSelect } from '../../../shared/components/CountryNameSelect';
 import {
-  COUNTRIES,
   PLANS,
   STATUSES,
   planOptionLabel,
@@ -343,12 +342,6 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
 
   return (
     <ErrorBoundary>
-      <PageHeader
-        title="Media Upload"
-        subtitle="Advertisement upload for DSA"
-        className="mb-2"
-      />
-
       <SectionCard title="" className="mb-3" contentClassName="p-0 overflow-hidden">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2">
@@ -431,17 +424,14 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                 </FormField>
               ) : null}
               <FormField label="Country" required>
-                <select
+                <CountryNameSelect
                   className={inputClass}
                   value={form.country}
-                  onChange={(e) => {
-                    const country = e.target.value;
+                  onChange={(country) => {
                     setForm((p) => ({ ...p, country }));
                     void load({ cmsPage: form.cmsPage, cmsPosition: form.cmsPosition, country });
                   }}
-                >
-                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                />
               </FormField>
               <FormField label="Plan" required>
                 <select className={inputClass} value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}>

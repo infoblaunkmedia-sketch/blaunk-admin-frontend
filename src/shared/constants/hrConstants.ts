@@ -1,21 +1,7 @@
-export const COUNTRIES = [
-  'India',
-  'UAE',
-  'UK',
-  'USA',
-  'Singapore',
-  'Malaysia',
-  'Thailand',
-  'Qatar',
-  'Kuwait',
-  'Bahrain',
-  'Oman',
-  'Saudi Arabia',
-  'Hong Kong',
-  'Australia',
-] as const;
+import { getSidebarDepartmentOptions } from './sidebarDepartments';
 
-export type Country = (typeof COUNTRIES)[number];
+/** Country names are loaded dynamically from Management → Countries (/api/countries). */
+export type Country = string;
 
 export const INDIAN_STATES = [
   'Andaman and Nicobar Islands',
@@ -71,23 +57,8 @@ export function normalizeThirdPartyDepartment(department: string): string {
 
 export type Department = (typeof DEPARTMENTS)[number];
 
-/** Normal employee department list mirrors left sidebar modules. */
-export const NORMAL_EMPLOYEE_DEPARTMENTS = [
-  'Management',
-  'Finance',
-  'M & A',
-  'Sales',
-  'Company Secretary',
-  'HR',
-  'Payslip',
-  'IT Dept',
-  'Admin & Personnel',
-  'Customer Care',
-  'Retail Shop',
-  'DSA',
-  'Verifier',
-  'RETAIL MANAGEMENT',
-] as const;
+/** Normal employee department list — dynamic from admin sidebar modules. */
+export const NORMAL_EMPLOYEE_DEPARTMENTS = getSidebarDepartmentOptions();
 
 export const DESIGNATIONS = [
   'Chairman',

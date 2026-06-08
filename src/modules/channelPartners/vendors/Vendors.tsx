@@ -9,7 +9,8 @@ import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { BankDetailsFields } from '../shared/BankDetailsFields';
-import { COUNTRIES, INDIAN_STATES } from '../../../shared/constants/hrConstants';
+import { INDIAN_STATES } from '../../../shared/constants/hrConstants';
+import { CountryNameSelect } from '../../../shared/components/CountryNameSelect';
 import type { VendorRecord, BankDetails, ApprovalStatus } from '../channelPartners.types';
 import {
   fetchVendors,
@@ -333,10 +334,11 @@ export const Vendors: React.FC = () => {
                   onChange={(e) => setField('address', e.target.value)} />
               </FormField>
               <FormField label="Country">
-                <select className={inputClass} value={form.country}
-                  onChange={(e) => setField('country', e.target.value)}>
-                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <CountryNameSelect
+                  className={inputClass}
+                  value={form.country}
+                  onChange={(v) => setField('country', v)}
+                />
               </FormField>
               <FormField label="State">
                 <select className={inputClass} value={form.state}

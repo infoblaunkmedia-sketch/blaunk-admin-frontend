@@ -1,61 +1,96 @@
 import React from 'react';
 import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
-import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '../../../shared/utils/dateFormat';
+import { formatDateTimeDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { MatchDoeEntry } from '../marketing.types';
-import { fetchMatchDoeHistory, getActiveMatchDoe, generateNewMatchDoe } from '../marketing.service';
+import {
+  fetchMatchDoeHistory,
+  generateNewMatchDoe,
+  updateMatchDoeStatus,
+} from '../marketing.service';
 import { useAuthStore } from '../../../auth/authStore';
+import { api } from '../../../shared/services/apiService';
+
+type ThreePcOption = { code: string; name: string };
+
+const selectClass =
+  'h-10 min-w-[12rem] rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+function validityLabel(entry: MatchDoeEntry): string {
+  if (!entry.validUntil) return '—';
+  const until = new Date(entry.validUntil).getTime();
+  if (until < Date.now()) return 'Expired';
+  const mins = Math.max(0, Math.ceil((until - Date.now()) / 60000));
+  return `Valid ${mins} min`;
+}
 
 export const MatchDoe: React.FC = () => {
-  const [active, setActive] = React.useState<MatchDoeEntry | null>(null);
   const [history, setHistory] = React.useState<MatchDoeEntry[]>([]);
+  const [threePcOptions, setThreePcOptions] = React.useState<ThreePcOption[]>([]);
+  const [selected3p, setSelected3p] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
+  const [statusSavingId, setStatusSavingId] = React.useState<string | null>(null);
   const currentUser = useAuthStore((s) => s.user);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [activeCode, hist] = await Promise.all([
-      getActiveMatchDoe(),
-      fetchMatchDoeHistory(),
-    ]);
-    setActive(activeCode);
-    setHistory(hist);
-    setLoading(false);
+    try {
+      const [hist, codesRes] = await Promise.all([
+        fetchMatchDoeHistory(),
+        api.get<{ employees?: Array<{ code: string; name?: string }> }>('/api/employees/codes?type=3pc'),
+      ]);
+      setHistory(hist);
+      const opts = (codesRes.employees || [])
+        .map((c) => ({ code: String(c.code || '').toUpperCase(), name: String(c.name || '').trim() }))
+        .filter((c) => c.code);
+      setThreePcOptions(opts);
+    } catch {
+      toast.error('Failed to load match code data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { void load(); }, [load]);
 
-  const handleRefresh = async () => {
-    setGenerating(true);
-    try {
-      const entry = await generateNewMatchDoe(currentUser?.code ?? 'system');
-      setActive(entry);
-      toast.success(
-        `New Match Code: ${entry.code}. All 3P employees updated; previous code no longer works.`,
-      );
-      load();
-    } catch { toast.error('Failed to generate code'); }
-    finally { setGenerating(false); }
-  };
-
-  const handleCopyCode = async () => {
-    const code = String(active?.code || '').trim();
-    if (!code) {
-      toast.error('No active code to copy.');
+  const handleGenerate = async () => {
+    if (!selected3p) {
+      toast.error('Select a 3P employee first.');
       return;
     }
+    setGenerating(true);
     try {
-      await navigator.clipboard.writeText(code);
-      toast.success('Match Code copied.');
-    } catch {
-      toast.error('Failed to copy code.');
+      const entry = await generateNewMatchDoe(currentUser?.code ?? 'system', selected3p);
+      toast.success(`Match Code ${entry.code} generated for ${selected3p}. Valid for 45 minutes.`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to generate code');
+    } finally {
+      setGenerating(false);
     }
   };
+
+  const handleStatusChange = async (row: MatchDoeEntry, isActive: boolean) => {
+    setStatusSavingId(row.id);
+    try {
+      await updateMatchDoeStatus(row.id, isActive);
+      toast.success(`Code ${row.code} set to ${isActive ? 'Active' : 'Inactive'}.`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update status');
+    } finally {
+      setStatusSavingId(null);
+    }
+  };
+
+  const activeForSelected = history.find(
+    (r) => r.generatorFor === selected3p && r.isActive && validityLabel(r) !== 'Expired',
+  );
 
   const columns: TableColumn<MatchDoeEntry>[] = [
     {
@@ -66,21 +101,40 @@ export const MatchDoe: React.FC = () => {
           {r.code}
         </span>
       ),
-      width: '110px',
+      width: '100px',
+    },
+    {
+      name: 'Generator For',
+      selector: (r) => r.generatorFor || '',
+      cell: (r) => <span className="font-semibold uppercase">{r.generatorFor || '—'}</span>,
+      minWidth: '8rem',
+    },
+    {
+      name: 'Validity',
+      cell: (r) => (
+        <span className="text-xs font-semibold text-slate-700">
+          {r.validUntil ? formatDateTimeDDMMYYYY(r.validUntil) : '—'}
+          <span className="mt-0.5 block text-slate-500">{validityLabel(r)}</span>
+        </span>
+      ),
+      minWidth: '9rem',
     },
     { name: 'Generated At', selector: (r) => r.generatedAt, format: (r) => formatDateTimeDDMMYYYY(r.generatedAt) || '—' },
     { name: 'Generated By', selector: (r) => r.generatedBy },
     {
-      name: 'Active',
+      name: 'Status',
       cell: (r) => (
-        <span className={[
-          'rounded-full px-2.5 py-0.5 text-xs font-bold',
-          r.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500',
-        ].join(' ')}>
-          {r.isActive ? 'Active' : 'Expired'}
-        </span>
+        <select
+          className="h-8 min-w-[6.5rem] rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold outline-none focus:border-primary disabled:opacity-60"
+          value={r.isActive ? 'Active' : 'Inactive'}
+          disabled={statusSavingId === r.id}
+          onChange={(e) => void handleStatusChange(r, e.target.value === 'Active')}
+        >
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
       ),
-      width: '100px',
+      width: '7.5rem',
     },
   ];
 
@@ -88,49 +142,39 @@ export const MatchDoe: React.FC = () => {
     <ErrorBoundary>
       <PageHeader
         title="Match Code"
-        subtitle="One active code for all 3P employees. Generating a new code updates every 3P record and invalidates the old code for uploads."
+        subtitle="Select a 3P employee, then generate a unique match code valid for 45 minutes."
       />
 
-      <SectionCard title="Active Match Code" className="mb-5">
-        {loading ? (
-          <div className="flex h-24 items-center justify-center">
-            <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <SectionCard title="Generate Match Code" className="mb-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">3P Employee</label>
+            <select className={selectClass} value={selected3p} onChange={(e) => setSelected3p(e.target.value)}>
+              <option value="">Select 3P employee</option>
+              {threePcOptions.map((o) => (
+                <option key={o.code} value={o.code}>
+                  {o.code}{o.name ? ` — ${o.name}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-8">
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current Active Code</p>
-              <p className="font-mono text-6xl font-black tracking-widest text-primary">
-                {active?.code ?? '—'}
-              </p>
-              {active && (
-                <p className="text-xs text-slate-400">
-                  Generated {formatDateTimeDDMMYYYY(active.generatedAt)} by {active.generatedBy}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                disabled={generating}
-                onClick={handleRefresh}
-                className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow hover:bg-primary-dark disabled:opacity-60"
-              >
-                <svg className={['h-4 w-4', generating ? 'animate-spin' : ''].join(' ')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {generating ? 'Generating…' : 'Refresh Code'}
-              </button>
-              {/* <button
-                type="button"
-                onClick={handleCopyCode}
-                className="rounded-xl border border-slate-300 px-6 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
-              >
-                Copy Code
-              </button> */}
-            </div>
-          </div>
-        )}
+          <button
+            type="button"
+            disabled={generating || !selected3p}
+            onClick={() => void handleGenerate()}
+            className="flex h-10 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow hover:bg-primary-dark disabled:opacity-60"
+          >
+            {generating ? 'Generating…' : 'Generate Match Code'}
+          </button>
+        </div>
+        {activeForSelected ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Active code for <strong>{selected3p}</strong>:{' '}
+            <span className="font-mono text-lg font-bold text-primary">{activeForSelected.code}</span>
+            {' · '}
+            {validityLabel(activeForSelected)}
+          </p>
+        ) : null}
       </SectionCard>
 
       <SectionCard title="Code History">

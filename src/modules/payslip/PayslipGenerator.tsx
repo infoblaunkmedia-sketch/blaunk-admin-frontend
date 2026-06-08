@@ -4,12 +4,18 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { SectionCard } from '../../shared/components/SectionCard';
 import {
   fetchPayrollEmployees,
+  generateMyPayslipReport,
   generatePayslipReport,
   type DetailedPayslip,
 } from './payslip.service';
 import { PayslipResults } from './PayslipResults';
 import { SearchableEmployeeSelect } from './SearchableEmployeeSelect';
-import { getPayrollReportConfig, PAYROLL_REPORT_TYPES } from './payrollReportConfig';
+import {
+  buildUnavailablePayslipStub,
+  getPayrollReportConfig,
+  isUnavailableReport,
+  PAYROLL_REPORT_TYPES,
+} from './payrollReportConfig';
 
 const FINANCIAL_YEARS = ['2023-24', '2024-25', '2025-26', '2026-27'];
 const MONTHS = [
@@ -18,9 +24,9 @@ const MONTHS = [
 ];
 
 const selectClass =
-  'h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:bg-slate-50 disabled:text-slate-400';
+  'h-10 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:bg-slate-50 disabled:text-slate-400';
 
-const labelClass = 'mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600';
+const labelClass = 'mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-600';
 
 function downloadExcel(payslips: DetailedPayslip[], reportLabel: string) {
   const headers = ['Employee Code', 'Employee Name', 'Department', 'Gross Earnings', 'Net Salary'];
@@ -59,9 +65,16 @@ function isFormValid(
 export type PayslipGeneratorProps = {
   title: string;
   subtitle: string;
+  selfService?: boolean;
+  lockedEmployeeCode?: string;
 };
 
-export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subtitle }) => {
+export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
+  title,
+  subtitle,
+  selfService = false,
+  lockedEmployeeCode = '',
+}) => {
   const [employees, setEmployees] = React.useState<Awaited<ReturnType<typeof fetchPayrollEmployees>>>([]);
   const [dataLoading, setDataLoading] = React.useState(true);
 
@@ -73,10 +86,15 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subti
   const [generating, setGenerating] = React.useState(false);
   const [payslips, setPayslips] = React.useState<DetailedPayslip[]>([]);
 
+  const effectiveEmployeeCode = selfService ? lockedEmployeeCode : employeeCode;
   const cfg = reportType ? getPayrollReportConfig(reportType) : undefined;
-  const canGenerate = isFormValid(reportType, financialYear, employeeCode, month, outputFormat);
+  const canGenerate = isFormValid(reportType, financialYear, effectiveEmployeeCode, month, outputFormat);
 
   React.useEffect(() => {
+    if (selfService) {
+      setDataLoading(false);
+      return undefined;
+    }
     let cancelled = false;
     setDataLoading(true);
     void fetchPayrollEmployees()
@@ -92,7 +110,7 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subti
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selfService]);
 
   React.useEffect(() => {
     setEmployeeCode('');
@@ -114,15 +132,33 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subti
     setGenerating(true);
     setPayslips([]);
     try {
-      const res = await generatePayslipReport({
+      const code = effectiveEmployeeCode;
+      const emp = employees.find((e) => e.empCode === code);
+
+      if (isUnavailableReport(cfg.backendType)) {
+        if (outputFormat === 'excel') {
+          toast.info('Excel export is not available for this report.');
+          return;
+        }
+        setPayslips([
+          buildUnavailablePayslipStub(cfg, code, emp?.employeeName || code, emp?.department || '', financialYear),
+        ]);
+        toast.success('Generated.');
+        return;
+      }
+
+      const reportPayload = {
         financialYear,
         reportType: cfg.backendType,
         period: cfg.period,
         month: cfg.needsMonth ? month : '',
-        employeeCode,
         outputFormat: outputFormat as 'pdf' | 'excel',
-      });
-      const list = (res.data?.payslips || []).filter((p) => p.employeeCode === employeeCode);
+      };
+
+      const res = selfService
+        ? await generateMyPayslipReport(reportPayload)
+        : await generatePayslipReport({ ...reportPayload, employeeCode: code });
+      const list = (res.data?.payslips || []).filter((p) => p.employeeCode === code);
       if (!list.length) {
         toast.info('No records found.');
         return;
@@ -143,18 +179,14 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subti
   };
 
   const showMonth = Boolean(cfg?.needsMonth);
-  const actionCol = showMonth ? 'md:col-span-2' : 'md:col-span-3';
-  const employeeCol = showMonth ? 'md:col-span-5' : 'md:col-span-6';
-  const monthCol = 'md:col-span-3';
-  const formatCol = showMonth ? 'md:col-span-2' : 'md:col-span-3';
 
   return (
     <>
       <PageHeader title={title} subtitle={subtitle} />
 
-      <SectionCard>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
+      <SectionCard contentClassName="p-4">
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
             <label className={labelClass}>Report type</label>
             <select
               value={reportType}
@@ -171,7 +203,7 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subti
             </select>
           </div>
 
-          <div>
+          <div className="min-w-0 flex-1">
             <label className={labelClass}>Financial year</label>
             <select
               value={financialYear}
@@ -187,74 +219,78 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({ title, subti
               ))}
             </select>
           </div>
-        </div>
 
-        {reportType && cfg ? (
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12 md:items-end">
-            <div className={employeeCol}>
-              <label className={labelClass}>Employee</label>
-              <SearchableEmployeeSelect
-                employees={employees}
-                value={employeeCode}
-                onChange={setEmployeeCode}
-                disabled={dataLoading}
-              />
-            </div>
+          {reportType && cfg ? (
+            <>
+              {!selfService ? (
+                <div className="min-w-0 flex-1">
+                  <label className={labelClass}>Employee</label>
+                  <SearchableEmployeeSelect
+                    employees={employees}
+                    value={employeeCode}
+                    onChange={setEmployeeCode}
+                    disabled={dataLoading}
+                    compact
+                    placeholder="Search…"
+                  />
+                </div>
+              ) : null}
 
-            {showMonth ? (
-              <div className={monthCol}>
-                <label className={labelClass}>Month</label>
-                <select value={month} onChange={(e) => setMonth(e.target.value)} className={selectClass}>
+              {showMonth ? (
+                <div className="min-w-0 flex-1">
+                  <label className={labelClass}>Month</label>
+                  <select value={month} onChange={(e) => setMonth(e.target.value)} className={selectClass}>
+                    <option value="">Select</option>
+                    {MONTHS.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              <div className="min-w-0 flex-1">
+                <label className={labelClass}>Output format</label>
+                <select
+                  value={outputFormat}
+                  onChange={(e) => setOutputFormat(e.target.value as 'pdf' | 'excel')}
+                  className={selectClass}
+                >
                   <option value="">Select</option>
-                  {MONTHS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                  {cfg.outputFormats.map((f) => (
+                    <option key={f} value={f}>
+                      {f === 'pdf' ? 'PDF' : 'Excel'}
                     </option>
                   ))}
                 </select>
               </div>
-            ) : null}
 
-            <div className={formatCol}>
-              <label className={labelClass}>Output format</label>
-              <select
-                value={outputFormat}
-                onChange={(e) => setOutputFormat(e.target.value as 'pdf' | 'excel')}
-                className={selectClass}
-              >
-                <option value="">Select</option>
-                {cfg.outputFormats.map((f) => (
-                  <option key={f} value={f}>
-                    {f === 'pdf' ? 'PDF' : 'Excel'}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className={actionCol}>
-              <button
-                type="button"
-                disabled={!canGenerate || generating || dataLoading}
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={() => void handleGenerate()}
-              >
-                {generating ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Generating…
-                  </>
-                ) : (
-                  'Generate'
-                )}
-              </button>
-            </div>
-          </div>
-        ) : null}
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  disabled={!canGenerate || generating || (!selfService && dataLoading)}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => void handleGenerate()}
+                >
+                  {generating ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Generating…
+                    </>
+                  ) : (
+                    'Generate'
+                  )}
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
       </SectionCard>
 
       {payslips.length > 0 ? (
-        <SectionCard title="Preview" className="mt-4">
-          <PayslipResults payslips={payslips} onPrint={() => window.print()} />
+        <SectionCard title="Preview" className="mt-4 min-w-0" contentClassName="min-w-0 p-4">
+          <PayslipResults payslips={payslips} reportLabel={reportType} />
         </SectionCard>
       ) : null}
     </>

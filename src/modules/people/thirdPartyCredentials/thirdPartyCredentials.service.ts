@@ -42,6 +42,8 @@ type RecordDto = {
   businessDeposit?: string;
   sharingThreeP?: string;
   sharingBlaunk?: string;
+  commissionSubscriber?: string;
+  commissionRenewal?: string;
   references?: { name?: string; mobile?: string; designation?: string; city?: string }[];
   employeePhotoUrl?: string;
   chqImageUrl?: string;
@@ -95,6 +97,8 @@ function toRecord(dto: RecordDto): ThirdPartyCredential {
     businessDeposit: dto.businessDeposit || '',
     sharingThreeP: dto.sharingThreeP || '',
     sharingBlaunk: dto.sharingBlaunk || '',
+    commissionSubscriber: dto.commissionSubscriber || '',
+    commissionRenewal: dto.commissionRenewal || '',
     references: (dto.references || []).map((r) => ({
       name: r?.name || '',
       mobile: r?.mobile || '',

@@ -8,7 +8,7 @@ import { DataTableWrapper, ListTableSearchInput } from '../../../shared/componen
 import { FormField } from '../../../shared/components/FormField';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
-import { ImageUploader } from '../../../shared/components/ImageUploader';
+import { CroppableImageUploader } from '../../../shared/components/CroppableImageUploader';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { BankNameInput } from '../../../shared/components/BankNameInput';
 import {
@@ -146,6 +146,8 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
   businessDeposit: '',
   sharingThreeP: '0',
   sharingBlaunk: '100',
+  commissionSubscriber: '',
+  commissionRenewal: '',
   references: [
     { name: '', mobile: '', designation: '', city: '' },
     { name: '', mobile: '', designation: '', city: '' },
@@ -568,6 +570,8 @@ export const ThirdPartyCredentials: React.FC = () => {
                 ))}
               </select>
             </FormField>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="Verified Status">
               <select className={inputClass} value={form.verifiedStatus} onChange={(e) => setField('verifiedStatus', e.target.value)}>
                 <option value="">Select verified status</option>
@@ -597,12 +601,14 @@ export const ThirdPartyCredentials: React.FC = () => {
                 onChange={(e) => setField('businessDeposit', e.target.value)}
               />
             </FormField>
-            <FormField label="Sharing Ratio (3P : Blaunk)" className="sm:col-span-2 lg:col-span-2">
-              <div className="grid grid-cols-[minmax(0,1fr),auto,minmax(0,1fr)] items-center gap-2">
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField label="Sharing Ratio (3P : Blaunk)">
+              <div className="grid w-full grid-cols-2 gap-2">
                 <input
-                  className={inputClass}
+                  className={`${inputClass} min-w-0 px-2 text-center`}
                   inputMode="numeric"
-                  placeholder="3P"
+                  placeholder="0"
                   maxLength={3}
                   onKeyDown={onIntegerInputKeyDown}
                   value={form.sharingThreeP}
@@ -615,11 +621,10 @@ export const ThirdPartyCredentials: React.FC = () => {
                     }));
                   }}
                 />
-                <span className="px-1 text-center text-sm font-semibold text-slate-600">:</span>
                 <input
-                  className={inputClass}
+                  className={`${inputClass} min-w-0 px-2 text-center`}
                   inputMode="numeric"
-                  placeholder="Blaunk"
+                  placeholder="100"
                   maxLength={3}
                   onKeyDown={onIntegerInputKeyDown}
                   value={form.sharingBlaunk}
@@ -633,7 +638,24 @@ export const ThirdPartyCredentials: React.FC = () => {
                   }}
                 />
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">Numbers only. The two values must add up to 100.</p>
+            </FormField>
+            <FormField label="Commission Subscriber">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                placeholder="Commission subscriber"
+                value={form.commissionSubscriber}
+                onChange={(e) => setField('commissionSubscriber', e.target.value)}
+              />
+            </FormField>
+            <FormField label="Commission Renewal">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                placeholder="Commission renewal"
+                value={form.commissionRenewal}
+                onChange={(e) => setField('commissionRenewal', e.target.value)}
+              />
             </FormField>
           </div>
           </fieldset>
@@ -710,9 +732,13 @@ export const ThirdPartyCredentials: React.FC = () => {
         <SectionCard title="Documents">
           <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
             <div className="flex flex-wrap gap-6">
-              <ImageUploader
+              <CroppableImageUploader
                 label="Address Proof"
-                maxSizeMB={200 / 1024}
+                maxBytes={200 * 1024}
+                maxSizeHint="200KB"
+                aspect={3 / 4}
+                aspectLabel="3:4"
+                disabled={readOnly}
                 currentPreview={form.employeePhotoUrl}
                 onFile={async (file) => {
                   const bad = validateImageFileForUpload(file, 200 * 1024);
@@ -729,9 +755,13 @@ export const ThirdPartyCredentials: React.FC = () => {
                   }
                 }}
               />
-              <ImageUploader
+              <CroppableImageUploader
                 label="CHQ Image"
-                maxSizeMB={200 / 1024}
+                maxBytes={200 * 1024}
+                maxSizeHint="200KB"
+                aspect={16 / 9}
+                aspectLabel="16:9"
+                disabled={readOnly}
                 currentPreview={form.chqImageUrl}
                 onFile={async (file) => {
                   const bad = validateImageFileForUpload(file, 200 * 1024);
@@ -748,9 +778,13 @@ export const ThirdPartyCredentials: React.FC = () => {
                   }
                 }}
               />
-              <ImageUploader
+              <CroppableImageUploader
                 label="PAN Card"
-                maxSizeMB={200 / 1024}
+                maxBytes={200 * 1024}
+                maxSizeHint="200KB"
+                aspect={4 / 3}
+                aspectLabel="4:3"
+                disabled={readOnly}
                 currentPreview={form.panImageUrl}
                 onFile={async (file) => {
                   const bad = validateImageFileForUpload(file, 200 * 1024);

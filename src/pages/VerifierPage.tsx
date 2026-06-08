@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCountries } from '../shared/hooks/useCountries';
 import { Button } from '../components/Button';
 import { Tabs } from '../components/Tabs';
 import { Input } from '../components/Input';
@@ -12,30 +13,16 @@ const TABS = ['MIS', 'Verifier'] as const;
 const inputClass =
   'h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
 const disabledFieldClass = `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500`;
-const VERIFIER_COUNTRIES = [
-  'India',
-  'Bahrain',
-  'Bangladesh',
-  'Bhutan',
-  'Indonesia',
-  'Jordan',
-  'Malaysia',
-  'Maldives',
-  'Philippines',
-  'Singapore',
-  'Sri Lanka',
-  'Qatar',
-  'Thailand',
-  'UAE-Dubai',
-  'Vietnam',
-] as const;
 const selectStatusOptions = ['Select Option', 'Pending', 'Verified', 'Refused', 'Re-Upload'] as const;
 const productOptions = ['Select a Product', 'Cake', 'Store', 'Tour', 'BGT - B2B', 'Boutique', 'Logistics'] as const;
 const shopLocationOptions = ['Select Option', 'Pending', 'Verified', 'Not Found', 'Criminal Issue'] as const;
 const verifierStatusOptions = ['Select Status', 'Approved', 'Re-upload', 'Block Vendor'] as const;
-const currencyOptions = ['INR', 'USD', 'BHD', 'BTN', 'IDR', 'JOD', 'MYR', 'MVR', 'PHP', 'SGD', 'LKR', 'QAR', 'THB', 'AED', 'VND'] as const;
-
 export const VerifierPage: React.FC = () => {
+  const { countries, countryNames, loading: countriesLoading } = useCountries();
+  const currencyOptions = React.useMemo(
+    () => countries.map((c) => c.currencyCode),
+    [countries],
+  );
   const [activeTab, setActiveTab] = React.useState<(typeof TABS)[number]>('MIS');
   const [fromDate, setFromDate] = React.useState('');
   const [toDate, setToDate] = React.useState('');
@@ -149,8 +136,8 @@ export const VerifierPage: React.FC = () => {
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
                 options={[
-                  { value: '', label: 'Select Country' },
-                  ...VERIFIER_COUNTRIES.map((c) => ({ value: c, label: c }))
+                  { value: '', label: countriesLoading ? 'Loading…' : 'Select Country' },
+                  ...countryNames.map((c) => ({ value: c, label: c })),
                 ]}
               />
             </div>
@@ -235,7 +222,11 @@ export const VerifierPage: React.FC = () => {
               <Select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                options={currencyOptions.map((o) => ({ value: o, label: o }))}
+                options={
+                  currencyOptions.length
+                    ? currencyOptions.map((o) => ({ value: o, label: o }))
+                    : [{ value: 'INR', label: countriesLoading ? 'Loading…' : 'INR' }]
+                }
               />
             </div>
             <div className="px-1">

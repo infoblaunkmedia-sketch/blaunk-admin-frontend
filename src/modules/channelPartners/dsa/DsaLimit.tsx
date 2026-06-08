@@ -13,10 +13,12 @@ import {
   type PayoutStatus,
 } from '../../../shared/constants/payoutStatus';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
-import { formatDsaPayinAmount, formatInrAmount } from '../../../shared/utils/dsaCurrencyFormat';
+import { CurrencySelect } from '../../../shared/components/CurrencySelect';
+import { useCountries } from '../../../shared/hooks/useCountries';
+import { formatDsaPayinAmount, formatInrAmount, normalizeStoredCurrency } from '../../../shared/utils/dsaCurrencyFormat';
 import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { payoutCheckerLabel } from '../../finance/dsaPayouts/payoutChecker';
+import { payoutCheckerDate, payoutCheckerId } from '../../finance/dsaPayouts/payoutChecker';
 
 const inputClass =
   'h-9 w-full min-w-[5rem] rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
@@ -39,7 +41,7 @@ type DraftRow = {
   checked: boolean;
   mode: PaymentMode;
   txnRef: string;
-  currencyType: 'Rs.' | '$';
+  currencyCode: string;
   currencyPayin: string;
   currencyInr: string;
   calculatedLimit: string;
@@ -55,14 +57,15 @@ type DsaLimitTableRow = {
   shareRatio: string;
   mode: string;
   txnRef: string;
-  currencyType: string;
+  currencyCode: string;
   currencyPayin: string;
   currencyInr: string;
   limit: string;
   approval: string;
   status: PayoutStatus;
   remark: string;
-  checker: string;
+  checkerDate: string;
+  checkerId: string;
   draft?: DraftRow;
 };
 
@@ -81,6 +84,7 @@ type Props = {
 
 export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
   const { user } = useAuth();
+  const { countries } = useCountries();
   const dsaCode = String(user?.code || '').trim().toUpperCase();
 
   const [availableBalance, setAvailableBalance] = React.useState('0');
@@ -94,7 +98,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
     checked: true,
     mode: 'Cash',
     txnRef: '',
-    currencyType: 'Rs.',
+    currencyCode: 'INR',
     currencyPayin: '',
     currencyInr: '',
     calculatedLimit: '',
@@ -143,7 +147,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           shareRatio: `${sr}:${100 - sr}`,
           mode: p.mode || '-',
           txnRef: p.transactionNumber || '',
-          currencyType: p.currency === 'USD' ? '$' : 'Rs.',
+          currencyCode: normalizeStoredCurrency(p.currency || 'INR'),
           currencyPayin: String(p.submittedAmount || 0),
           currencyInr: payoutInrDisplay(p),
           limit: isPendingPayoutStatus(p.status)
@@ -152,7 +156,8 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           approval: payoutStatusLabel(p.status),
           status: normalizePayoutStatus(p.status),
           remark: p.rejectionReason || '',
-          checker: payoutCheckerLabel(p),
+          checkerDate: payoutCheckerDate(p),
+          checkerId: payoutCheckerId(p),
         };
       });
 
@@ -170,14 +175,15 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
             shareRatio: srLabel,
             mode: currentDraft.mode,
             txnRef: currentDraft.txnRef,
-            currencyType: currentDraft.currencyType,
+            currencyCode: currentDraft.currencyCode,
             currencyPayin: currentDraft.currencyPayin,
             currencyInr: currentDraft.currencyInr,
             limit: currentDraft.calculatedLimit,
             approval: 'Pending',
             status: 'PENDING',
             remark: '',
-            checker: '-',
+            checkerDate: '-',
+            checkerId: '-',
             draft: currentDraft,
           };
           rows.unshift(draftRow);
@@ -218,7 +224,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
                 draft: next,
                 mode: next.mode,
                 txnRef: next.txnRef,
-                currencyType: next.currencyType,
+                currencyCode: next.currencyCode,
                 currencyPayin: next.currencyPayin,
                 currencyInr: next.currencyInr,
                 limit: next.calculatedLimit,
@@ -249,7 +255,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       return;
     }
     if (!draft.txnRef.trim()) {
-      toast.error('Txn Ref No. is required.');
+      toast.error('Transaction Ref No. is required.');
       return;
     }
 
@@ -265,7 +271,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
         dsaName,
         country,
         submittedAmount,
-        currency: draft.currencyType === '$' ? 'USD' : 'INR',
+        currency: draft.currencyCode || 'INR',
         currencyInr: 0,
         shareRatio,
         calculatedLimit: 0,
@@ -282,7 +288,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
         checked: true,
         mode: 'Cash',
         txnRef: '',
-        currencyType: 'Rs.',
+        currencyCode: 'INR',
         currencyPayin: '',
         currencyInr: '',
         calculatedLimit: '',
@@ -320,13 +326,11 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
     { name: 'DSA Name', selector: (row) => row.dsaName, sortable: true, minWidth: '7rem' },
     { name: 'Country', selector: (row) => row.country, sortable: true, minWidth: '5.5rem' },
     {
-      name: 'DSA Code',
-      selector: (row) => row.dsaCode,
-      cell: (row) => <span className="uppercase">{row.dsaCode}</span>,
-      sortable: true,
-      minWidth: '6rem',
+      name: 'Sharing Ratio',
+      selector: (row) => row.shareRatio,
+      minWidth: '7.5rem',
+      width: '7.5rem',
     },
-    { name: 'Sharing Ratio', selector: (row) => row.shareRatio, minWidth: '6.5rem' },
     {
       name: 'Mode',
       cell: (row) => {
@@ -357,7 +361,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       minWidth: '6.5rem',
     },
     {
-      name: 'Txn Ref No.',
+      name: 'Transaction Ref No.',
       cell: (row) => {
         if (!row.isDraft) {
           return <input className={disabledFieldClass} readOnly value={row.txnRef || '-'} />;
@@ -373,38 +377,43 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           />
         );
       },
-      minWidth: '7.5rem',
+      minWidth: '10rem',
+      width: '10rem',
     },
     {
-      name: 'Currency',
+      name: 'Payin Currency',
       cell: (row) => {
         if (!row.isDraft) {
-          return <input className={`${disabledFieldClass} max-w-[5rem]`} readOnly value={row.currencyType} />;
+          return (
+            <input
+              className={`${disabledFieldClass} max-w-[6.5rem]`}
+              readOnly
+              value={row.currencyCode}
+            />
+          );
         }
         const d = row.draft!;
         return (
-          <select
-            className={d.checked ? inputClass : disabledFieldClass}
-            value={d.currencyType}
-            onChange={(e) => updateDraft({ currencyType: e.target.value as 'Rs.' | '$' })}
+          <CurrencySelect
+            className={d.checked ? undefined : disabledFieldClass}
+            value={d.currencyCode}
+            onChange={(code) => updateDraft({ currencyCode: code })}
             disabled={!d.checked}
-          >
-            <option value="Rs.">Rs.</option>
-            <option value="$">$</option>
-          </select>
+          />
         );
       },
-      minWidth: '5.5rem',
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
-      name: 'Amount-payin',
+      name: 'Currency-Payin',
       cell: (row) => {
         if (!row.isDraft) {
           return (
             <input
               className={disabledFieldClass}
               readOnly
-              value={formatDsaPayinAmount(row.currencyPayin, row.currencyType)}
+              value={formatDsaPayinAmount(row.currencyPayin, row.currencyCode, countries)}
             />
           );
         }
@@ -419,7 +428,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           />
         );
       },
-      minWidth: '7.5rem',
+      minWidth: '8.5rem',
     },
     {
       name: 'Currency-INR',
@@ -431,7 +440,8 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           value={row.isDraft ? row.draft?.currencyInr ?? '' : row.currencyInr}
         />
       ),
-      minWidth: '7.5rem',
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
       name: 'Limit',
@@ -446,7 +456,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       minWidth: '7rem',
     },
     {
-      name: 'Avl Balance',
+      name: 'Available Balance',
       cell: (row) => {
         const limit = row.isDraft ? row.draft?.calculatedLimit ?? '' : row.limit;
         return (
@@ -458,7 +468,8 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           />
         );
       },
-      minWidth: '7.5rem',
+      minWidth: '9.5rem',
+      width: '9.5rem',
     },
     {
       name: 'Approval',
@@ -480,18 +491,29 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       minWidth: '10rem',
     },
     {
-      name: 'Checker',
-      selector: (row) => row.checker,
-      cell: (row) => <span className="font-semibold text-slate-800">{row.checker}</span>,
+      name: 'Checker Date',
+      selector: (row) => row.checkerDate,
+      cell: (row) => (
+        <span className="whitespace-nowrap text-sm font-semibold text-slate-800">{row.checkerDate}</span>
+      ),
       sortable: true,
-      minWidth: '6rem',
+      minWidth: '9rem',
+      width: '9rem',
+    },
+    {
+      name: 'Checker Id',
+      selector: (row) => row.checkerId,
+      cell: (row) => (
+        <span className="whitespace-nowrap font-semibold uppercase text-slate-800">{row.checkerId}</span>
+      ),
+      sortable: true,
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
   ], [updateDraft]);
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-4xl font-bold text-primary">Limit</h2>
-
       <div className="flex flex-wrap items-center gap-2">
         {STATUS_TABS.map((tab) => (
           <button
@@ -519,7 +541,7 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       </div>
 
       <div className="flex items-end justify-between gap-3">
-        <h2 className="text-4xl font-bold text-primary">DSA Details</h2>
+        <p className="text-2xl font-bold text-primary">DSA Details</p>
         <button
           type="button"
           disabled={saving || loading || hasPending || statusTab !== 'new'}

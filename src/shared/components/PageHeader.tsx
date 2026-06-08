@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePageChrome } from './pageChromeContext';
 
 interface Action {
   label: string;
@@ -28,23 +29,34 @@ const variantClass: Record<NonNullable<Action['variant']>, string> = {
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
-  subtitle,
   className = 'mb-6',
   toolbarLeft,
   beforeActions,
   actions = [],
   reserveActionsColumn = false,
 }) => {
+  const { showPageTitle } = usePageChrome();
+  const showTitle = showPageTitle && Boolean(title);
   const showRight =
     beforeActions != null || actions.length > 0 || reserveActionsColumn;
+  const showLeft = showTitle || toolbarLeft != null;
+
+  if (!showLeft && !showRight) {
+    return null;
+  }
 
   return (
     <div className={['flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between', className].join(' ')}>
-      <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-bold text-primary">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
-        {toolbarLeft != null && <div className="mt-3">{toolbarLeft}</div>}
-      </div>
+      {showLeft && (
+        <div className="min-w-0 flex-1">
+          {showTitle ? (
+            <h1 className="text-xl font-bold text-primary">{title}</h1>
+          ) : null}
+          {toolbarLeft != null ? (
+            <div className={showTitle ? 'mt-3' : undefined}>{toolbarLeft}</div>
+          ) : null}
+        </div>
+      )}
       {showRight && (
         <div className="flex shrink-0 flex-nowrap items-center gap-2 sm:ml-auto sm:self-end">
           {beforeActions}

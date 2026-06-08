@@ -1,4 +1,6 @@
 import React from 'react';
+import { CountryNameSelect } from '../shared/components/CountryNameSelect';
+import { CurrencySelect } from '../shared/components/CurrencySelect';
 
 const TABS = ['MIS', 'DSA - Payment', 'Media Upload'] as const;
 const MEDIA_TABS = ['Slider', 'Explore', 'Trendy Star', 'Global Store', 'Exclusive', 'New Launch', 'GIFF', 'Tour Package'] as const;
@@ -29,7 +31,7 @@ export const DsaPage: React.FC = () => {
   const [dsaRowChecked, setDsaRowChecked] = React.useState(false);
   const [dsaMode, setDsaMode] = React.useState('Cash');
   const [txnRef, setTxnRef] = React.useState('');
-  const [currencyType, setCurrencyType] = React.useState('Rs.');
+  const [currencyCode, setCurrencyCode] = React.useState('INR');
   const [currencyPayin, setCurrencyPayin] = React.useState('');
   const [currencyInr, setCurrencyInr] = React.useState('');
   const [dsaLimit, setDsaLimit] = React.useState('');
@@ -253,9 +255,9 @@ export const DsaPage: React.FC = () => {
                   <th className="min-w-[6rem] border border-white/25 px-2 py-2 font-bold">DSA Code</th>
                   <th className="min-w-[7rem] border border-white/25 px-2 py-2 font-bold">Sharing Ratio</th>
                   <th className="min-w-[6rem] border border-white/25 px-2 py-2 font-bold">Mode</th>
-                  <th className="min-w-[7rem] border border-white/25 px-2 py-2 font-bold">Txn Ref No.</th>
-                  <th className="min-w-[8rem] border border-white/25 px-2 py-2 font-bold">Currency-Payin</th>
-                  <th className="min-w-[7rem] border border-white/25 px-2 py-2 font-bold">Currency-INR</th>
+                  <th className="min-w-[10rem] border border-white/25 px-2 py-2 font-bold">Transaction Ref No.</th>
+                  <th className="min-w-[9rem] border border-white/25 px-2 py-2 font-bold">Currency-Payin</th>
+                  <th className="min-w-[8.5rem] border border-white/25 px-2 py-2 font-bold">Currency-INR</th>
                   <th className="min-w-[6rem] border border-white/25 px-2 py-2 font-bold">Limit</th>
                   <th className="min-w-[7rem] border border-white/25 px-2 py-2 font-bold">Approval</th>
                 </tr>
@@ -297,15 +299,12 @@ export const DsaPage: React.FC = () => {
                   </td>
                   <td className="border border-slate-200 p-1">
                     <div className="flex gap-1">
-                      <select
-                        className={`${editableRowClass} w-20`}
-                        value={currencyType}
-                        onChange={(e) => setCurrencyType(e.target.value)}
+                      <CurrencySelect
+                        className={`${editableRowClass} w-28`}
+                        value={currencyCode}
+                        onChange={setCurrencyCode}
                         disabled={!dsaRowChecked}
-                      >
-                        <option value="Rs.">Rs.</option>
-                        <option value="$">$</option>
-                      </select>
+                      />
                       <input
                         type="text"
                         value={currencyPayin}
@@ -423,22 +422,11 @@ export const DsaPage: React.FC = () => {
                       </label>
                       <label className="flex flex-col gap-1">
                         <span className="text-sm font-semibold text-white">Country</span>
-                        <select className={inputClass} value={sliderCountry} onChange={(e) => setSliderCountry(e.target.value)}>
-                          <option value="India">India</option>
-                          <option value="Bahrain">Bahrain</option>
-                          <option value="Bhutan">Bhutan</option>
-                          <option value="Indonesia">Indonesia</option>
-                          <option value="Jordan">Jordan</option>
-                          <option value="Malaysia">Malaysia</option>
-                          <option value="Maldives">Maldives</option>
-                          <option value="Philippines">Philippines</option>
-                          <option value="Singapore">Singapore</option>
-                          <option value="Sri Lanka">Sri Lanka</option>
-                          <option value="Qatar">Qatar</option>
-                          <option value="Thailand">Thailand</option>
-                          <option value="UAE-Dubai">UAE-Dubai</option>
-                          <option value="Vietnam">Vietnam</option>
-                        </select>
+                        <CountryNameSelect
+                          className={inputClass}
+                          value={sliderCountry}
+                          onChange={setSliderCountry}
+                        />
                       </label>
                       <label className="flex flex-col gap-1">
                         <span className="text-sm font-semibold text-white">Plan</span>

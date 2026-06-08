@@ -80,9 +80,9 @@ export async function rejectPayoutById(id: string, reason: string): Promise<void
 
 // BGT Bank Accounts
 const DEFAULT_BGT: BgtBankAccounts = {
-  neft: { accountHolder: '', accountNumber: '', ifsc: '', bankName: '', branch: '' },
+  neft: { accountHolder: '', accountNumber: '', ifsc: '', bankName: '', branch: '', city: '', country: 'India' },
   qrEntries: [],
-  wire: { swiftCode: '', iban: '', bankName: '', beneficiaryName: '', country: '' },
+  wire: { swiftCode: '', iban: '', bankName: '', beneficiaryName: '', country: '', city: '' },
 };
 export async function fetchBgtBankAccounts(): Promise<BgtBankAccounts> {
   return loadOne<BgtBankAccounts>(BGT_BANK_KEY, DEFAULT_BGT);

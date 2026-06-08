@@ -7,8 +7,8 @@ import { Commission } from './commission/Commission';
 import { Vouchers } from './vouchers/Vouchers';
 import { Products } from './products/Products';
 import { Categories } from './categories/Categories';
-import { UserRights } from '../settings/userRights/UserRights';
 import { MatchDoe } from '../marketing/matchDoe/MatchDoe';
+import { Countries } from './countries/Countries';
 
 const TABS = [
   { label: 'Plan Charges', path: '/management/plan-charges', section: 'plan-charges' },
@@ -16,7 +16,7 @@ const TABS = [
   { label: 'Vouchers', path: '/management/vouchers', section: 'vouchers' },
   { label: 'Products', path: '/management/products', section: 'products' },
   { label: 'Categories', path: '/management/categories', section: 'categories' },
-  { label: 'User Rights', path: '/management/rights', section: 'rights' },
+  { label: 'Countries', path: '/management/countries', section: 'countries' },
   { label: 'Match Code', path: '/management/match-code', section: 'match-code' },
 ];
 
@@ -31,8 +31,9 @@ export const ManagementPage: React.FC = () => (
         <Route path="dsa-limits" element={<Navigate to="/management/plan-charges" replace />} />
         <Route path="products" element={<Products />} />
         <Route path="categories" element={<Categories />} />
-        <Route path="rights" element={<UserRights />} />
-        <Route path="security" element={<Navigate to="/management/rights" replace />} />
+        <Route path="countries" element={<Countries />} />
+        <Route path="rights" element={<Navigate to="/it/rights" replace />} />
+        <Route path="security" element={<Navigate to="/it/rights" replace />} />
         <Route path="slot-settings" element={<Navigate to="/management/plan-charges" replace />} />
         <Route path="match-code" element={<MatchDoe />} />
         <Route path="match-doe" element={<Navigate to="match-code" replace />} />

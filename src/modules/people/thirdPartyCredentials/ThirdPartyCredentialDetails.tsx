@@ -186,6 +186,8 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
               <Field label="IRA" value={record.ira} />
               <Field label="Business Deposit" value={record.businessDeposit} />
               <Field label="Sharing Ratio (3P : Blaunk)" value={sharing} />
+              <Field label="Commission Subscriber" value={record.commissionSubscriber} />
+              <Field label="Commission Renewal" value={record.commissionRenewal} />
             </div>
           </SectionCard>
 

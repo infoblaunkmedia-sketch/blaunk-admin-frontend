@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCountries } from '../shared/hooks/useCountries';
 import { Button } from '../components/Button';
 import { Tabs } from '../components/Tabs';
 import { Input } from '../components/Input';
@@ -19,24 +20,6 @@ const AD_CATEGORIES = [
 ] as const;
 
 const SECTIONS = ['Select Section', 'Homepage', 'BGT', 'Tour', 'Store', 'Cake', 'Boutique', 'Logistic'] as const;
-const COUNTRIES = [
-  'Select Country',
-  'India',
-  'Bahrain',
-  'Bhutan',
-  'Indonesia',
-  'Jordan',
-  'Malaysia',
-  'Maldives',
-  'Philippines',
-  'Singapore',
-  'Sri Lanka',
-  'Qatar',
-  'Thailand',
-  'UAE-Dubai',
-  'Vietnam',
-] as const;
-
 type AdCard = {
   id: number;
   plan: string;
@@ -111,6 +94,7 @@ const CATEGORY_DATA: Record<(typeof AD_CATEGORIES)[number], { slots: number; car
 };
 
 export const SalesPage: React.FC = () => {
+  const { countryNames, loading: countriesLoading } = useCountries();
   const [activeTopTab, setActiveTopTab] = React.useState<(typeof TOP_TABS)[number]>('Upload');
   const [activeCategory, setActiveCategory] = React.useState<(typeof AD_CATEGORIES)[number]>('Slider');
   const [section, setSection] = React.useState('');
@@ -295,10 +279,12 @@ export const SalesPage: React.FC = () => {
               <select
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
+                disabled={countriesLoading}
                 className="h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25"
               >
-                {COUNTRIES.map((item) => (
-                  <option key={item} value={item === 'Select Country' ? '' : item}>
+                <option value="">{countriesLoading ? 'Loading…' : 'Select Country'}</option>
+                {countryNames.map((item) => (
+                  <option key={item} value={item}>
                     {item}
                   </option>
                 ))}

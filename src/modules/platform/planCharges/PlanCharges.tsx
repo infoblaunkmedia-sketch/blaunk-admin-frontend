@@ -261,10 +261,6 @@ export const PlanCharges: React.FC = () => {
                 <th className="px-4 py-2.5 text-left font-bold">Plan</th>
                 <th className="px-4 py-2.5 text-left font-bold">Duration</th>
                 <th className="px-4 py-2.5 text-right font-bold">Basic Fees (in Rs.)</th>
-                <th className="px-4 py-2.5 text-right font-bold">
-                  <span className="block text-[10px] font-normal leading-tight">Blaunk Assurance Verified</span>
-                  Basic Fees (in Rs.)
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -277,20 +273,11 @@ export const PlanCharges: React.FC = () => {
                   <td className="border-b border-slate-100 px-4 py-2.5 text-slate-700">{plan.duration}</td>
                   <td className="border-b border-slate-100 px-4 py-2 text-right">
                     {editingAd ? (
-                      <input type="number" min={0} className={`${inputClass} text-right`}
+                      <input type="number" min={0} className={`${inputClass} !w-24 !min-w-[5rem] max-w-[6rem] text-right`}
                         value={plan.basicFees || ''} onKeyDown={onNumericInputKeyDown}
                         onChange={(e) => setAdConfig((p) => ({ ...p, rows: updateAdRow(p.rows, i, 'basicFees', e.target.value) }))} />
                     ) : (
                       <span className="font-semibold">{plan.basicFees.toLocaleString()}</span>
-                    )}
-                  </td>
-                  <td className="border-b border-slate-100 px-4 py-2 text-right">
-                    {editingAd ? (
-                      <input type="number" min={0} className={`${inputClass} text-right`}
-                        value={plan.assuranceFees || ''} onKeyDown={onNumericInputKeyDown}
-                        onChange={(e) => setAdConfig((p) => ({ ...p, rows: updateAdRow(p.rows, i, 'assuranceFees', e.target.value) }))} />
-                    ) : (
-                      <span className="font-semibold">{plan.assuranceFees.toLocaleString()}</span>
                     )}
                   </td>
                 </tr>
@@ -314,9 +301,9 @@ export const PlanCharges: React.FC = () => {
 
       {confirmAdSave ? (
         <ConfirmDialog
-          title="Update plan charges"
-          message="Update advertisement plan charges? This will affect new DSA uploads."
-          confirmLabel="Confirm"
+          title="Do you want to save new plan charges?"
+          message=""
+          confirmLabel="Save"
           variant="primary"
           loading={savingAd}
           onConfirm={() => void handleSaveAd()}

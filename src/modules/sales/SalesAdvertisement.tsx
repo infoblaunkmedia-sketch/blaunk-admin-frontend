@@ -176,12 +176,12 @@ export const SalesAdvertisement: React.FC = () => {
       ignoreRowClick: true,
     },
     {
-      name: 'Page · Slot',
+      name: 'Page and Slot',
       selector: (r) =>
         `${pageLabel(r.cmsPage as BannerCmsPage)} · ${slotLabel(r.cmsPage as BannerCmsPage, r.cmsPosition as BannerCmsSlot)}`,
       sortable: true,
-      width: '220px',
-      minWidth: '220px',
+      minWidth: '11.5rem',
+      width: '11.5rem',
       grow: 0,
       wrap: true,
     },
@@ -190,8 +190,8 @@ export const SalesAdvertisement: React.FC = () => {
       selector: (r) => employeeLabel(r),
       sortable: true,
       sortField: 'dsaCode',
-      width: '200px',
-      minWidth: '200px',
+      minWidth: '10.5rem',
+      width: '10.5rem',
       grow: 0,
       wrap: true,
     },
@@ -200,8 +200,8 @@ export const SalesAdvertisement: React.FC = () => {
       selector: (r) => planOptionLabel(r.plan || ''),
       sortable: true,
       sortField: 'plan',
-      width: '170px',
-      minWidth: '170px',
+      minWidth: '10rem',
+      width: '10rem',
       grow: 0,
       wrap: true,
     },
@@ -210,45 +210,50 @@ export const SalesAdvertisement: React.FC = () => {
       selector: (r) => Number(r.planCharge || 0).toFixed(2),
       sortable: true,
       right: true,
-      minWidth: '108px',
-      width: '108px',
+      minWidth: '7.5rem',
+      width: '7.5rem',
       grow: 0,
+      wrap: true,
     },
     {
       name: 'Luxury Fees',
       selector: (r) => Number(r.luxuryFees || 0).toFixed(2),
       sortable: true,
       right: true,
-      minWidth: '108px',
-      width: '108px',
+      minWidth: '7.5rem',
+      width: '7.5rem',
       grow: 0,
+      wrap: true,
     },
     {
       name: 'Discount',
       selector: (r) => Number(r.discount || 0).toFixed(2),
       sortable: true,
       right: true,
-      minWidth: '96px',
-      width: '96px',
+      minWidth: '6.5rem',
+      width: '6.5rem',
       grow: 0,
+      wrap: true,
     },
     {
-      name: 'To Pay',
+      name: 'Amount To Pay',
       selector: (r) => Number(r.toPay || 0).toFixed(2),
       sortable: true,
       right: true,
-      minWidth: '96px',
-      width: '96px',
+      minWidth: '7.5rem',
+      width: '7.5rem',
       grow: 0,
+      wrap: true,
     },
     {
       name: 'Upload Date',
       selector: (r) => r.uploadDate || r.createdAt || '',
       format: (r) => formatDateDDMMYYYY(String(r.uploadDate || r.createdAt || '')) || '-',
       sortable: true,
-      minWidth: '112px',
-      width: '112px',
+      minWidth: '7.5rem',
+      width: '7.5rem',
       grow: 0,
+      wrap: true,
     },
     {
       name: 'Expiry Date',
@@ -262,9 +267,10 @@ export const SalesAdvertisement: React.FC = () => {
         return formatDateDDMMYYYY(String(raw)) || '-';
       },
       sortable: true,
-      minWidth: '112px',
-      width: '112px',
+      minWidth: '7.5rem',
+      width: '7.5rem',
       grow: 0,
+      wrap: true,
     },
     {
       name: 'Actions',
@@ -296,8 +302,7 @@ export const SalesAdvertisement: React.FC = () => {
   return (
     <ErrorBoundary>
       <PageHeader
-        title="Sales Advertisement"
-        subtitle="All DSA media advertisements across tabs and sections."
+        title="Sales"
         className="mb-4"
         toolbarLeft={
           <div className="flex flex-wrap items-center gap-2">

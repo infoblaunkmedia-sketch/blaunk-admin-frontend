@@ -52,6 +52,8 @@ export interface NeftAccount {
   ifsc: string;
   bankName: string;
   branch: string;
+  city: string;
+  country: string;
 }
 
 export interface QrEntry {
@@ -65,6 +67,7 @@ export interface WireAccount {
   bankName: string;
   beneficiaryName: string;
   country: string;
+  city: string;
 }
 
 export interface BgtBankAccounts {

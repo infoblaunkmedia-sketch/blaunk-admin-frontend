@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { DsaLimit } from './DsaLimit';
 import { MediaAds } from '../../marketing/mediaAds/MediaAds';
 import { DsaSectionProvider, useDsaSectionRefresh } from './DsaSectionContext';
+import { PageChromeContext } from '../../../shared/components/pageChromeContext';
 import type { DsaSlider } from '../../marketing/marketing.types';
 
 const TABS = [
@@ -28,6 +29,7 @@ const DsaSectionBody: React.FC = () => {
   };
 
   return (
+    <PageChromeContext.Provider value={{ showPageTitle: false }}>
     <section className="flex w-full flex-col gap-5">
       <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-0" aria-label="DSA tabs">
         {TABS.map((tab) => (
@@ -56,6 +58,7 @@ const DsaSectionBody: React.FC = () => {
         <DsaLimit refreshKey={refreshKey} onSaved={bumpRefresh} />
       )}
     </section>
+    </PageChromeContext.Provider>
   );
 };
 

@@ -70,6 +70,9 @@ const EmployeeWorkspacePage = React.lazy(() =>
 const ContractorWorkspacePage = React.lazy(() =>
   import('../modules/dashboard/ContractorWorkspace').then((m) => ({ default: m.ContractorWorkspacePage }))
 );
+const MyPayslipPage = React.lazy(() =>
+  import('../modules/payslip/MyPayslip').then((m) => ({ default: m.MyPayslipPage }))
+);
 
 const Suspensed: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <React.Suspense
@@ -175,8 +178,15 @@ export const router = createBrowserRouter([
           { path: '/marketing', element: <MarketingRedirects /> },
           { path: '/marketing/*', element: <MarketingRedirects /> },
           moduleRoute('/sales', SalesPage, 'sales'),
-          { path: '/payslip', element: <Navigate to="/people/payroll" replace /> },
-          { path: '/payslip/*', element: <Navigate to="/people/payroll" replace /> },
+          { path: '/payslip', element: <Navigate to="/my-payslip" replace /> },
+          {
+            path: '/my-payslip',
+            element: (
+              <Suspensed>
+                <MyPayslipPage />
+              </Suspensed>
+            ),
+          },
           moduleRoute('/it', ItPage, 'it'),
           moduleRoute('/customers', CustomersPage, 'customers'),
           moduleRoute('/reports', ReportsPage, 'reports'),

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useCountries } from '../shared/hooks/useCountries';
 import { Button } from '../components/Button';
 import { Tabs } from '../components/Tabs';
 import { Input } from '../components/Input';
@@ -33,24 +34,6 @@ const SPONSOR_SECTIONS = [
   'Boutique',
   'Logistic',
 ] as const;
-const SPONSOR_COUNTRIES = [
-  'Select Country',
-  'India',
-  'Bahrain',
-  'Bhutan',
-  'Indonesia',
-  'Jordan',
-  'Malaysia',
-  'Maldives',
-  'Philippines',
-  'Singapore',
-  'Sri Lanka',
-  'Qatar',
-  'Thailand',
-  'UAE-Dubai',
-  'Vietnam',
-] as const;
-
 const PRODUCT_ASPECT_RATIO: Record<string, string> = {
   'Trendy Star': '1.46:1',
   'BGT ads': '1.79:1',
@@ -62,6 +45,7 @@ const PRODUCT_ASPECT_RATIO: Record<string, string> = {
 };
 
 export const MAUploadPage: React.FC = () => {
+  const { countryNames, loading: countriesLoading } = useCountries();
   const [activeTab, setActiveTab] = React.useState<(typeof TABS)[number]>('BGT');
   const [selectedProduct, setSelectedProduct] = React.useState('');
   const [sponsorSection, setSponsorSection] = React.useState('');
@@ -138,7 +122,10 @@ export const MAUploadPage: React.FC = () => {
                       label="Country"
                       value={sponsorCountry}
                       onChange={(e) => setSponsorCountry(e.target.value)}
-                      options={SPONSOR_COUNTRIES.map(c => ({ value: c === 'Select Country' ? '' : c, label: c }))}
+                      options={[
+                        { value: '', label: countriesLoading ? 'Loading…' : 'Select Country' },
+                        ...countryNames.map((c) => ({ value: c, label: c })),
+                      ]}
                     />
                   </div>
                 </>

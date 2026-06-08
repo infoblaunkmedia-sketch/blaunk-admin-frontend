@@ -14,22 +14,6 @@ export const MEDIA_TABS = [
 export const CATEGORIES = ['Banner', 'Product', 'Service', 'Offer', 'Event'];
 export const PLANS = ['Bronze', 'Silver', 'Gold', 'Diamond', 'Platinum', 'Infinity'];
 
-export const COUNTRIES = [
-  'India',
-  'Bahrain',
-  'Bhutan',
-  'Indonesia',
-  'Jordan',
-  'Malaysia',
-  'Maldives',
-  'Philippines',
-  'Singapore',
-  'Sri Lanka',
-  'Qatar',
-  'Thailand',
-  'UAE-Dubai',
-  'Vietnam',
-];
 export const STATUSES: SliderStatus[] = ['Draft', 'Active', 'Inactive'];
 
 export const PLAN_MONTHS: Record<string, number> = {
