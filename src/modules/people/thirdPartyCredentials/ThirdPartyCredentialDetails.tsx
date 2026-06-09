@@ -1,13 +1,14 @@
 import React from 'react';
 import { toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { PageHeader } from '../../../shared/components/PageHeader';
+import { FormBackLink } from '../../../shared/components/FormBackLink';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { normalizeThirdPartyDepartment } from '../../../shared/constants/hrConstants';
 import type { ThirdPartyCredential } from './thirdPartyCredentials.types';
+import { ImagePreviewDialog } from '../../../shared/components/ImagePreview';
 import { fetchThirdPartyCredentialById } from './thirdPartyCredentials.service';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -33,17 +34,34 @@ function Field({ label, value }: { label: string; value?: React.ReactNode }) {
   );
 }
 
-function DocLink({ url, label }: { url?: string; label: string }) {
-  if (!url) return '';
+function ClickableDocImage({
+  url,
+  alt,
+  title,
+  className = 'h-40 max-w-xs object-contain',
+}: {
+  url?: string;
+  alt: string;
+  title: string;
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  if (!url) return null;
+  const src = toAbsoluteUrl(url);
   return (
-    <a
-      className="font-semibold text-primary hover:underline"
-      href={toAbsoluteUrl(url)}
-      target="_blank"
-      rel="noreferrer"
-    >
-      {label}
-    </a>
+    <>
+      <button
+        type="button"
+        title="Click to preview"
+        onClick={() => setOpen(true)}
+        className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+      >
+        <img src={src} alt={alt} className={className} loading="lazy" />
+      </button>
+      {open ? (
+        <ImagePreviewDialog open src={src} alt={alt} title={title} onClose={() => setOpen(false)} />
+      ) : null}
+    </>
   );
 }
 
@@ -95,24 +113,6 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader
-        title="Admin Panel DSA / 3P Employee"
-        subtitle={
-          record?.threePEmplCode
-            ? `3PC Code: ${record.threePEmplCode}${record.matchCode ? ` · Match Code: ${record.matchCode}` : ''}`
-            : idNorm
-              ? `Record: ${idNorm}`
-              : 'Admin panel DSA / 3P employee record'
-        }
-        actions={[
-          {
-            label: 'Back to 3P Credentials',
-            variant: 'secondary',
-            onClick: () => navigate('/people/3p-credentials'),
-          },
-        ]}
-      />
-
       {loading ? (
         <div className="rounded-card border border-slate-200 bg-white p-6 shadow-card">
           <p className="text-sm font-semibold text-slate-600">Loading…</p>
@@ -126,11 +126,15 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
           <SectionCard
             title="Overview"
             actions={
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 {record.status ? <StatusBadge status={record.status} /> : null}
                 {record.verifiedStatus ? (
                   <StatusBadge status={record.verifiedStatus} />
                 ) : null}
+                <FormBackLink
+                  label="Back to 3P Credentials"
+                  onClick={() => navigate('/people/3p-credentials')}
+                />
               </div>
             }
           >
@@ -226,30 +230,30 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
           ) : null}
 
           <SectionCard title="Documents">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field
-                label="Address Proof"
-                value={<DocLink url={record.employeePhotoUrl} label="View image" />}
-              />
-              <Field label="CHQ Image" value={<DocLink url={record.chqImageUrl} label="View image" />} />
-              <Field label="PAN Card" value={<DocLink url={record.panImageUrl} label="View image" />} />
-            </div>
-
-            {record.employeePhotoUrl || record.chqImageUrl || record.panImageUrl ? (
-              <div className="mt-4 flex flex-wrap gap-6">
+            {record.profileImageUrl || record.employeePhotoUrl || record.chqImageUrl || record.panImageUrl ? (
+              <div className="flex flex-wrap gap-6">
+                {record.profileImageUrl ? (
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Profile Image
+                    </p>
+                    <ClickableDocImage
+                      url={record.profileImageUrl}
+                      alt="Profile"
+                      title="Profile Image"
+                    />
+                  </div>
+                ) : null}
                 {record.employeePhotoUrl ? (
                   <div>
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                       Address Proof
                     </p>
-                    <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <img
-                        src={toAbsoluteUrl(record.employeePhotoUrl)}
-                        alt="Address proof"
-                        className="h-40 max-w-xs object-contain"
-                        loading="lazy"
-                      />
-                    </div>
+                    <ClickableDocImage
+                      url={record.employeePhotoUrl}
+                      alt="Address proof"
+                      title="Address Proof"
+                    />
                   </div>
                 ) : null}
                 {record.chqImageUrl ? (
@@ -257,14 +261,7 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                       CHQ Image
                     </p>
-                    <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <img
-                        src={toAbsoluteUrl(record.chqImageUrl)}
-                        alt="CHQ"
-                        className="h-40 max-w-xs object-contain"
-                        loading="lazy"
-                      />
-                    </div>
+                    <ClickableDocImage url={record.chqImageUrl} alt="CHQ" title="CHQ Image" />
                   </div>
                 ) : null}
                 {record.panImageUrl ? (
@@ -272,18 +269,13 @@ export const ThirdPartyCredentialDetails: React.FC = () => {
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                       PAN Card
                     </p>
-                    <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <img
-                        src={toAbsoluteUrl(record.panImageUrl)}
-                        alt="PAN card"
-                        className="h-40 max-w-xs object-contain"
-                        loading="lazy"
-                      />
-                    </div>
+                    <ClickableDocImage url={record.panImageUrl} alt="PAN card" title="PAN Card" />
                   </div>
                 ) : null}
               </div>
-            ) : null}
+            ) : (
+              <p className="text-sm text-slate-500">No documents uploaded.</p>
+            )}
           </SectionCard>
         </div>
       )}

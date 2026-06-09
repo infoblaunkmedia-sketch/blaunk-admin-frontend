@@ -7,7 +7,7 @@ import { SectionCard } from '../../shared/components/SectionCard';
 import { EmptyState } from '../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../shared/components/ErrorBoundary';
 import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
-import { DataTableWrapper, ListTableSearchInput } from '../../shared/components/DataTableWrapper';
+import { DataTableWrapper, ListTableSearchInput, TableCellBox } from '../../shared/components/DataTableWrapper';
 import { ImagePreviewDialog } from '../../shared/components/ImagePreview';
 import { formatDateDDMMYYYY } from '../../shared/utils/dateFormat';
 import type { DsaSlider } from '../marketing/marketing.types';
@@ -161,16 +161,18 @@ export const SalesAdvertisement: React.FC = () => {
         const crop = placementImageCrop(r.cmsPage as BannerCmsPage, r.cmsPosition as BannerCmsSlot);
         const src = toAbsoluteMediaUrl(r.imageUrl);
         return (
-          <button
-            type="button"
-            title={`Preview — ${crop.label} (${crop.aspectLabel})`}
-            aria-label={`Preview image for ${planOptionLabel(r.plan)}`}
-            className="my-1 block w-20 overflow-hidden rounded border border-slate-200 bg-slate-50 transition hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            style={{ aspectRatio: crop.aspect }}
-            onClick={() => setPreviewRecord(r)}
-          >
-            <img src={src} alt={r.plan} className="h-full w-full object-cover" />
-          </button>
+          <TableCellBox>
+            <button
+              type="button"
+              title={`Preview — ${crop.label} (${crop.aspectLabel})`}
+              aria-label={`Preview image for ${planOptionLabel(r.plan)}`}
+              className="my-1 block w-20 overflow-hidden rounded border border-slate-200 bg-slate-50 transition hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              style={{ aspectRatio: crop.aspect }}
+              onClick={() => setPreviewRecord(r)}
+            >
+              <img src={src} alt={r.plan} className="h-full w-full object-cover" />
+            </button>
+          </TableCellBox>
         );
       },
       ignoreRowClick: true,
@@ -183,7 +185,14 @@ export const SalesAdvertisement: React.FC = () => {
       minWidth: '11.5rem',
       width: '11.5rem',
       grow: 0,
-      wrap: true,
+      wrap: false,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-sm font-semibold text-slate-800">
+            {pageLabel(r.cmsPage as BannerCmsPage)} · {slotLabel(r.cmsPage as BannerCmsPage, r.cmsPosition as BannerCmsSlot)}
+          </span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Employee',
@@ -193,7 +202,11 @@ export const SalesAdvertisement: React.FC = () => {
       minWidth: '10.5rem',
       width: '10.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-sm font-semibold text-slate-800">{employeeLabel(r)}</span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Plan',
@@ -203,7 +216,11 @@ export const SalesAdvertisement: React.FC = () => {
       minWidth: '10rem',
       width: '10rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-sm font-semibold text-slate-800">{planOptionLabel(r.plan || '')}</span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Plan Charge',
@@ -213,7 +230,13 @@ export const SalesAdvertisement: React.FC = () => {
       minWidth: '7.5rem',
       width: '7.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-right text-sm font-semibold text-slate-800">
+            {Number(r.planCharge || 0).toFixed(2)}
+          </span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Luxury Fees',
@@ -223,7 +246,13 @@ export const SalesAdvertisement: React.FC = () => {
       minWidth: '7.5rem',
       width: '7.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-right text-sm font-semibold text-slate-800">
+            {Number(r.luxuryFees || 0).toFixed(2)}
+          </span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Discount',
@@ -233,44 +262,66 @@ export const SalesAdvertisement: React.FC = () => {
       minWidth: '6.5rem',
       width: '6.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-right text-sm font-semibold text-slate-800">
+            {Number(r.discount || 0).toFixed(2)}
+          </span>
+        </TableCellBox>
+      ),
     },
     {
-      name: 'Amount To Pay',
+      name: 'Amount to Pay',
       selector: (r) => Number(r.toPay || 0).toFixed(2),
       sortable: true,
       right: true,
-      minWidth: '7.5rem',
-      width: '7.5rem',
+      minWidth: '9.5rem',
+      width: '9.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-right text-sm font-semibold text-slate-800">
+            {Number(r.toPay || 0).toFixed(2)}
+          </span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Upload Date',
       selector: (r) => r.uploadDate || r.createdAt || '',
-      format: (r) => formatDateDDMMYYYY(String(r.uploadDate || r.createdAt || '')) || '-',
       sortable: true,
       minWidth: '7.5rem',
       width: '7.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => (
+        <TableCellBox>
+          <span className="block truncate text-sm font-semibold text-slate-800">
+            {formatDateDDMMYYYY(String(r.uploadDate || r.createdAt || '')) || '-'}
+          </span>
+        </TableCellBox>
+      ),
     },
     {
       name: 'Expiry Date',
       selector: (r) =>
         r.expiryDate ||
         addMonths(String(r.uploadDate || r.createdAt || new Date()), PLAN_MONTHS[r.plan] || 2),
-      format: (r) => {
-        const raw =
-          r.expiryDate ||
-          addMonths(String(r.uploadDate || r.createdAt || new Date()), PLAN_MONTHS[r.plan] || 2);
-        return formatDateDDMMYYYY(String(raw)) || '-';
-      },
       sortable: true,
       minWidth: '7.5rem',
       width: '7.5rem',
       grow: 0,
-      wrap: true,
+      cell: (r) => {
+        const raw =
+          r.expiryDate ||
+          addMonths(String(r.uploadDate || r.createdAt || new Date()), PLAN_MONTHS[r.plan] || 2);
+        return (
+          <TableCellBox>
+            <span className="block truncate text-sm font-semibold text-slate-800">
+              {formatDateDDMMYYYY(String(raw)) || '-'}
+            </span>
+          </TableCellBox>
+        );
+      },
     },
     {
       name: 'Actions',
@@ -278,22 +329,24 @@ export const SalesAdvertisement: React.FC = () => {
       width: '148px',
       grow: 0,
       cell: (r) => (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => navigate('/channel-partners/dsa', { state: { editSlider: r } })}
-            className="rounded border border-primary px-2 py-1 text-xs font-semibold text-primary"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(r)}
-            className="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-600"
-          >
-            Delete
-          </button>
-        </div>
+        <TableCellBox>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/channel-partners/dsa', { state: { editSlider: r } })}
+              className="rounded border border-primary px-2 py-1 text-xs font-semibold text-primary"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(r)}
+              className="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-600"
+            >
+              Delete
+            </button>
+          </div>
+        </TableCellBox>
       ),
       ignoreRowClick: true,
     },
@@ -367,7 +420,7 @@ export const SalesAdvertisement: React.FC = () => {
 
       <SectionCard
         title="Advertisement List"
-        contentClassName="p-0"
+        contentClassName="min-w-0 p-0"
         actions={
           <ListTableSearchInput
             value={tableSearch}

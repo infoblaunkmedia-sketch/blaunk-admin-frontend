@@ -164,7 +164,7 @@ export const MatchDoe: React.FC = () => {
             onClick={() => void handleGenerate()}
             className="flex h-10 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow hover:bg-primary-dark disabled:opacity-60"
           >
-            {generating ? 'Generating…' : 'Generate Match Code'}
+            {generating ? 'Generating…' : 'Generate'}
           </button>
         </div>
         {activeForSelected ? (

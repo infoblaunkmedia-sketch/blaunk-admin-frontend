@@ -14,6 +14,7 @@ export interface Employee {
   dob: string;
   gender: string;
   address: string;
+  address2: string;
   city: string;
   state: string;
   country: string;

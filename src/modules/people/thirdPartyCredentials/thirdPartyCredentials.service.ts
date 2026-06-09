@@ -46,6 +46,7 @@ type RecordDto = {
   commissionRenewal?: string;
   references?: { name?: string; mobile?: string; designation?: string; city?: string }[];
   employeePhotoUrl?: string;
+  profileImageUrl?: string;
   chqImageUrl?: string;
   panImageUrl?: string;
   username?: string;
@@ -106,6 +107,7 @@ function toRecord(dto: RecordDto): ThirdPartyCredential {
       city: r?.city || '',
     })),
     employeePhotoUrl: dto.employeePhotoUrl || '',
+    profileImageUrl: dto.profileImageUrl || '',
     chqImageUrl: dto.chqImageUrl || '',
     panImageUrl: dto.panImageUrl || '',
     username: dto.username || '',

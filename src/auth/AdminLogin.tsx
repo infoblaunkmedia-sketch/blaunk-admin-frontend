@@ -51,7 +51,7 @@ export const AdminLogin: React.FC = () => {
     try {
       if (!username.trim()) throw new Error('Username is required.');
       if (!email.trim()) throw new Error('Email is required.');
-      if (!captcha.trim()) throw new Error('Captcha is required.');
+      if (!captcha.trim()) throw new Error('Password is required.');
 
       // Per current requirement: treat captcha as the admin password.
       const result = await api.post<LoginResponse>('/api/auth/admin/login', {
@@ -139,7 +139,7 @@ export const AdminLogin: React.FC = () => {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-semibold text-slate-700">
-              Captcha
+              Password
             </label>
             <input
               type="password"
@@ -147,7 +147,7 @@ export const AdminLogin: React.FC = () => {
               value={captcha}
               onChange={(e) => setCaptcha(e.target.value)}
               className={inputClass}
-              placeholder="Enter captcha"
+              placeholder="Enter password"
             />
           </div>
 

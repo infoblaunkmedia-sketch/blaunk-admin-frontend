@@ -4,6 +4,7 @@ import { Tabs } from '../components/Tabs';
 import { Input } from '../components/Input';
 import { GenerateButton } from '../components/GenerateButton';
 import ReportFilters from '../components/ReportFilters';
+import { CountryNameSelect } from '../shared/components/CountryNameSelect';
 
 const TABS = [
   'Country Login',
@@ -201,22 +202,12 @@ export const AdminPersonnelPage: React.FC = () => {
               <div className="mb-4 flex flex-wrap items-end gap-4">
                 <div className="w-full min-w-[11rem] sm:w-auto sm:min-w-[9rem]">
                   <label className="mb-1 block text-sm font-medium text-slate-700">Country</label>
-                  <select value={mediaCountry} onChange={(e) => setMediaCountry(e.target.value)} className={filterInputClass}>
-                    <option value="India">India</option>
-                    <option value="Bahrain">Bahrain</option>
-                    <option value="Bhutan">Bhutan</option>
-                    <option value="Indonesia">Indonesia</option>
-                    <option value="Jordan">Jordan</option>
-                    <option value="Malaysia">Malaysia</option>
-                    <option value="Maldives">Maldives</option>
-                    <option value="Philippines">Philippines</option>
-                    <option value="Singapore">Singapore</option>
-                    <option value="Sri Lanka">Sri Lanka</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="Thailand">Thailand</option>
-                    <option value="UAE-Dubai">UAE-Dubai</option>
-                    <option value="Vietnam">Vietnam</option>
-                  </select>
+                  <CountryNameSelect
+                    className={filterInputClass}
+                    value={mediaCountry}
+                    onChange={setMediaCountry}
+                    placeholder="Select country"
+                  />
                 </div>
 
                 <div className="w-full min-w-[15rem] sm:w-auto sm:min-w-[15rem]">

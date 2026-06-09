@@ -62,7 +62,7 @@ export const Login: React.FC = () => {
     try {
       if (tab === 'admin') {
         if (!adminEmail.trim()) throw new Error('Please enter admin email.');
-        if (!captcha.trim()) throw new Error('Please enter captcha.');
+        if (!captcha.trim()) throw new Error('Please enter your password.');
 
         // Requirement: backend password is entered via captcha field.
         const result = await api.post<LoginResponse>('/api/auth/admin/login', {
@@ -98,7 +98,7 @@ export const Login: React.FC = () => {
       }
 
       if (!code.trim()) throw new Error('Please enter your username.');
-      if (!captcha.trim()) throw new Error('Please enter captcha.');
+      if (!captcha.trim()) throw new Error('Please enter your password.');
 
       const result = await api.post<LoginResponse>('/api/auth/login', {
         username: code.trim(),
@@ -216,14 +216,14 @@ export const Login: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-slate-700">
-                Captcha
+                Password
               </label>
               <div className="flex overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30">
                 <input
                   type={showCaptcha ? 'text' : 'password'}
                   value={captcha}
                   onChange={(e) => setCaptcha(e.target.value)}
-                  placeholder={tab === 'admin' ? 'Enter captcha (used as password)' : 'Enter captcha'}
+                  placeholder="Enter password"
                   required
                   className="flex-1 border-0 bg-transparent px-3 py-2 text-sm text-slate-900 outline-none"
                 />

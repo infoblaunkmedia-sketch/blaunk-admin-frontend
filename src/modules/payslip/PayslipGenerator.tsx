@@ -11,10 +11,13 @@ import {
 import { PayslipResults } from './PayslipResults';
 import { SearchableEmployeeSelect } from './SearchableEmployeeSelect';
 import {
+  ALL_EMPLOYEES_CODE,
   buildUnavailablePayslipStub,
   getPayrollReportConfig,
   isUnavailableReport,
-  PAYROLL_REPORT_TYPES,
+  PAYROLL_ADMIN_TYPES,
+  PAYROLL_SELF_SERVICE_TYPES,
+  type PayrollReportConfig,
 } from './payrollReportConfig';
 
 const FINANCIAL_YEARS = ['2023-24', '2024-25', '2025-26', '2026-27'];
@@ -55,8 +58,9 @@ function isFormValid(
   employeeCode: string,
   month: string,
   outputFormat: string,
+  reportOptions: PayrollReportConfig[],
 ): boolean {
-  const cfg = getPayrollReportConfig(reportType);
+  const cfg = reportOptions.find((r) => r.id === reportType);
   if (!cfg || !financialYear || !employeeCode || !outputFormat) return false;
   if (cfg.needsMonth && !month) return false;
   return true;
@@ -75,6 +79,8 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
   selfService = false,
   lockedEmployeeCode = '',
 }) => {
+  const reportOptions = selfService ? PAYROLL_SELF_SERVICE_TYPES : PAYROLL_ADMIN_TYPES;
+
   const [employees, setEmployees] = React.useState<Awaited<ReturnType<typeof fetchPayrollEmployees>>>([]);
   const [dataLoading, setDataLoading] = React.useState(true);
 
@@ -82,13 +88,21 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
   const [reportType, setReportType] = React.useState('');
   const [employeeCode, setEmployeeCode] = React.useState('');
   const [month, setMonth] = React.useState('');
-  const [outputFormat, setOutputFormat] = React.useState<'pdf' | 'excel' | ''>('');
+  const [outputFormat, setOutputFormat] = React.useState<'pdf' | 'excel' | ''>('pdf');
   const [generating, setGenerating] = React.useState(false);
   const [payslips, setPayslips] = React.useState<DetailedPayslip[]>([]);
+  const [annualBreakup, setAnnualBreakup] = React.useState(false);
 
   const effectiveEmployeeCode = selfService ? lockedEmployeeCode : employeeCode;
-  const cfg = reportType ? getPayrollReportConfig(reportType) : undefined;
-  const canGenerate = isFormValid(reportType, financialYear, effectiveEmployeeCode, month, outputFormat);
+  const cfg = reportType ? reportOptions.find((r) => r.id === reportType) : undefined;
+  const canGenerate = isFormValid(
+    reportType,
+    financialYear,
+    effectiveEmployeeCode,
+    month,
+    outputFormat,
+    reportOptions,
+  );
 
   React.useEffect(() => {
     if (selfService) {
@@ -115,9 +129,10 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
   React.useEffect(() => {
     setEmployeeCode('');
     setMonth('');
-    setOutputFormat('');
+    setOutputFormat(selfService ? 'pdf' : '');
     setPayslips([]);
-  }, [reportType]);
+    setAnnualBreakup(false);
+  }, [reportType, selfService]);
 
   React.useEffect(() => {
     if (!cfg?.outputFormats.length) return;
@@ -131,8 +146,10 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
 
     setGenerating(true);
     setPayslips([]);
+    setAnnualBreakup(false);
     try {
       const code = effectiveEmployeeCode;
+      const isAll = code === ALL_EMPLOYEES_CODE;
       const emp = employees.find((e) => e.empCode === code);
 
       if (isUnavailableReport(cfg.backendType)) {
@@ -158,7 +175,11 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
       const res = selfService
         ? await generateMyPayslipReport(reportPayload)
         : await generatePayslipReport({ ...reportPayload, employeeCode: code });
-      const list = (res.data?.payslips || []).filter((p) => p.employeeCode === code);
+
+      const list = isAll
+        ? (res.data?.payslips || [])
+        : (res.data?.payslips || []).filter((p) => p.employeeCode === code);
+
       if (!list.length) {
         toast.info('No records found.');
         return;
@@ -167,10 +188,21 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
       if (outputFormat === 'excel') {
         downloadExcel(list, reportType);
         toast.success('Excel downloaded.');
-      } else {
+        return;
+      }
+
+      if (
+        isAll
+        && (cfg.backendType === 'yearly-payslip' || cfg.backendType === 'monthly-payslip')
+      ) {
+        setAnnualBreakup(true);
         setPayslips(list);
         toast.success('Generated.');
+        return;
       }
+
+      setPayslips(list);
+      toast.success('Generated.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to generate report');
     } finally {
@@ -179,6 +211,7 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
   };
 
   const showMonth = Boolean(cfg?.needsMonth);
+  const showOutputFormat = !selfService && Boolean(cfg?.outputFormats.length);
 
   return (
     <>
@@ -195,7 +228,7 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
               disabled={dataLoading}
             >
               <option value="">Select</option>
-              {PAYROLL_REPORT_TYPES.map((t) => (
+              {reportOptions.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.id}
                 </option>
@@ -232,6 +265,7 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
                     disabled={dataLoading}
                     compact
                     placeholder="Search…"
+                    includeAllOption
                   />
                 </div>
               ) : null}
@@ -250,21 +284,23 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
                 </div>
               ) : null}
 
-              <div className="min-w-0 flex-1">
-                <label className={labelClass}>Output format</label>
-                <select
-                  value={outputFormat}
-                  onChange={(e) => setOutputFormat(e.target.value as 'pdf' | 'excel')}
-                  className={selectClass}
-                >
-                  <option value="">Select</option>
-                  {cfg.outputFormats.map((f) => (
-                    <option key={f} value={f}>
-                      {f === 'pdf' ? 'PDF' : 'Excel'}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {showOutputFormat ? (
+                <div className="min-w-0 flex-1">
+                  <label className={labelClass}>Output format</label>
+                  <select
+                    value={outputFormat}
+                    onChange={(e) => setOutputFormat(e.target.value as 'pdf' | 'excel')}
+                    className={selectClass}
+                  >
+                    <option value="">Select</option>
+                    {cfg.outputFormats.map((f) => (
+                      <option key={f} value={f}>
+                        {f === 'pdf' ? 'PDF' : 'Excel'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               <div className="min-w-0 flex-1">
                 <button
@@ -290,7 +326,14 @@ export const PayslipGenerator: React.FC<PayslipGeneratorProps> = ({
 
       {payslips.length > 0 ? (
         <SectionCard title="Preview" className="mt-4 min-w-0" contentClassName="min-w-0 p-4">
-          <PayslipResults payslips={payslips} reportLabel={reportType} />
+          <PayslipResults
+            payslips={payslips}
+            reportLabel={reportType}
+            financialYear={financialYear}
+            annualBreakup={annualBreakup}
+            breakupPeriod={cfg?.period}
+            breakupMonth={month}
+          />
         </SectionCard>
       ) : null}
     </>

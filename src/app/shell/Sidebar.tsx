@@ -116,17 +116,17 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
   },
-  {
-    label: 'Reports (MIS)', 
-    path: '/reports',
-    permission: 'reports',
-    icon: (
-      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M3 3h18v18H3z" />
-        <path d="M7 15l3-3 2 2 5-5" />
-      </svg>
-    ),
-  },
+  // {
+  //   label: 'Reports (MIS)', 
+  //   path: '/reports',
+  //   permission: 'reports',
+  //   icon: (
+  //     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  //       <path d="M3 3h18v18H3z" />
+  //       <path d="M7 15l3-3 2 2 5-5" />
+  //     </svg>
+  //   ),
+  // },
   {
     label: 'Company Secretary',
     path: '/corporate',

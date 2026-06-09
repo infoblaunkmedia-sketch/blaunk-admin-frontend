@@ -268,7 +268,17 @@ export async function fetchSliderSummary(params?: {
   if (params?.country) q.set('country', params.country);
   if (params?.dsaCode) q.set('dsaCode', params.dsaCode);
   const path = q.toString() ? `/api/dsa-sliders/summary?${q.toString()}` : '/api/dsa-sliders/summary';
-  const res = await api.get<{ summary: { totalMargin: number; marginUsed: number; availableMargin: number } }>(path);
+  const res = await api.get<{
+    summary: {
+      totalMargin: number;
+      marginUsed: number;
+      availableMargin: number;
+      companyName?: string;
+      dsaName?: string;
+      country?: string;
+      shareRatio?: number;
+    };
+  }>(path);
   return res.summary;
 }
 

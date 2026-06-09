@@ -29,6 +29,7 @@ const SECTION_PATHS: Record<string, string> = {
   'platform:products': '/management/products',
   'platform:categories': '/management/categories',
   'platform:rights': '/management/rights',
+  'platform:company-profile': '/management/company-profile',
   'platform:match-code': '/management/match-code',
   'it:ip-management': '/it',
   'it:rights': '/it/rights',
@@ -38,7 +39,7 @@ const SECTION_PATHS: Record<string, string> = {
   'customers:reviews': '/customers/reviews',
   'customers:orders': '/customers/orders',
   'corporate:shareholding': '/corporate/shareholding',
-  'corporate:profile': '/corporate/profile',
+  'corporate:mis': '/corporate/mis',
   'adminPersonnel:media': '/admin-personnel/media',
 };
 
@@ -206,7 +207,7 @@ export const DsaBalanceCards: React.FC<DsaBalanceCardsProps> = ({ summary, loadi
     {
       label: 'Approved limit',
       value: formatInrAmount(summary.totalMargin),
-      hint: 'Latest approved DSA limit',
+      hint: 'Total of all approved DSA limits',
       accent: 'border-sky-200 bg-sky-50 text-sky-800',
     },
   ];

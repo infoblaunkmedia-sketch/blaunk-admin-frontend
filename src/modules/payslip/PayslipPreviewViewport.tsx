@@ -1,12 +1,12 @@
 import React from 'react';
 
-const MIN_SCALE = 0.62;
+const MIN_SCALE = 0.55;
 
 type Props = {
   children: React.ReactNode;
 };
 
-/** Fits wide payslip previews on screen; PDF capture uses inner content at full size. */
+/** Scales wide payslip to fit preview; PDF captures the article at full size. */
 export const PayslipPreviewViewport: React.FC<Props> = ({ children }) => {
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -17,9 +17,10 @@ export const PayslipPreviewViewport: React.FC<Props> = ({ children }) => {
     const content = contentRef.current;
     if (!viewport || !content) return;
 
-    const naturalWidth = content.scrollWidth;
-    const naturalHeight = content.scrollHeight;
-    if (!naturalWidth) return;
+    const article = content.querySelector('article');
+    const naturalWidth = article?.scrollWidth || content.scrollWidth;
+    const naturalHeight = article?.scrollHeight || content.scrollHeight;
+    if (!naturalWidth || !naturalHeight) return;
 
     const available = viewport.clientWidth;
     let scale = 1;
@@ -53,35 +54,32 @@ export const PayslipPreviewViewport: React.FC<Props> = ({ children }) => {
   }, [children, measure]);
 
   return (
-    <div className="space-y-2">
-      {layout.needsScroll ? (
-        <p className="text-xs text-slate-500">Scroll horizontally to view the full payslip.</p>
-      ) : null}
+    <div
+      ref={viewportRef}
+      className={[
+        'w-fit max-w-full',
+        layout.needsScroll ? 'overflow-x-auto' : 'overflow-x-hidden',
+      ].join(' ')}
+    >
       <div
-        ref={viewportRef}
-        className={[
-          'w-full max-w-full rounded-md bg-slate-50/50 p-2',
-          layout.needsScroll ? 'overflow-x-auto' : 'overflow-x-hidden',
-        ].join(' ')}
+        style={{
+          width: layout.width || undefined,
+          height: layout.height || undefined,
+        }}
       >
         <div
-          className="mx-auto"
+          ref={contentRef}
           style={{
-            width: layout.width || undefined,
-            height: layout.height || undefined,
+            transform: layout.scale < 1 ? `scale(${layout.scale})` : undefined,
+            transformOrigin: 'top left',
+            width:
+              layout.scale < 1 && layout.scale > 0 && layout.width > 0
+                ? layout.width / layout.scale
+                : undefined,
           }}
+          className="inline-block"
         >
-          <div
-            ref={contentRef}
-            style={{
-              transform: layout.scale < 1 ? `scale(${layout.scale})` : undefined,
-              transformOrigin: 'top left',
-              width: layout.scale < 1 && layout.scale > 0 ? layout.width / layout.scale : undefined,
-            }}
-            className="inline-block"
-          >
-            {children}
-          </div>
+          {children}
         </div>
       </div>
     </div>

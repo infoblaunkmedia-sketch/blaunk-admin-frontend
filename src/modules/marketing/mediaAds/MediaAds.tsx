@@ -22,13 +22,13 @@ import {
 import { parseApiErrorBody } from '../../../shared/utils/apiErrorMessage';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
-import { resolveAdPlanFees } from '../../platform/platform.service';
+import { MEDIA_TAB_TO_AD_PLAN, resolveAdPlanFees } from '../../platform/platform.service';
+import { allowedTiersForAdPlan } from '../../../shared/constants/adPlanTiers';
 import { uploadGiffImage } from '../../cms/giff/giff.service';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { isNegativePayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
 import { CountryNameSelect } from '../../../shared/components/CountryNameSelect';
 import {
-  PLANS,
   STATUSES,
   planOptionLabel,
   toAbsoluteMediaUrl,
@@ -113,6 +113,21 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   );
   const placementMaxSize = React.useMemo(() => placementImageMaxSize(form.cmsPage), [form.cmsPage]);
   const cropSubtitle = `${placementCrop.label} · Crop ${placementCrop.aspectLabel} · Max ${placementMaxSize.hint} · JPG, PNG, WebP · Drag to reposition · scroll to zoom`;
+  const adPlanCategory = React.useMemo(() => {
+    const tab = mediaTabForPage(form.cmsPage);
+    return MEDIA_TAB_TO_AD_PLAN[tab] || tab;
+  }, [form.cmsPage]);
+  const allowedPlanOptions = React.useMemo(
+    () => allowedTiersForAdPlan(adPlanCategory),
+    [adPlanCategory],
+  );
+
+  React.useEffect(() => {
+    setForm((prev) => {
+      if (allowedPlanOptions.includes(prev.plan)) return prev;
+      return { ...prev, plan: allowedPlanOptions[0] || 'Bronze' };
+    });
+  }, [allowedPlanOptions, form.cmsPage]);
 
   React.useEffect(() => {
     if (cropSrc) URL.revokeObjectURL(cropSrc);
@@ -342,26 +357,30 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
 
   return (
     <ErrorBoundary>
-      <SectionCard title="" className="mb-3" contentClassName="p-0 overflow-hidden">
+      <SectionCard title="" className="mb-3 min-w-0" contentClassName="min-w-0 p-0">
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2">
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-600">
+              <p className="text-xs font-semibold text-slate-600 break-words">
                 {slotStatus
                   ? `${slotStatus.usedSlots} / ${slotStatus.maxSlots} Slots Used · ${slotStatus.pageLabel || pageLabel(slotStatus.cmsPage as BannerCmsPage)} · ${slotStatus.slotLabel || slotLabel(slotStatus.cmsPage as BannerCmsPage, slotStatus.cmsPosition as BannerCmsSlot)} · ${slotStatus.country}`
                   : 'Slot status…'}
               </p>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 text-xs font-semibold text-slate-600 sm:gap-4">
-              <span className="whitespace-nowrap">
-                Limit: <span className="font-bold text-slate-800">₹{limitAmount.toLocaleString()}</span>
-              </span>
-              <span className="whitespace-nowrap">
-                Margin Used (total):{' '}
-                <span className="font-bold text-slate-800">₹{displayMarginUsed.toLocaleString()}</span>
-              </span>
-              <span className="whitespace-nowrap font-semibold text-emerald-700">
-                Available: <span className="font-bold">₹{availableLimit.toLocaleString()}</span>
+            <div className="flex w-full min-w-0 flex-col gap-1.5 text-xs font-semibold text-slate-600 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 md:gap-4">
+              <div className="flex flex-wrap items-center gap-3 sm:contents">
+                <span className="whitespace-nowrap">
+                  Approved Limit:{' '}
+                  <span className="font-bold text-slate-800">₹{limitAmount.toLocaleString()}</span>
+                </span>
+                <span className="whitespace-nowrap">
+                  Margin Used:{' '}
+                  <span className="font-bold text-slate-800">₹{displayMarginUsed.toLocaleString()}</span>
+                </span>
+              </div>
+              <span className="w-full whitespace-nowrap font-semibold text-emerald-700 sm:w-auto">
+                Available Balance:{' '}
+                <span className="font-bold">₹{availableLimit.toLocaleString()}</span>
               </span>
             </div>
           </div>
@@ -435,7 +454,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
               </FormField>
               <FormField label="Plan" required>
                 <select className={inputClass} value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}>
-                  {PLANS.map((p1) => (
+                  {allowedPlanOptions.map((p1) => (
                     <option key={p1} value={p1}>{planOptionLabel(p1)}</option>
                   ))}
                 </select>

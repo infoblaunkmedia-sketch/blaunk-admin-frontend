@@ -14,6 +14,9 @@ type CroppableImageUploaderProps = {
   aspect?: number;
   aspectLabel?: string;
   disabled?: boolean;
+  previewButtonClass?: string;
+  dialogMaxWidthClass?: string;
+  cropAreaHeightClass?: string;
 };
 
 function formatBytesHint(bytes: number): string {
@@ -31,6 +34,9 @@ export const CroppableImageUploader: React.FC<CroppableImageUploaderProps> = ({
   aspect = 4 / 3,
   aspectLabel = '4:3',
   disabled = false,
+  previewButtonClass = 'h-28 w-28',
+  dialogMaxWidthClass,
+  cropAreaHeightClass,
 }) => {
   const [preview, setPreview] = React.useState<string>(currentPreview ?? '');
   const [error, setError] = React.useState('');
@@ -102,7 +108,10 @@ export const CroppableImageUploader: React.FC<CroppableImageUploaderProps> = ({
         type="button"
         disabled={disabled}
         onClick={handlePick}
-        className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+        className={[
+          'relative flex items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60',
+          previewButtonClass,
+        ].join(' ')}
       >
         {preview ? (
           <img src={preview} alt="Preview" className="h-full w-full object-cover" />
@@ -147,6 +156,8 @@ export const CroppableImageUploader: React.FC<CroppableImageUploaderProps> = ({
           aspect={aspect}
           title={label}
           subtitle={`Crop ${aspectLabel} · Max ${sizeHint} · JPG, PNG, WebP · Drag to reposition · scroll to zoom`}
+          dialogMaxWidthClass={dialogMaxWidthClass}
+          cropAreaHeightClass={cropAreaHeightClass}
           onClose={() => {
             URL.revokeObjectURL(cropSrc);
             setCropSrc(null);

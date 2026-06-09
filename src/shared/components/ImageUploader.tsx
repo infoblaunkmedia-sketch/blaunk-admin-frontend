@@ -1,4 +1,5 @@
 import React from 'react';
+import { ImagePreviewDialog } from './ImagePreview';
 
 interface ImageUploaderProps {
   onFile: (file: File, preview: string) => void;
@@ -16,6 +17,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   className = '',
 }) => {
   const [preview, setPreview] = React.useState<string>(currentPreview ?? '');
+  const [previewOpen, setPreviewOpen] = React.useState(false);
   const [error, setError] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -67,22 +69,29 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   return (
     <div className={['flex flex-col gap-2', className].join(' ')}>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-primary hover:bg-primary/5"
-      >
-        {preview ? (
+      {preview ? (
+        <button
+          type="button"
+          title="Click to preview"
+          onClick={() => setPreviewOpen(true)}
+          className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 transition hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
           <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-        ) : (
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-primary hover:bg-primary/5"
+        >
           <div className="flex flex-col items-center gap-1 text-slate-400">
             <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span className="text-[10px] font-semibold">{label}</span>
           </div>
-        )}
-      </button>
+        </button>
+      )}
 
       <input
         ref={inputRef}
@@ -92,21 +101,40 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         onChange={handleChange}
       />
 
-      {preview && (
-        <button
-          type="button"
-          onClick={() => {
-            if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
-            setPreview('');
-          }}
-          className="text-xs font-semibold text-red-600 hover:underline"
-        >
-          Remove
-        </button>
-      )}
+      {preview ? (
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Change photo
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+              setPreview('');
+            }}
+            className="text-xs font-semibold text-red-600 hover:underline"
+          >
+            Remove
+          </button>
+        </div>
+      ) : null}
 
       <p className="text-[10px] text-slate-500">Max {maxSizeMB}MB · JPG, PNG, WebP</p>
       {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
+
+      {previewOpen && preview ? (
+        <ImagePreviewDialog
+          open
+          src={preview}
+          alt="Photo preview"
+          title="Photo preview"
+          onClose={() => setPreviewOpen(false)}
+        />
+      ) : null}
     </div>
   );
 };

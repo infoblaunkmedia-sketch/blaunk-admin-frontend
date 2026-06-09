@@ -13,6 +13,7 @@ type EmployeeCredentialsRecord = {
   aadhaar?: string;
   empCode?: string;
   address?: string;
+  address2?: string;
   city?: string;
   zip?: string;
   country?: string;
@@ -91,6 +92,7 @@ function toEmployee(r: EmployeeCredentialsRecord): Employee {
     dob: '',
     gender: r.gender || '',
     address: r.address || '',
+    address2: r.address2 || '',
     city: r.city || '',
     state: r.state || '',
     country: r.country || '',
@@ -191,6 +193,7 @@ function toPayload(emp: Employee) {
     aadhaar: emp.aadhaarNumber,
     empCode: emp.employeeCode,
     address: emp.address,
+    address2: emp.address2,
     city: emp.city,
     zip: emp.pincode,
     country: emp.country,

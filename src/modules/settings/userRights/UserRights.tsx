@@ -8,10 +8,7 @@ import type { ModulePermission } from '../../../shared/types/auth.types';
 import {
   MODULE_RIGHTS_TREE,
   childKeysForModule,
-  hasModuleAccess,
-  hasSectionAccess,
   normalizeSectionList,
-  parseSectionPermission,
   sectionPermissionKey,
 } from '../../../shared/constants/moduleRights';
 import { PRESET_ROLES, type PresetRole, type PermissionsMap } from '../settings.types';
@@ -84,32 +81,57 @@ export const UserRights: React.FC = () => {
     setPermissionsMap((prev) => ({ ...prev, [code]: normalizeSectionList(next) }));
   };
 
+  const isChildGranted = (perms: string[], mod: ModulePermission, childKey: string): boolean =>
+    perms.includes(mod) || perms.includes(sectionPermissionKey(mod, childKey));
+
+  const moduleHasFullAccess = (perms: string[], mod: ModulePermission): boolean => {
+    const children = childKeysForModule(mod);
+    if (!children.length) return perms.includes(mod);
+    if (perms.includes(mod)) return true;
+    return children.every((c) => perms.includes(sectionPermissionKey(mod, c)));
+  };
+
   const toggleModule = (code: string, mod: ModulePermission, checked: boolean) => {
     const current = getPerms(code);
-    const children = childKeysForModule(mod);
     const without = current.filter((p) => p !== mod && !p.startsWith(`${mod}:`));
     if (!checked) {
       setPerms(code, without);
       return;
     }
-    const added = [mod, ...children.map((c) => sectionPermissionKey(mod, c))];
-    setPerms(code, [...without, ...added]);
+    setPerms(code, [...without, mod]);
   };
 
   const toggleSection = (code: string, mod: ModulePermission, childKey: string, checked: boolean) => {
     const key = sectionPermissionKey(mod, childKey);
     const current = getPerms(code);
-    const without = current.filter((p) => p !== key);
-    setPerms(code, checked ? [...without, key] : without);
+    const children = childKeysForModule(mod);
+
+    if (checked) {
+      const next = current.includes(key) ? current : [...current, key];
+      setPerms(code, next);
+      return;
+    }
+
+    if (current.includes(mod)) {
+      const next = current.filter((p) => p !== mod && p !== key);
+      for (const child of children) {
+        if (child !== childKey) next.push(sectionPermissionKey(mod, child));
+      }
+      setPerms(code, normalizeSectionList(next));
+      return;
+    }
+
+    setPerms(code, current.filter((p) => p !== key));
   };
 
   const moduleCheckState = (code: string, mod: ModulePermission): 'checked' | 'indeterminate' | 'unchecked' => {
     const perms = getPerms(code);
     const children = childKeysForModule(mod);
     if (!children.length) return perms.includes(mod) ? 'checked' : 'unchecked';
-    const selected = children.filter((c) => hasSectionAccess(perms, mod, c));
-    if (perms.includes(mod) || selected.length === children.length) return 'checked';
-    if (selected.length > 0) return 'indeterminate';
+    if (perms.includes(mod)) return 'checked';
+    const explicit = children.filter((c) => perms.includes(sectionPermissionKey(mod, c)));
+    if (explicit.length === children.length) return 'checked';
+    if (explicit.length > 0) return 'indeterminate';
     return 'unchecked';
   };
 
@@ -413,21 +435,9 @@ export const UserRights: React.FC = () => {
           <SectionCard title="Rights">
             {codes.map((code) => {
               const perms = getPerms(code);
-              const allKeys: string[] = [];
-              for (const node of MODULE_RIGHTS_TREE) {
-                allKeys.push(node.key);
-                for (const child of node.children ?? []) {
-                  allKeys.push(sectionPermissionKey(node.key, child.key));
-                }
-              }
-              const allChecked = allKeys.every((k) => {
-                if (perms.includes(k)) return true;
-                const parsed = parseSectionPermission(k);
-                if (parsed) {
-                  return hasSectionAccess(perms, parsed.module as ModulePermission, parsed.child);
-                }
-                return hasModuleAccess(perms, k as ModulePermission);
-              });
+              const allChecked = MODULE_RIGHTS_TREE.every((node) =>
+                moduleHasFullAccess(perms, node.key),
+              );
               return (
                 <div key={code} className="rounded-lg border border-slate-200 p-4">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -508,7 +518,7 @@ export const UserRights: React.FC = () => {
                                   >
                                     <input
                                       type="checkbox"
-                                      checked={hasSectionAccess(perms, mod.key, child.key)}
+                                      checked={isChildGranted(perms, mod.key, child.key)}
                                       onChange={(e) =>
                                         toggleSection(code, mod.key, child.key, e.target.checked)
                                       }
@@ -529,7 +539,7 @@ export const UserRights: React.FC = () => {
                       type="button"
                       disabled={saving === code}
                       onClick={() => setPendingSaveCode(code)}
-                      className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+                      className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-primary-dark disabled:opacity-60"
                     >
                       {saving === code ? 'Saving…' : 'Save Rights'}
                     </button>
@@ -554,9 +564,9 @@ export const UserRights: React.FC = () => {
 
       {pendingSaveCode ? (
         <ConfirmDialog
-          title="Save user rights"
-          message={`Are you sure you want to save permission changes for ${pendingSaveCode}? This cannot be undone.`}
-          confirmLabel="Confirm"
+          title="Save user rights?"
+          message={`You are about to update sidebar access for ${pendingSaveCode}. They will only see the modules and menu options you have selected. Do you want to save these changes?`}
+          confirmLabel="Yes, save rights"
           variant="primary"
           loading={saving === pendingSaveCode}
           onConfirm={() => void handleSave(pendingSaveCode)}

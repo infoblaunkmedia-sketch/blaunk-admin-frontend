@@ -2,7 +2,7 @@ import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { PageHeader } from '../../../shared/components/PageHeader';
+import { FormBackLink } from '../../../shared/components/FormBackLink';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -26,6 +26,11 @@ type NomineeErrors = { pan?: { message?: string } };
 
 const emptyNominee = (): Nominee => ({ name: '', mobile: '', relation: '', percentage: '', pan: '' });
 
+function isMongoObjectId(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return /^[a-f\d]{24}$/i.test(String(value).trim());
+}
+
 const defaultValues: FormValues = {
   name: '',
   mobile: '',
@@ -45,8 +50,10 @@ const defaultValues: FormValues = {
   mode: '',
   isinCode: '',
   dpNumber: '',
+  dp: '',
   beneficiaryDpId: '',
   folioNumber: '',
+  certificateNumber: '',
   distinctiveFrom: '',
   distinctiveTo: '',
   yearOfIssuance: '',
@@ -199,9 +206,11 @@ export const ShareholdingForm: React.FC = () => {
       const isNewPeriod = hid === '__new__';
       const resolvedHistoryId = isNewPeriod
         ? undefined
-        : hid && hid !== '__new__'
-          ? hid
-          : data.historyId || undefined;
+        : isMongoObjectId(hid)
+          ? hid!.trim()
+          : isMongoObjectId(data.historyId)
+            ? String(data.historyId).trim()
+            : undefined;
       const payload: Shareholder = {
         ...data,
         id: isEdit && pan ? pan : panNorm,
@@ -244,9 +253,11 @@ export const ShareholdingForm: React.FC = () => {
       if (mode === 'Physical') {
         setValue('isinCode', '');
         setValue('dpNumber', '');
+        setValue('dp', '');
         setValue('beneficiaryDpId', '');
       } else if (mode === 'Demat') {
         setValue('folioNumber', '');
+        setValue('certificateNumber', '');
         setValue('distinctiveFrom', '');
         setValue('distinctiveTo', '');
       }
@@ -254,23 +265,20 @@ export const ShareholdingForm: React.FC = () => {
     prevModeRef.current = mode;
   }, [mode, setValue]);
 
+  const goBack = () => navigate('/corporate/shareholding');
+
   return (
     <ErrorBoundary>
-      <PageHeader
-        title={isEdit ? 'Edit Shareholder' : 'Add Shareholder'}
-        subtitle="Enter shareholder details as per the register."
-        actions={[
-          { label: 'Back', variant: 'secondary', onClick: () => navigate('/corporate/shareholding') },
-        ]}
-      />
-
       {loading ? (
-        <div className="rounded-card border border-slate-200 bg-white p-6 shadow-card">
-          <p className="text-sm font-semibold text-slate-600">Loading…</p>
+        <div className="rounded-card border border-slate-200 bg-white shadow-card">
+          <div className="flex justify-end border-b border-slate-100 px-5 py-3">
+            <FormBackLink onClick={goBack} />
+          </div>
+          <p className="p-6 text-sm font-semibold text-slate-600">Loading…</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
-          <SectionCard title="Personal Details">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <SectionCard title="Personal Details" actions={<FormBackLink onClick={goBack} />}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormField label="Name" required error={errors.name?.message}>
                 <input
@@ -474,6 +482,17 @@ export const ShareholdingForm: React.FC = () => {
                   disabled={isPhysical}
                 />
               </FormField>
+              <FormField label="DP">
+                <select
+                  {...register('dp')}
+                  className={isPhysical ? disabledFieldClass : inputClass}
+                  disabled={isPhysical}
+                >
+                  <option value="">Select…</option>
+                  <option value="NSDL">NSDL</option>
+                  <option value="CDSL">CDSL</option>
+                </select>
+              </FormField>
               <FormField label="Beneficiary DP ID">
                 <input
                   {...register('beneficiaryDpId')}
@@ -484,6 +503,13 @@ export const ShareholdingForm: React.FC = () => {
               <FormField label="Folio Number">
                 <input
                   {...register('folioNumber')}
+                  className={isDemat ? disabledFieldClass : inputClass}
+                  disabled={isDemat}
+                />
+              </FormField>
+              <FormField label="Certificate No.">
+                <input
+                  {...register('certificateNumber')}
                   className={isDemat ? disabledFieldClass : inputClass}
                   disabled={isDemat}
                 />
@@ -673,7 +699,7 @@ export const ShareholdingForm: React.FC = () => {
             {/* quick summary to ensure form is dynamic */}
             {nominees?.length ? (
               <p className="mt-3 text-xs font-semibold text-slate-500">
-                Tip: Fill only the nominees you have; empty nominee rows are allowed.
+                Note: Fill only the nominees you have. Empty nominee rows are allowed.
               </p>
             ) : null}
           </SectionCard>
@@ -681,7 +707,7 @@ export const ShareholdingForm: React.FC = () => {
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => navigate('/corporate/shareholding')}
+              onClick={goBack}
               className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               Cancel

@@ -23,7 +23,6 @@ import {
 import type { ThirdPartyCredential } from './thirdPartyCredentials.types';
 import {
   fetchThirdPartyCredentials,
-  fetchNextThreePcEmployeeCode,
   saveThirdPartyCredential,
   deleteThirdPartyCredential,
   upload3pImage,
@@ -153,6 +152,7 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
     { name: '', mobile: '', designation: '', city: '' },
   ],
   employeePhotoUrl: '',
+  profileImageUrl: '',
   chqImageUrl: '',
   panImageUrl: '',
 
@@ -191,17 +191,11 @@ export const ThirdPartyCredentials: React.FC = () => {
   const setField = <K extends keyof typeof form>(k: K, v: typeof form[K]) =>
     setForm((p) => ({ ...p, [k]: v }));
 
-  const handleNew = async () => {
-    try {
-      setReadOnly(false);
-      setEditId(null);
-      const nextCode = await fetchNextThreePcEmployeeCode();
-      setForm({ ...emptyForm(), threePEmplCode: nextCode });
-      setView('form');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to generate 3PC employee code';
-      toast.error(msg);
-    }
+  const handleNew = () => {
+    setReadOnly(false);
+    setEditId(null);
+    setForm(emptyForm());
+    setView('form');
   };
 
   const openForm = (r: ThirdPartyCredential, viewOnly: boolean) => {
@@ -230,6 +224,11 @@ export const ThirdPartyCredentials: React.FC = () => {
   const handleEdit = (r: ThirdPartyCredential) => openForm(r, false);
 
   const handleSave = async () => {
+    const empCode = String(form.threePEmplCode || '').trim().toUpperCase();
+    if (!editId && !empCode) {
+      toast.error('3P employee code is required.');
+      return;
+    }
     if (!form.name.trim()) {
       toast.error('Please enter the person’s name.');
       return;
@@ -260,6 +259,7 @@ export const ThirdPartyCredentials: React.FC = () => {
     try {
       const record: ThirdPartyCredential = {
         ...form,
+        threePEmplCode: empCode || form.threePEmplCode,
         id: editId ?? '',
       };
       await saveThirdPartyCredential(record);
@@ -392,6 +392,18 @@ export const ThirdPartyCredentials: React.FC = () => {
                 ))}
               </select>
             </FormField>
+            <FormField label="3P Emp Code" required>
+              <input
+                className={editId ? `${inputClass} cursor-not-allowed bg-slate-100 text-slate-600` : inputClass}
+                value={form.threePEmplCode}
+                readOnly={Boolean(editId)}
+                maxLength={20}
+                placeholder="e.g. 3PC001"
+                onChange={(e) =>
+                  setField('threePEmplCode', e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())
+                }
+              />
+            </FormField>
             <FormField label="Name" required>
               <input
                 className={inputClass}
@@ -446,10 +458,18 @@ export const ThirdPartyCredentials: React.FC = () => {
               </select>
             </FormField>
             <FormField label="Address 1">
-              <input className={inputClass} value={form.address1} onChange={(e) => setField('address1', e.target.value)} />
+              <input
+                className={inputClass}
+                value={form.address1}
+                onChange={(e) => setField('address1', titleCaseWords(e.target.value))}
+              />
             </FormField>
             <FormField label="Address 2">
-              <input className={inputClass} value={form.address2} onChange={(e) => setField('address2', e.target.value)} />
+              <input
+                className={inputClass}
+                value={form.address2}
+                onChange={(e) => setField('address2', titleCaseWords(e.target.value))}
+              />
             </FormField>
             <FormField label="City">
               <input
@@ -476,7 +496,11 @@ export const ThirdPartyCredentials: React.FC = () => {
             </FormField>
 
             <FormField label="3PC Company Name">
-              <input className={inputClass} value={form.threePCompanyName} onChange={(e) => setField('threePCompanyName', e.target.value)} />
+              <input
+                className={inputClass}
+                value={form.threePCompanyName}
+                onChange={(e) => setField('threePCompanyName', titleCaseWords(e.target.value))}
+              />
             </FormField>
             <FormField label="3PC Entity">
               <select className={inputClass} value={form.threePEntity} onChange={(e) => setField('threePEntity', e.target.value)}>
@@ -733,6 +757,29 @@ export const ThirdPartyCredentials: React.FC = () => {
           <fieldset disabled={readOnly} className="min-w-0 border-0 p-0 disabled:opacity-95">
             <div className="flex flex-wrap gap-6">
               <CroppableImageUploader
+                label="Profile Image"
+                maxBytes={200 * 1024}
+                maxSizeHint="200KB"
+                aspect={1}
+                aspectLabel="1:1"
+                disabled={readOnly}
+                currentPreview={form.profileImageUrl}
+                onFile={async (file) => {
+                  const bad = validateImageFileForUpload(file, 200 * 1024);
+                  if (bad) {
+                    toast.error(bad);
+                    return;
+                  }
+                  try {
+                    const url = await upload3pImage(file);
+                    setField('profileImageUrl', url);
+                    toast.success('Profile image uploaded');
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : 'Upload failed. Please try again.');
+                  }
+                }}
+              />
+              <CroppableImageUploader
                 label="Address Proof"
                 maxBytes={200 * 1024}
                 maxSizeHint="200KB"
@@ -761,6 +808,9 @@ export const ThirdPartyCredentials: React.FC = () => {
                 maxSizeHint="200KB"
                 aspect={16 / 9}
                 aspectLabel="16:9"
+                previewButtonClass="h-28 w-40"
+                dialogMaxWidthClass="max-w-5xl"
+                cropAreaHeightClass="h-[min(60vh,520px)]"
                 disabled={readOnly}
                 currentPreview={form.chqImageUrl}
                 onFile={async (file) => {

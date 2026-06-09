@@ -71,8 +71,10 @@ export interface Shareholder {
   mode: ShareMode | '';
   isinCode: string;
   dpNumber: string;
+  dp: '' | 'NSDL' | 'CDSL';
   beneficiaryDpId: string;
   folioNumber: string;
+  certificateNumber: string;
   distinctiveFrom: string;
   distinctiveTo: string;
   yearOfIssuance: string;
@@ -91,22 +93,27 @@ export interface Shareholder {
   nominees: Nominee[];
 }
 
+export interface CompanyAddressBlock {
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+}
+
 export interface CompanyProfile {
   companyName: string;
   cin: string;
   pan: string;
+  aadhaar: string;
   gstin: string;
-  registeredAddress: string;
-  correspondenceAddress: string;
-  city: string;
-  state: string;
-  pincode: string;
-  country: string;
   email: string;
   contactNumber: string;
   incorporationDate: string;
   authorizedSignatoryName: string;
   designation: string;
+  registered: CompanyAddressBlock;
+  correspondence: CompanyAddressBlock;
   logoUrl: string;
   signatureUrl: string;
 }

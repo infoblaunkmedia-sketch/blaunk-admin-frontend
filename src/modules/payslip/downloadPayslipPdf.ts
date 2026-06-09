@@ -1,76 +1,108 @@
-function captureTarget(elementId: string): HTMLElement {
+function captureTarget(elementId: string): HTMLElement | null {
   const root = document.getElementById(elementId);
-  if (!root) throw new Error('Payslip content not found.');
-  return (root.querySelector('article') as HTMLElement | null) ?? root;
+  if (!root) return null;
+  return (root.querySelector('article.payslip-capture-root') as HTMLElement | null)
+    ?? (root.querySelector('article') as HTMLElement | null)
+    ?? root;
 }
 
-function clearAncestorTransforms(el: HTMLElement): () => void {
-  const restores: Array<() => void> = [];
-  let parent = el.parentElement;
+function measureContentBounds(root: HTMLElement): { width: number; height: number } {
+  const width = Math.ceil(root.scrollWidth || root.offsetWidth);
+  const height = Math.ceil(root.scrollHeight || root.offsetHeight);
+  if (width > 0 && height > 0) {
+    return { width, height };
+  }
 
-  while (parent) {
-    const computed = window.getComputedStyle(parent);
-    if (computed.transform && computed.transform !== 'none') {
-      const prevTransform = parent.style.transform;
-      parent.style.transform = 'none';
+  const rect = root.getBoundingClientRect();
+  return {
+    width: Math.ceil(rect.width) || 1,
+    height: Math.ceil(rect.height) || 1,
+  };
+}
+
+function neutralizePreviewTransforms(el: HTMLElement): () => void {
+  const restores: Array<() => void> = [];
+  let node: HTMLElement | null = el.parentElement;
+
+  while (node && node.id !== 'payslip-print-area') {
+    const computed = window.getComputedStyle(node);
+    const needsReset =
+      (computed.transform && computed.transform !== 'none')
+      || (computed.width && computed.width !== 'auto' && node.style.width);
+
+    if (needsReset || computed.transform !== 'none') {
+      const target = node;
+      const prev = {
+        transform: target.style.transform,
+        width: target.style.width,
+        height: target.style.height,
+        overflow: target.style.overflow,
+      };
+      target.style.transform = 'none';
+      target.style.width = 'auto';
+      target.style.height = 'auto';
+      target.style.overflow = 'visible';
       restores.push(() => {
-        parent!.style.transform = prevTransform;
+        target.style.transform = prev.transform;
+        target.style.width = prev.width;
+        target.style.height = prev.height;
+        target.style.overflow = prev.overflow;
       });
     }
-    parent = parent.parentElement;
+    node = node.parentElement;
   }
 
   return () => {
-    restores.forEach((restore) => restore());
+    restores.reverse().forEach((restore) => restore());
   };
 }
 
-function measureCaptureSize(el: HTMLElement): { width: number; height: number } {
-  const style = window.getComputedStyle(el);
-  const padL = parseFloat(style.paddingLeft) || 0;
-  const padR = parseFloat(style.paddingRight) || 0;
-  const padB = parseFloat(style.paddingBottom) || 0;
-  const borderL = parseFloat(style.borderLeftWidth) || 0;
-  const borderR = parseFloat(style.borderRightWidth) || 0;
-  const borderB = parseFloat(style.borderBottomWidth) || 0;
-
-  const table = el.querySelector('table') as HTMLElement | null;
-  if (table) {
-    const top = el.getBoundingClientRect().top;
-    const tableRect = table.getBoundingClientRect();
-    return {
-      width: Math.ceil(tableRect.width + padL + padR + borderL + borderR),
-      height: Math.ceil(tableRect.bottom - top + padB + borderB),
-    };
-  }
-
-  const rect = el.getBoundingClientRect();
-  return {
-    width: Math.ceil(rect.width),
-    height: Math.ceil(rect.height),
-  };
+async function waitForImages(root: HTMLElement): Promise<void> {
+  const images = Array.from(root.querySelectorAll('img'));
+  await Promise.all(
+    images.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete && img.naturalWidth > 0) {
+            resolve();
+            return;
+          }
+          const done = () => resolve();
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+        }),
+    ),
+  );
 }
 
-function prepareClone(clonedEl: HTMLElement): void {
-  clonedEl.style.overflow = 'visible';
-  clonedEl.style.width = 'fit-content';
-  clonedEl.style.minWidth = '0';
-  clonedEl.style.maxWidth = 'none';
-  clonedEl.style.boxSizing = 'border-box';
-  clonedEl.style.transform = 'none';
+function cropCanvas(source: HTMLCanvasElement, widthPx: number, heightPx: number): HTMLCanvasElement {
+  const w = Math.min(source.width, Math.max(1, Math.ceil(widthPx)));
+  const h = Math.min(source.height, Math.max(1, Math.ceil(heightPx)));
+  if (w <= 1 || h <= 1) return source;
+  if (source.width === w && source.height === h) return source;
 
-  const table = clonedEl.querySelector('table') as HTMLElement | null;
-  if (table) {
-    table.style.width = '';
-    table.style.minWidth = '';
-    table.style.tableLayout = 'fixed';
-  }
+  const cropped = document.createElement('canvas');
+  cropped.width = w;
+  cropped.height = h;
+  const ctx = cropped.getContext('2d');
+  if (!ctx) return source;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(source, 0, 0, w, h, 0, 0, w, h);
+  return cropped;
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 export async function downloadPayslipPdf(elementId: string, filename: string): Promise<void> {
   const el = captureTarget(elementId);
-  const restoreAncestors = clearAncestorTransforms(el);
+  if (!el) {
+    throw new Error('Payslip content not found.');
+  }
 
+  const restoreParents = neutralizePreviewTransforms(el);
   const prevWidth = el.style.width;
   const prevMinWidth = el.style.minWidth;
   const prevTransform = el.style.transform;
@@ -78,33 +110,36 @@ export async function downloadPayslipPdf(elementId: string, filename: string): P
   el.style.minWidth = '0';
   el.style.transform = 'none';
 
-  const { width: captureWidth, height: captureHeight } = measureCaptureSize(el);
-  const scale = 2;
-
   try {
+    await waitForImages(el);
+    await nextFrame();
+    await nextFrame();
+
+    const { width: captureWidth, height: captureHeight } = measureContentBounds(el);
+    const scale = 2;
+
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
       import('html2canvas'),
       import('jspdf'),
     ]);
 
-    const canvas = await html2canvas(el, {
+    const rawCanvas = await html2canvas(el, {
       scale,
       useCORS: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
-      width: captureWidth,
-      height: captureHeight,
-      windowWidth: captureWidth,
-      windowHeight: captureHeight,
       scrollX: 0,
       scrollY: -window.scrollY,
-      onclone: (_doc, clonedEl) => {
-        prepareClone(clonedEl);
-      },
     });
 
+    const canvas = cropCanvas(rawCanvas, captureWidth * scale, captureHeight * scale);
+    if (canvas.width < 20 || canvas.height < 20) {
+      throw new Error('PDF capture produced empty content. Please try again.');
+    }
+
     const imgData = canvas.toDataURL('image/png');
-    const margin = 4;
+    const margin = 2;
     const pxToMm = 25.4 / (scale * 96);
     const contentWidthMm = canvas.width * pxToMm;
     const contentHeightMm = canvas.height * pxToMm;
@@ -123,6 +158,6 @@ export async function downloadPayslipPdf(elementId: string, filename: string): P
     el.style.width = prevWidth;
     el.style.minWidth = prevMinWidth;
     el.style.transform = prevTransform;
-    restoreAncestors();
+    restoreParents();
   }
 }

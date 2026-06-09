@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import type { DetailedPayslip } from './payslip.service';
 import { downloadPayslipPdf } from './downloadPayslipPdf';
 import { YearlyPayslipSheet } from './YearlyPayslipSheet';
+import { AnnualEmployeeCostBreakupSheet } from './AnnualEmployeeCostBreakupSheet';
 import { NotAvailableReportSheet } from './NotAvailableReportSheet';
 import { PayslipSheet } from './MonthlyPayslipSheet';
 import { PayslipPreviewViewport } from './PayslipPreviewViewport';
@@ -11,6 +12,10 @@ import { canDownloadPayslipPdf, isUnavailableReport } from './payrollReportConfi
 type Props = {
   payslips: DetailedPayslip[];
   reportLabel?: string;
+  financialYear?: string;
+  annualBreakup?: boolean;
+  breakupPeriod?: 'Monthly' | 'Yearly';
+  breakupMonth?: string;
 };
 
 function reportSlug(p: DetailedPayslip): string {
@@ -32,20 +37,28 @@ function PayslipDocument({ p }: { p: DetailedPayslip }) {
   return <PayslipSheet p={p} />;
 }
 
-export const PayslipResults: React.FC<Props> = ({ payslips }) => {
+export const PayslipResults: React.FC<Props> = ({
+  payslips,
+  financialYear = '',
+  annualBreakup = false,
+  breakupPeriod = 'Yearly',
+  breakupMonth = '',
+}) => {
   const [downloading, setDownloading] = React.useState(false);
   const primary = payslips[0];
   const allowDownload = primary ? canDownloadPayslipPdf(String(primary.reportType || '')) : false;
-  const isWideReport = primary
-    ? String(primary.reportType || '').toLowerCase() === 'yearly-payslip'
-    : false;
+  const isWideReport = annualBreakup
+    || (primary ? String(primary.reportType || '').toLowerCase() === 'yearly-payslip' : false);
 
   const handleDownload = async () => {
     if (!payslips.length || !allowDownload) return;
     setDownloading(true);
     try {
       const p = payslips[0];
-      await downloadPayslipPdf('payslip-print-area', `${reportSlug(p)}.pdf`);
+      const filename = annualBreakup
+        ? `annual-employee-cost-breakup-${financialYear || 'report'}.pdf`
+        : `${reportSlug(p)}.pdf`;
+      await downloadPayslipPdf('payslip-print-area', filename);
       toast.success('PDF downloaded.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to download PDF');
@@ -59,10 +72,22 @@ export const PayslipResults: React.FC<Props> = ({ payslips }) => {
   }
 
   const printArea = (
-    <div id="payslip-print-area" className="inline-block max-w-none">
-      {payslips.map((p) => (
-        <PayslipDocument key={`${p.employeeCode}-${p.month}-${p.reportType}`} p={p} />
-      ))}
+    <div
+      id="payslip-print-area"
+      className={isWideReport ? 'inline-block w-fit max-w-none' : 'block w-full max-w-none'}
+    >
+      {annualBreakup ? (
+        <AnnualEmployeeCostBreakupSheet
+          payslips={payslips}
+          financialYear={financialYear || payslips[0]?.financialYear || ''}
+          period={breakupPeriod}
+          month={breakupMonth}
+        />
+      ) : (
+        payslips.map((p) => (
+          <PayslipDocument key={`${p.employeeCode}-${p.month}-${p.reportType}`} p={p} />
+        ))
+      )}
     </div>
   );
 
@@ -83,7 +108,7 @@ export const PayslipResults: React.FC<Props> = ({ payslips }) => {
       {isWideReport ? (
         <PayslipPreviewViewport>{printArea}</PayslipPreviewViewport>
       ) : (
-        <div className="w-full max-w-full overflow-x-auto">{printArea}</div>
+        <div className="w-full">{printArea}</div>
       )}
     </div>
   );

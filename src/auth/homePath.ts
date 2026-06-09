@@ -54,8 +54,16 @@ function legacyMarketingPathToManagement(pathname: string): { module: ModulePerm
   return { module: 'platform', section: 'plan-charges' };
 }
 
+/** Self-service payslip — default for internal employees, not rights-gated. */
+export function isSelfServicePayslipPath(pathname: string): boolean {
+  return pathname === '/my-payslip' || pathname === '/payslip' || pathname.startsWith('/my-payslip/');
+}
+
 export function canAccessPath(user: AuthUser | null, pathname: string): boolean {
   if (!user || user.role === 'admin') return true;
+  if (isSelfServicePayslipPath(pathname)) {
+    return String(user.employeeType || '').toLowerCase() !== '3pc';
+  }
   const legacy = legacyMarketingPathToManagement(pathname);
   if (legacy) {
     if (!hasModuleAccess(user.permissions, legacy.module)) return false;

@@ -3,10 +3,16 @@ import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
-import { DataTableWrapper, LIST_FILTER_FIELD_CLASS, ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
+import {
+  DataTableWrapper,
+  LIST_FILTER_FIELD_CLASS,
+  ListTableSearchInput,
+  TableCellBox,
+} from '../../../shared/components/DataTableWrapper';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { useAuth } from '../../../auth/useAuth';
+import { hasSectionAccess } from '../../../shared/constants/moduleRights';
 import { fetchDsaPayouts, updatePayoutFieldsById, updatePayoutStatusById } from '../finance.service';
 import type { DsaPayoutSubmission } from '../finance.types';
 import { PayoutStatusSelect } from '../../../shared/components/PayoutStatusSelect';
@@ -24,7 +30,7 @@ import { formatDsaPayinAmount, formatInrAmount } from '../../../shared/utils/dsa
 import { payoutCheckerDate, payoutCheckerId } from './payoutChecker';
 
 const inputClass =
-  'h-9 w-full min-w-[5rem] rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
+  'h-9 w-full min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
 
 const readOnlyClass =
   `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500`;
@@ -91,6 +97,8 @@ export const DsaPayouts: React.FC = () => {
   const { user } = useAuth();
   const { countries } = useCountries();
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
+  const canChecker =
+    isAdmin || hasSectionAccess(user?.permissions ?? [], 'finance', 'dsa-payouts');
   const [records, setRecords] = React.useState<DsaPayoutSubmission[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [tableSearch, setTableSearch] = React.useState('');
@@ -191,7 +199,7 @@ export const DsaPayouts: React.FC = () => {
     const inrReady = Boolean(edit.currencyInr.trim() || (row.currencyInr != null && row.currencyInr > 0));
     const limitReady = Boolean(edit.calculatedLimit.trim() || (row.calculatedLimit != null && row.calculatedLimit > 0));
     if (nextStatus === 'APPROVED' && !inrReady) {
-      toast.error('Enter Currency-INR before approving.');
+      toast.error('Enter Amount-INR before approving.');
       return;
     }
     if (nextStatus === 'APPROVED' && !limitReady) {
@@ -267,80 +275,122 @@ export const DsaPayouts: React.FC = () => {
       name: 'Date',
       selector: (row) => row.submissionDate || '',
       cell: (row) => (
-        <span className="whitespace-nowrap font-semibold text-slate-800">
-          {formatDateDDMMYYYY(row.submissionDate)}
-        </span>
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800">
+            {formatDateDDMMYYYY(row.submissionDate)}
+          </span>
+        </TableCellBox>
       ),
       sortable: true,
       minWidth: '6.5rem',
+      width: '6.5rem',
     },
     {
       name: 'DSA Name',
-      selector: (row) => row.dsaName || '',
+      selector: (row) => row.dsaName || 'NA',
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800" title={row.dsaName || 'NA'}>
+            {row.dsaName || 'NA'}
+          </span>
+        </TableCellBox>
+      ),
       sortable: true,
-      minWidth: '7rem',
+      minWidth: '14rem',
+      width: '14rem',
     },
     {
       name: 'Country',
       selector: (row) => row.country || '',
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800">{row.country || '—'}</span>
+        </TableCellBox>
+      ),
       sortable: true,
-      minWidth: '5.5rem',
+      minWidth: '7rem',
+      width: '7rem',
     },
     {
       name: 'DSA Code',
       selector: (row) => row.dsaCode,
-      cell: (row) => <span className="uppercase">{row.dsaCode}</span>,
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate uppercase">{row.dsaCode}</span>
+        </TableCellBox>
+      ),
       sortable: true,
-      minWidth: '6rem',
+      minWidth: '6.5rem',
+      width: '6.5rem',
     },
     {
       name: 'Sharing Ratio',
       selector: (row) => shareRatioLabel(row.shareRatio),
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800">
+            {shareRatioLabel(row.shareRatio)}
+          </span>
+        </TableCellBox>
+      ),
       sortable: true,
-      minWidth: '7.5rem',
-      width: '7.5rem',
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
       name: 'Mode',
-      cell: (row) => <input className={readOnlyClass} readOnly value={row.mode || '-'} />,
+      cell: (row) => (
+        <TableCellBox>
+          <input className={readOnlyClass} readOnly value={row.mode || '-'} />
+        </TableCellBox>
+      ),
       minWidth: '6.5rem',
+      width: '6.5rem',
     },
     {
       name: 'Transaction Ref No.',
       cell: (row) => (
-        <input className={readOnlyClass} readOnly value={row.transactionNumber || '-'} />
+        <TableCellBox>
+          <input className={readOnlyClass} readOnly value={row.transactionNumber || '-'} />
+        </TableCellBox>
+      ),
+      minWidth: '11rem',
+      width: '11rem',
+    },
+    {
+      name: 'Amount-Payin',
+      cell: (row) => (
+        <TableCellBox>
+          <input className={readOnlyClass} readOnly value={formatCurrencyPayin(row, countries)} />
+        </TableCellBox>
       ),
       minWidth: '10rem',
       width: '10rem',
     },
     {
-      name: 'Currency-Payin',
-      cell: (row) => <input className={readOnlyClass} readOnly value={formatCurrencyPayin(row, countries)} />,
-      minWidth: '9rem',
-      width: '9rem',
-    },
-    {
-      name: 'Currency-INR',
+      name: 'Amount-INR',
       cell: (row) => {
-        const canEditInrLimit = isAdmin && isPendingPayoutStatus(row.status);
+        const canEditInrLimit = canChecker && isPendingPayoutStatus(row.status);
         const edit = getFieldEdit(row);
         return (
-          <input
-            type="text"
-            inputMode="decimal"
-            className={canEditInrLimit ? inputClass : readOnlyClass}
-            readOnly={!canEditInrLimit}
-            value={canEditInrLimit ? edit.currencyInr : formatInrAmount(row.currencyInr ?? '')}
-            onKeyDown={canEditInrLimit ? onNumericInputKeyDown : undefined}
-            onChange={(e) => {
-              const currencyInr = e.target.value.replace(/[^\d.]/g, '');
-              setFieldEdit(row, { currencyInr });
-            }}
-          />
+          <TableCellBox>
+            <input
+              type="text"
+              inputMode="decimal"
+              className={canEditInrLimit ? inputClass : readOnlyClass}
+              readOnly={!canEditInrLimit}
+              value={canEditInrLimit ? edit.currencyInr : formatInrAmount(row.currencyInr ?? '')}
+              onKeyDown={canEditInrLimit ? onNumericInputKeyDown : undefined}
+              onChange={(e) => {
+                const currencyInr = e.target.value.replace(/[^\d.]/g, '');
+                setFieldEdit(row, { currencyInr });
+              }}
+            />
+          </TableCellBox>
         );
       },
-      minWidth: '8.5rem',
-      width: '8.5rem',
+      minWidth: '9rem',
+      width: '9rem',
     },
     {
       name: 'Limit',
@@ -355,39 +405,50 @@ export const DsaPayouts: React.FC = () => {
           isPendingPayoutStatus(row.status) ? edit.calculatedLimit : (row.calculatedLimit ?? ''),
         );
         return (
-          <input
-            type="text"
-            className={readOnlyClass}
-            readOnly
-            value={displayLimit}
-            title={title}
-          />
+          <TableCellBox>
+            <input
+              type="text"
+              className={readOnlyClass}
+              readOnly
+              value={displayLimit}
+              title={title}
+            />
+          </TableCellBox>
         );
       },
       minWidth: '11rem',
+      width: '11rem',
     },
     {
       name: 'Approval',
       cell: (row) => {
-        if (!isAdmin) {
-          return <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />;
+        if (!canChecker) {
+          return (
+            <TableCellBox>
+              <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />
+            </TableCellBox>
+          );
         }
         if (!isPendingPayoutStatus(row.status)) {
-          return <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />;
+          return (
+            <TableCellBox>
+              <input className={readOnlyClass} readOnly value={payoutStatusLabel(row.status)} />
+            </TableCellBox>
+          );
         }
         const selectedStatus = pendingApprovalById[row.id] ?? normalizePayoutStatus(row.status);
         return (
-          <div className="min-w-0 py-1">
+          <TableCellBox className="py-1">
             <PayoutStatusSelect
               value={selectedStatus}
               disabled={actioningId === row.id}
               onChange={(status) => handleApprovalChange(row, status)}
             />
-          </div>
+          </TableCellBox>
         );
       },
-      minWidth: '8.5rem',
-      width: '8.5rem',
+      minWidth: '9rem',
+      width: '9rem',
     },
     {
       name: 'Remark',
@@ -396,51 +457,61 @@ export const DsaPayouts: React.FC = () => {
         const selectedStatus = pendingApprovalById[row.id] ?? normalizePayoutStatus(row.status);
         const awaitingRemark = isPendingPayoutStatus(row.status) && selectedStatus === 'REJECTED';
         if (!isRejected && !awaitingRemark) {
-          return <span className="text-slate-400">—</span>;
-        }
-        if (isAdmin && awaitingRemark) {
           return (
-            <div className="min-w-0 py-1">
+            <TableCellBox>
+              <span className="text-slate-400">—</span>
+            </TableCellBox>
+          );
+        }
+        if (canChecker && awaitingRemark) {
+          return (
+            <TableCellBox className="py-1">
               <PayoutRemarkSelect
                 disabled={actioningId === row.id}
                 value={pendingRemarkById[row.id] || ''}
                 onChange={(remark) => handleRemarkChange(row, remark)}
               />
-            </div>
+            </TableCellBox>
           );
         }
         return (
-          <span className="block max-w-[16rem] py-1 text-sm font-semibold leading-snug text-slate-800">
-            {row.rejectionReason || '—'}
-          </span>
+          <TableCellBox className="py-1">
+            <span className="block truncate text-sm font-semibold leading-snug text-slate-800" title={row.rejectionReason || undefined}>
+              {row.rejectionReason || '—'}
+            </span>
+          </TableCellBox>
         );
       },
-      minWidth: '14.5rem',
-      width: '14.5rem',
+      minWidth: '12rem',
+      width: '12rem',
     },
     {
       name: 'Checker Date',
       selector: (row) => payoutCheckerDate(row),
       cell: (row) => (
-        <span className="whitespace-nowrap text-sm font-semibold text-slate-800">
-          {payoutCheckerDate(row)}
-        </span>
+        <TableCellBox>
+          <span className="block truncate text-sm font-semibold text-slate-800">
+            {payoutCheckerDate(row)}
+          </span>
+        </TableCellBox>
       ),
       sortable: true,
-      minWidth: '9rem',
-      width: '9rem',
+      minWidth: '9.5rem',
+      width: '9.5rem',
     },
     {
       name: 'Checker Id',
       selector: (row) => payoutCheckerId(row),
       cell: (row) => (
-        <span className="whitespace-nowrap font-semibold uppercase text-slate-800">
-          {payoutCheckerId(row)}
-        </span>
+        <TableCellBox>
+          <span className="block truncate font-semibold uppercase text-slate-800">
+            {payoutCheckerId(row)}
+          </span>
+        </TableCellBox>
       ),
       sortable: true,
-      minWidth: '8.5rem',
-      width: '8.5rem',
+      minWidth: '9rem',
+      width: '9rem',
     },
   ], [
     actioningId,
@@ -448,7 +519,7 @@ export const DsaPayouts: React.FC = () => {
     getFieldEdit,
     handleApprovalChange,
     handleRemarkChange,
-    isAdmin,
+    canChecker,
     pendingApprovalById,
     pendingRemarkById,
     setFieldEdit,
@@ -458,7 +529,7 @@ export const DsaPayouts: React.FC = () => {
     <ErrorBoundary>
       <PageHeader
         title="DSA Limit"
-        subtitle="Enter Currency-INR — Limit shows total (INR + share). Set Approval, then Save from the bar above the table."
+        subtitle="Enter Amount-INR — Limit shows total (INR + share). Set Approval, then Save from the bar above the table."
         beforeActions={
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -489,11 +560,11 @@ export const DsaPayouts: React.FC = () => {
         }
       />
 
-      <SectionCard title="" contentClassName="p-0 overflow-hidden">
-        {isAdmin && focusRow && isPendingPayoutStatus(focusRow.status) ? (
+      <SectionCard title="" contentClassName="min-w-0 p-0">
+        {canChecker && focusRow && isPendingPayoutStatus(focusRow.status) ? (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-800">{focusRow.dsaName || focusRow.dsaCode}</span>
+              <span className="font-semibold text-slate-800">{focusRow.dsaName || 'NA'}</span>
               {' · '}
               {formatDateDDMMYYYY(focusRow.submissionDate)}
               {' · '}
@@ -521,6 +592,8 @@ export const DsaPayouts: React.FC = () => {
           filterText={tableSearch}
           onFilterTextChange={setTableSearch}
           hideSearchInput
+          responsive={false}
+          horizontalScroll
         />
       </SectionCard>
     </ErrorBoundary>

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PayrollEmployeeOption } from './payslip.service';
+import { ALL_EMPLOYEES_CODE } from './payrollReportConfig';
 
 const inputBase =
   'w-full rounded-lg border border-slate-300 bg-white text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:bg-slate-50 disabled:text-slate-400';
@@ -11,6 +12,7 @@ type Props = {
   disabled?: boolean;
   placeholder?: string;
   compact?: boolean;
+  includeAllOption?: boolean;
 };
 
 function displayLabel(emp: PayrollEmployeeOption, compact: boolean): string {
@@ -28,6 +30,7 @@ export const SearchableEmployeeSelect: React.FC<Props> = ({
   disabled,
   placeholder = 'Search employee…',
   compact = false,
+  includeAllOption = false,
 }) => {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -36,7 +39,8 @@ export const SearchableEmployeeSelect: React.FC<Props> = ({
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const selected = employees.find((e) => e.empCode === value);
-  const selectedLabel = selected ? displayLabel(selected, compact) : '';
+  const selectedLabel =
+    value === ALL_EMPLOYEES_CODE ? 'All employees' : selected ? displayLabel(selected, compact) : '';
 
   React.useEffect(() => {
     if (selected) {
@@ -124,7 +128,30 @@ export const SearchableEmployeeSelect: React.FC<Props> = ({
           ].join(' ')}
           role="listbox"
         >
-          {filtered.length === 0 ? (
+          {includeAllOption && (!query.trim() || query.trim().toLowerCase().includes('all')) ? (
+            <li>
+              <button
+                type="button"
+                role="option"
+                aria-selected={value === ALL_EMPLOYEES_CODE}
+                className={[
+                  'w-full px-3 py-2 text-left hover:bg-slate-50 focus:bg-primary/5 focus:outline-none',
+                  value === ALL_EMPLOYEES_CODE ? 'bg-primary/5' : '',
+                  compact ? 'text-xs' : 'text-sm',
+                ].join(' ')}
+                onClick={() => {
+                  onChange(ALL_EMPLOYEES_CODE);
+                  setQuery('All employees');
+                  setOpen(false);
+                  setBrowseAll(false);
+                }}
+              >
+                <span className="font-bold text-primary">All employees</span>
+                <span className="mt-0.5 block text-xs text-slate-500">Generate for every employee</span>
+              </button>
+            </li>
+          ) : null}
+          {filtered.length === 0 && !(includeAllOption && !query.trim()) ? (
             <li className="px-3 py-2 text-sm text-slate-500">No employees match your search.</li>
           ) : (
             filtered.map((e) => (

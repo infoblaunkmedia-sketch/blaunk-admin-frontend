@@ -30,6 +30,39 @@ export function ListTableSearchInput({
   );
 }
 
+/** Keeps header and body columns aligned when the table scrolls horizontally. */
+export function normalizeHorizontalScrollColumns<T>(
+  columns: TableColumn<T>[],
+): TableColumn<T>[] {
+  return columns.map((col, index) => {
+    const size = col.width || col.minWidth;
+    const nameKey = typeof col.name === 'string' ? col.name : `col-${index}`;
+    const base: TableColumn<T> = {
+      ...col,
+      id: col.id ?? nameKey.replace(/\s+/g, '-').toLowerCase(),
+      grow: 0,
+      wrap: false,
+    };
+    if (!size) return base;
+    return {
+      ...base,
+      width: size,
+      minWidth: col.minWidth || size,
+    };
+  });
+}
+
+/** Wrap table cell content so inputs respect the column width. */
+export function TableCellBox({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={['dt-table-cell-box', className].filter(Boolean).join(' ')}>{children}</div>;
+}
+
 interface DataTableWrapperProps<T extends object> {
   columns: TableColumn<T>[];
   data: T[];
@@ -131,6 +164,12 @@ export function DataTableWrapper<T extends object>({
   const showToolbar =
     Boolean(title) || showBuiltInSearch || exportable || Boolean(actions);
 
+  const tableColumns = React.useMemo(
+    () => (horizontalScroll ? normalizeHorizontalScrollColumns(columns) : columns),
+    [columns, horizontalScroll],
+  );
+  const tableResponsive = horizontalScroll ? false : responsive;
+
   const resolvedStyles: TableStyles = horizontalScroll
     ? {
         ...(customStyles as TableStyles),
@@ -143,12 +182,14 @@ export function DataTableWrapper<T extends object>({
         tableWrapper: {
           style: {
             display: 'block',
-            overflow: 'visible',
+            overflowX: 'visible',
+            overflowY: 'visible',
           },
         },
         responsiveWrapper: {
           style: {
             overflow: 'visible',
+            position: 'relative',
           },
         },
         head: {
@@ -199,6 +240,9 @@ export function DataTableWrapper<T extends object>({
             paddingLeft: '12px',
             paddingRight: '12px',
             flex: '0 0 auto',
+            boxSizing: 'border-box',
+            alignItems: 'center',
+            overflow: 'hidden',
           },
         },
       }
@@ -238,13 +282,13 @@ export function DataTableWrapper<T extends object>({
       )}
       <div
         className={[
-          horizontalScroll ? 'dt-horizontal-scroll overflow-x-auto' : 'overflow-hidden',
+          horizontalScroll ? 'dt-horizontal-scroll min-w-0 overflow-x-auto' : 'overflow-hidden',
           'rounded-card border border-slate-200 bg-white shadow-card',
           className,
         ].join(' ')}
       >
         <DataTable
-          columns={columns}
+          columns={tableColumns}
           data={filtered}
           progressPending={loading}
           pagination
@@ -252,7 +296,7 @@ export function DataTableWrapper<T extends object>({
           paginationRowsPerPageOptions={[10, 20, 50, 100]}
           striped
           highlightOnHover
-          responsive={responsive}
+          responsive={tableResponsive}
           noDataComponent={<EmptyState message="No records found." />}
           customStyles={resolvedStyles}
           className={horizontalScroll ? 'dt-horizontal-scroll-table' : undefined}

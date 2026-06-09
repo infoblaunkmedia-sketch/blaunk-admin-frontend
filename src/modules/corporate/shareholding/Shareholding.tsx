@@ -29,7 +29,7 @@ const emptyForm = (): Omit<Shareholder, 'id'> => ({
   name: '', pan: '', mobile: '', email: '', aadhaar: '',
   address: '', city: '', landmark: '', country: '', gender: '',
   holdingPercent: '', shareType: '', faceValue: '', numberOfShares: '',
-  mode: '', isinCode: '', dpNumber: '', beneficiaryDpId: '', folioNumber: '',
+  mode: '', isinCode: '', dpNumber: '', dp: '', beneficiaryDpId: '', folioNumber: '', certificateNumber: '',
   distinctiveFrom: '', distinctiveTo: '', yearOfIssuance: '',
   stakeholder: '', dateOfAllotment: '', remarks: '', exitDate: '',
   year: '', projectKey: '', bankName: '', ifscCode: '', bankAccountNumber: '',
@@ -87,9 +87,11 @@ export const Shareholding: React.FC = () => {
         if (next === 'Physical') {
           patch.isinCode = '';
           patch.dpNumber = '';
+          patch.dp = '';
           patch.beneficiaryDpId = '';
         } else if (next === 'Demat') {
           patch.folioNumber = '';
+          patch.certificateNumber = '';
           patch.distinctiveFrom = '';
           patch.distinctiveTo = '';
         }
@@ -240,6 +242,15 @@ export const Shareholding: React.FC = () => {
                       onChange={(e) => setField('folioNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12))}
                     />
                   </FormField>
+                  <FormField label="Certificate No.">
+                    <input
+                      className={form.mode === 'Demat' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Demat'}
+                      maxLength={20}
+                      value={form.certificateNumber}
+                      onChange={(e) => setField('certificateNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20))}
+                    />
+                  </FormField>
                   <FormField label="Share Type">
                     <select className={inputClass} value={form.shareType} onChange={(e) => setField('shareType', e.target.value as typeof form.shareType)}>
                       <option value="">Select…</option>
@@ -296,6 +307,18 @@ export const Shareholding: React.FC = () => {
                       value={form.dpNumber}
                       onChange={(e) => setField('dpNumber', e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 16))}
                     />
+                  </FormField>
+                  <FormField label="DP">
+                    <select
+                      className={form.mode === 'Physical' ? disabledFieldClass : inputClass}
+                      disabled={form.mode === 'Physical'}
+                      value={form.dp}
+                      onChange={(e) => setField('dp', e.target.value as Shareholder['dp'])}
+                    >
+                      <option value="">Select…</option>
+                      <option value="NSDL">NSDL</option>
+                      <option value="CDSL">CDSL</option>
+                    </select>
                   </FormField>
                   <FormField label="Distinctive From">
                     <input

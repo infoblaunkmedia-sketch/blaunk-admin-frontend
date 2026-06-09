@@ -6,7 +6,6 @@ import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { ProductPlanChargeRow, AdPlanChargeRow } from '../platform.types';
 import { AD_PLAN_TYPES } from '../platform.types';
-import { MARKETING_AD_PLAN_OPTIONS } from '../../../shared/constants/marketingAdPlans';
 import {
   fetchProductPlanCharges,
   saveProductPlanCharges,
@@ -230,11 +229,6 @@ export const PlanCharges: React.FC = () => {
           )
         }
       >
-        <div className="mb-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
-          {MARKETING_AD_PLAN_OPTIONS.map((t) => (
-            <span key={t}>{t}</span>
-          ))}
-        </div>
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <label className="text-sm font-semibold text-slate-700">Adv plan</label>
           <select
@@ -289,9 +283,9 @@ export const PlanCharges: React.FC = () => {
 
       {confirmSubSave ? (
         <ConfirmDialog
-          title="Update plan charges"
-          message="Update product plan charges? This will affect new DSA uploads."
-          confirmLabel="Confirm"
+          title="Do you want to save new plan charges?"
+          message=""
+          confirmLabel="Save"
           variant="primary"
           loading={savingSub}
           onConfirm={() => void handleSaveSub()}

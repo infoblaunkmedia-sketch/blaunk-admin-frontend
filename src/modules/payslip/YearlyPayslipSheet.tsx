@@ -116,7 +116,7 @@ export const YearlyPayslipSheet: React.FC<{ p: DetailedPayslip }> = ({ p }) => {
     'border-b border-[#a8a8a8] bg-[#e4e4e4] px-1 py-2 text-center text-[9px] font-bold uppercase leading-tight text-black';
 
   return (
-    <article className="annual-payslip-sheet box-border w-fit max-w-none break-inside-avoid border-2 border-[#1a3d6d] bg-white px-4 py-4 pr-8 text-black">
+    <article className="payslip-capture-root annual-payslip-sheet box-border w-fit max-w-none break-inside-avoid border-2 border-[#1a3d6d] bg-white px-4 py-4 pr-8 text-black">
       <AnnualReportHeader title="Annual CTC Break-up" />
 
       <div className="mb-4 grid grid-cols-1 gap-x-12 sm:grid-cols-2">

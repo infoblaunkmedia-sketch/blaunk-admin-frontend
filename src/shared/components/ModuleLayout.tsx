@@ -51,7 +51,7 @@ export const ModuleLayout: React.FC<ModuleLayoutProps> = ({ tabs, moduleKey, chi
 
   return (
     <PageChromeContext.Provider value={{ showPageTitle: !showModuleTabs }}>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3">
         {showModuleTabs ? (
           <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-0">
             {visibleTabs.map((tab) => {

@@ -60,6 +60,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
       { key: 'products', label: 'Products' },
       { key: 'categories', label: 'Categories' },
       { key: 'countries', label: 'Countries' },
+      { key: 'company-profile', label: 'Company Profile' },
       { key: 'rights', label: 'User Rights' },
       { key: 'match-code', label: 'Match Code' },
     ],
@@ -90,7 +91,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
     label: 'Corporate',
     children: [
       { key: 'shareholding', label: 'Shareholding' },
-      { key: 'profile', label: 'Company Profile' },
+      { key: 'mis', label: 'MIS' },
     ],
   },
   { key: 'retailManagement', label: 'Retail Management' },
@@ -117,24 +118,9 @@ export function parseSectionPermission(value: string): { module: string; child: 
   return { module: value.slice(0, i), child: value.slice(i + 1) };
 }
 
-const MANAGEMENT_LEGACY_SECTIONS = new Set([
-  'rights',
-  'match-code',
-]);
-
 export function hasModuleAccess(permissions: string[], module: ModulePermission): boolean {
   if (permissions.includes(module)) return true;
-  if (permissions.some((p) => p.startsWith(`${module}:`))) return true;
-  // Legacy: Settings module merged into Management (platform)
-  if (module === 'platform') {
-    if (permissions.includes('settings')) return true;
-    if (permissions.some((p) => p.startsWith('settings:'))) return true;
-  }
-  // Legacy: grant IT module when only old Settings IP right exists
-  if (module === 'it' && permissions.includes('settings:ip-management')) return true;
-  // Legacy: top-level payslip grant maps to People module
-  if (module === 'people' && permissions.includes('payslip')) return true;
-  return false;
+  return permissions.some((p) => p.startsWith(`${module}:`));
 }
 
 export function hasSectionAccess(
@@ -143,31 +129,7 @@ export function hasSectionAccess(
   childKey: string,
 ): boolean {
   if (permissions.includes(module)) return true;
-  if (permissions.includes(sectionPermissionKey(module, childKey))) return true;
-  // Legacy: IP Management moved from Settings → IT
-  if (module === 'it' && childKey === 'ip-management' && permissions.includes('settings:ip-management')) {
-    return true;
-  }
-  // Legacy: User Rights / Match Code moved from Management → IT
-  if (module === 'it' && childKey === 'rights' && (permissions.includes('platform:rights') || permissions.includes('settings:rights'))) {
-    return true;
-  }
-  if (module === 'platform' && MANAGEMENT_LEGACY_SECTIONS.has(childKey)) {
-    if (permissions.includes(`settings:${childKey}`)) return true;
-    if (permissions.includes('settings')) return true;
-  }
-  if (
-    module === 'platform' &&
-    childKey === 'match-code' &&
-    (permissions.includes('marketing:match-doe') || permissions.includes('marketing:match-code'))
-  ) {
-    return true;
-  }
-  // Legacy: standalone Payslip module → People → Payroll
-  if (module === 'people' && childKey === 'payroll' && permissions.includes('payslip')) {
-    return true;
-  }
-  return false;
+  return permissions.includes(sectionPermissionKey(module, childKey));
 }
 
 export function normalizeSectionList(sections: string[]): string[] {

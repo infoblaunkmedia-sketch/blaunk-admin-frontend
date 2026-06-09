@@ -44,7 +44,7 @@ export const PayslipSheet: React.FC<{ p: DetailedPayslip }> = ({ p }) => {
   const tdLastRow = `px-2 py-1.5 text-[9px] leading-snug text-black sm:text-[10px]`;
 
   return (
-    <article className="break-inside-avoid bg-white p-2 text-black sm:p-4">
+    <article className="payslip-capture-root monthly-payslip-sheet box-border w-full max-w-none break-inside-avoid bg-white p-2 text-black sm:p-4">
       <header className="mb-3">
         <div className="relative flex min-h-[2.75rem] items-center justify-center pb-3">
           <img
@@ -65,9 +65,9 @@ export const PayslipSheet: React.FC<{ p: DetailedPayslip }> = ({ p }) => {
         <div className="border-b border-neutral-400" />
       </header>
 
-      <div className="overflow-hidden border border-neutral-400">
-        <div className="grid border-b border-[#c8c8c8] md:grid-cols-3">
-          <div className="space-y-0 border-b border-r border-[#c8c8c8] p-2.5 md:border-b-0">
+      <div className="payslip-capture-body w-full overflow-hidden border border-neutral-400">
+        <div className="grid grid-cols-3 border-b border-[#c8c8c8]">
+          <div className="space-y-0 border-r border-[#c8c8c8] p-2.5">
             <InfoRow label="Employee Name" value={p.employeeName} />
             <InfoRow label="Department" value={p.department} />
             <InfoRow label="PAN No." value={cell(profile.panNo)} />
@@ -75,7 +75,7 @@ export const PayslipSheet: React.FC<{ p: DetailedPayslip }> = ({ p }) => {
             <InfoRow label="UAN No." value={cell(profile.uanNo)} />
             <InfoRow label="Aadhar No." value={cell(profile.aadharNo)} />
           </div>
-          <div className="space-y-0 border-b border-r border-[#c8c8c8] p-2.5 md:border-b-0">
+          <div className="space-y-0 border-r border-[#c8c8c8] p-2.5">
             <InfoRow label="Employee Code" value={p.employeeCode} />
             <InfoRow label="Location" value={cell(profile.location)} />
             <InfoRow label="Designation" value={cell(profile.designation)} />
@@ -93,8 +93,8 @@ export const PayslipSheet: React.FC<{ p: DetailedPayslip }> = ({ p }) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] table-fixed border-collapse text-black [border-spacing:0]">
+        <div>
+          <table className="w-full table-fixed border-collapse text-black [border-spacing:0]">
             <colgroup>
               <col className="w-[20%]" />
               <col className="w-[9%]" />

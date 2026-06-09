@@ -86,7 +86,7 @@ export const ContractorWorkspacePage: React.FC = () => {
       <div className="space-y-6">
         <WelcomeHero
           title={`Hello, ${displayName}`}
-          subtitle="Track your DSA balance, submit pay-ins, and publish media — all from your assigned modules."
+          subtitle="Track your DSA balance, submit pay-ins, and publish media. All from your assigned modules."
           code={dsaCode || null}
         />
 

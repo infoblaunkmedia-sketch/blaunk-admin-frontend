@@ -15,6 +15,38 @@ export type PayrollReportConfig = {
   outputFormats: Array<'pdf' | 'excel'>;
 };
 
+/** Employee self-service (sidebar Payslip): monthly & yearly PDF only. */
+export const PAYROLL_SELF_SERVICE_TYPES: PayrollReportConfig[] = [
+  {
+    id: 'Monthly Payslip',
+    backendType: 'monthly-payslip',
+    period: 'Monthly',
+    needsMonth: true,
+    outputFormats: ['pdf'],
+  },
+  {
+    id: 'Yearly Payslip',
+    backendType: 'yearly-payslip',
+    period: 'Yearly',
+    needsMonth: false,
+    outputFormats: ['pdf'],
+  },
+  {
+    id: 'FORM16',
+    backendType: 'form16',
+    period: 'Yearly',
+    needsMonth: false,
+    outputFormats: ['pdf'],
+  },
+  {
+    id: 'Investment Declaration',
+    backendType: 'investment-declaration',
+    period: 'Yearly',
+    needsMonth: false,
+    outputFormats: ['pdf'],
+  },
+];
+
 export const PAYROLL_REPORT_TYPES: PayrollReportConfig[] = [
   {
     id: 'Monthly Payslip',
@@ -52,6 +84,13 @@ export const PAYROLL_REPORT_TYPES: PayrollReportConfig[] = [
     outputFormats: ['pdf'],
   },
 ];
+
+/** People → Payroll: no Employee CTC. */
+export const PAYROLL_ADMIN_TYPES: PayrollReportConfig[] = PAYROLL_REPORT_TYPES.filter(
+  (r) => r.id !== 'Employee CTC',
+);
+
+export const ALL_EMPLOYEES_CODE = '__ALL__';
 
 const AVAILABLE_BACKEND_TYPES = new Set(['monthly-payslip', 'yearly-payslip']);
 

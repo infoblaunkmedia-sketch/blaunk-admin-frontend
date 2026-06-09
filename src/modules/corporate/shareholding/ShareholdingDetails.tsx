@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { PageHeader } from '../../../shared/components/PageHeader';
+import { FormBackLink } from '../../../shared/components/FormBackLink';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -63,28 +63,25 @@ export const ShareholdingDetails: React.FC = () => {
 
   const person = identity;
 
+  const goBack = () => navigate('/corporate/shareholding');
+
+  const cardHeaderActions = (
+    <div className="flex items-center gap-3">
+      {pan ? (
+        <button
+          type="button"
+          onClick={() => navigate(`/corporate/shareholding/${encodeURIComponent(pan)}/edit`)}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+        >
+          Edit
+        </button>
+      ) : null}
+      <FormBackLink onClick={goBack} />
+    </div>
+  );
+
   return (
     <ErrorBoundary>
-      <PageHeader
-        title="Shareholder details"
-        subtitle={pan ? `PAN: ${pan}` : 'Shareholding record'}
-        actions={[
-          {
-            label: 'Back',
-            variant: 'secondary',
-            onClick: () => navigate('/corporate/shareholding'),
-          },
-          ...(pan
-            ? [
-                {
-                  label: 'Edit',
-                  onClick: () => navigate(`/corporate/shareholding/${encodeURIComponent(pan)}/edit`),
-                },
-              ]
-            : []),
-        ]}
-      />
-
       {loading ? (
         <div className="rounded-card border border-slate-200 bg-white p-6 shadow-card">
           <p className="text-sm font-semibold text-slate-600">Loading…</p>
@@ -96,7 +93,7 @@ export const ShareholdingDetails: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-5">
           {person ? (
-            <SectionCard title="Personal Details">
+            <SectionCard title="Personal Details" actions={cardHeaderActions}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Field label="Name" value={person.name} />
                 <Field label="Mobile No." value={person.mobile} />
@@ -112,7 +109,10 @@ export const ShareholdingDetails: React.FC = () => {
             </SectionCard>
           ) : null}
 
-          <SectionCard title={`Shareholding history (${history.length} period${history.length === 1 ? '' : 's'})`}>
+          <SectionCard
+            title={`Shareholding history (${history.length} period${history.length === 1 ? '' : 's'})`}
+            actions={!person ? cardHeaderActions : undefined}
+          >
             {history.length === 0 ? (
               <p className="text-sm text-slate-600">No year/project rows yet. Use Edit to add a snapshot.</p>
             ) : (

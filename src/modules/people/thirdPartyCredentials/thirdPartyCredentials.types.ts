@@ -45,6 +45,7 @@ export interface ThirdPartyCredential {
   references: { name: string; mobile: string; designation: string; city: string }[];
   /** Address proof image URL (persisted as employeePhotoUrl for API compatibility). */
   employeePhotoUrl: string;
+  profileImageUrl: string;
   chqImageUrl: string;
   panImageUrl: string;
 

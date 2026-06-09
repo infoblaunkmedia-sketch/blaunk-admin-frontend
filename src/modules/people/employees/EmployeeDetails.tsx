@@ -1,6 +1,6 @@
 import React from 'react';
-import { Navigate, useParams } from 'react-router-dom';
-import { PageHeader } from '../../../shared/components/PageHeader';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { FormBackLink } from '../../../shared/components/FormBackLink';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { EmptyState } from '../../../shared/components/EmptyState';
@@ -8,6 +8,7 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Employee } from '../people.types';
 import { fetchEmployeeByPan } from '../people.service';
 import { formatDateDDMMYYYY, toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
+import { ImagePreviewDialog } from '../../../shared/components/ImagePreview';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -35,6 +36,7 @@ function Field({ label, value }: { label: string; value?: React.ReactNode }) {
 const RESERVED_PAN_SLUGS = new Set(['new', 'add', 'create']);
 
 export const EmployeeDetails: React.FC = () => {
+  const navigate = useNavigate();
   const { pan } = useParams();
   const panNorm = String(pan || '').trim();
   const isReservedSlug = RESERVED_PAN_SLUGS.has(panNorm.toLowerCase());
@@ -42,6 +44,7 @@ export const EmployeeDetails: React.FC = () => {
   const [emp, setEmp] = React.useState<Employee | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [photoPreviewOpen, setPhotoPreviewOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (isReservedSlug) return;
@@ -73,18 +76,6 @@ export const EmployeeDetails: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader
-        title="Employee details"
-        subtitle={panNorm ? `PAN: ${panNorm}` : 'Employee record'}
-        actions={[
-          {
-            label: 'Back to Employees',
-            variant: 'secondary',
-            onClick: () => { window.history.back(); },
-          },
-        ]}
-      />
-
       {loading ? (
         <div className="rounded-card border border-slate-200 bg-white p-6 shadow-card">
           <p className="text-sm font-semibold text-slate-600">Loading…</p>
@@ -100,7 +91,15 @@ export const EmployeeDetails: React.FC = () => {
         <div className="flex flex-col gap-5">
           <SectionCard
             title="Overview"
-            actions={<StatusBadge status={emp.status} />}
+            actions={
+              <div className="flex items-center gap-3">
+                <StatusBadge status={emp.status} />
+                <FormBackLink
+                  label="Back to Employees"
+                  onClick={() => navigate('/people/employees')}
+                />
+              </div>
+            }
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Employee Code" value={emp.employeeCode} />
@@ -159,23 +158,7 @@ export const EmployeeDetails: React.FC = () => {
               <Field label="IFSC" value={emp.ifsc} />
               <Field label="MICR code" value={emp.micrCode} />
               <Field label="Medical Insurance No." value={emp.medicalInsuranceNo} />
-              <Field
-                label="Employee Photo"
-                value={
-                  emp.photoUrl ? (
-                    <a
-                      className="font-semibold text-primary hover:underline"
-                      href={toAbsoluteUrl(emp.photoUrl)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View image
-                    </a>
-                  ) : (
-                    ''
-                  )
-                }
-              />
+              <Field label="Employee Photo" value={emp.photoUrl ? 'Uploaded' : ''} />
               <Field
                 label="Employee Document"
                 value={
@@ -198,15 +181,30 @@ export const EmployeeDetails: React.FC = () => {
             {emp.photoUrl ? (
               <div className="mt-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Employee Photo</p>
-                <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <button
+                  type="button"
+                  title="Click to preview"
+                  onClick={() => setPhotoPreviewOpen(true)}
+                  className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:ring-2 hover:ring-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
                   <img
                     src={toAbsoluteUrl(emp.photoUrl)}
                     alt="Employee photo"
                     className="h-40 w-40 object-cover"
                     loading="lazy"
                   />
-                </div>
+                </button>
               </div>
+            ) : null}
+
+            {photoPreviewOpen && emp.photoUrl ? (
+              <ImagePreviewDialog
+                open
+                src={toAbsoluteUrl(emp.photoUrl)}
+                alt={`${emp.name || 'Employee'} photo`}
+                title="Employee photo"
+                onClose={() => setPhotoPreviewOpen(false)}
+              />
             ) : null}
           </SectionCard>
         </div>

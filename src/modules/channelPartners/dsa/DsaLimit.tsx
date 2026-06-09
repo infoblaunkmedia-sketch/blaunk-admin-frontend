@@ -4,7 +4,6 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../../auth/useAuth';
 import { fetchSliderSummary } from '../../marketing/marketing.service';
 import { fetchDsaPayouts, saveDsaPayout } from '../../finance/finance.service';
-import { fetchDsaRecords } from '../channelPartners.service';
 import type { DsaPayoutSubmission, PaymentMode } from '../../finance/finance.types';
 import {
   isPendingPayoutStatus,
@@ -16,12 +15,12 @@ import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { CurrencySelect } from '../../../shared/components/CurrencySelect';
 import { useCountries } from '../../../shared/hooks/useCountries';
 import { formatDsaPayinAmount, formatInrAmount, normalizeStoredCurrency } from '../../../shared/utils/dsaCurrencyFormat';
-import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { DataTableWrapper, TableCellBox } from '../../../shared/components/DataTableWrapper';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { payoutCheckerDate, payoutCheckerId } from '../../finance/dsaPayouts/payoutChecker';
 
 const inputClass =
-  'h-9 w-full min-w-[5rem] rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
+  'h-9 w-full min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
 
 const disabledFieldClass =
   `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500`;
@@ -38,7 +37,6 @@ function payoutInrDisplay(p: DsaPayoutSubmission): string {
 }
 
 type DraftRow = {
-  checked: boolean;
   mode: PaymentMode;
   txnRef: string;
   currencyCode: string;
@@ -95,7 +93,6 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
   const [country, setCountry] = React.useState('India');
   const [tableRows, setTableRows] = React.useState<DsaLimitTableRow[]>([]);
   const [draft, setDraft] = React.useState<DraftRow>({
-    checked: true,
     mode: 'Cash',
     txnRef: '',
     currencyCode: 'INR',
@@ -115,25 +112,27 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
     }
     setLoading(true);
     try {
-      const [summary, payouts, dsaRecords] = await Promise.all([
+      const [summary, payouts] = await Promise.all([
         fetchSliderSummary({ dsaCode }),
         fetchDsaPayouts({ dsaCode, limit: 50 }),
-        fetchDsaRecords(),
       ]);
 
-      const profile = dsaRecords.find((d) => d.dsaCode.toUpperCase() === dsaCode);
-      if (profile) {
-        setDsaName(profile.companyName || profile.ownerName || '');
-        setCountry(profile.country || 'India');
-        setShareRatio(Number(profile.shareRatio) || 30);
-      }
+      const companyFromSummary = summary.companyName?.trim() || summary.dsaName?.trim() || '';
+      const companyFromPayout = payouts.find((p) => p.dsaName && p.dsaName !== 'NA')?.dsaName?.trim() || '';
+      const companyDisplayName = companyFromSummary || companyFromPayout || 'NA';
+      const resolvedCountry = summary.country?.trim() || payouts.find((p) => p.country)?.country || 'India';
+      const resolvedShareRatio = Number(summary.shareRatio) || Number(payouts.find((p) => p.shareRatio)?.shareRatio) || 30;
+
+      setDsaName(companyDisplayName);
+      setCountry(resolvedCountry);
+      setShareRatio(resolvedShareRatio);
 
       setAvailableBalance(String(Number(summary.availableMargin ?? 0)));
       setMarginUsed(String(summary.marginUsed ?? 0));
 
       const pending = payouts.some((p) => isPendingPayoutStatus(p.status));
       setHasPending(pending);
-      const srLabel = `${Number(profile?.shareRatio) || shareRatio}:${100 - (Number(profile?.shareRatio) || shareRatio)}`;
+      const srLabel = `${resolvedShareRatio}:${100 - resolvedShareRatio}`;
 
       const historyRows: DsaLimitTableRow[] = payouts.map((p) => {
         const sr = Number(p.shareRatio) || 30;
@@ -141,8 +140,8 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
           id: p.id,
           isDraft: false,
           date: formatDateDDMMYYYY(p.submissionDate) || '',
-          dsaName: p.dsaName || profile?.companyName || '-',
-          country: p.country || profile?.country || '-',
+          dsaName: p.dsaName || 'NA',
+          country: p.country || resolvedCountry || '-',
           dsaCode: p.dsaCode,
           shareRatio: `${sr}:${100 - sr}`,
           mode: p.mode || '-',
@@ -169,8 +168,8 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
             id: 'draft',
             isDraft: true,
             date: formatDateDDMMYYYY(new Date().toISOString().slice(0, 10)),
-            dsaName: dsaName || profile?.companyName || '-',
-            country: profile?.country || country,
+            dsaName: companyDisplayName,
+            country: resolvedCountry || country,
             dsaCode,
             shareRatio: srLabel,
             mode: currentDraft.mode,
@@ -245,10 +244,6 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       toast.warn('A pending submission already exists. Wait for approval before submitting again.');
       return;
     }
-    if (!draft.checked) {
-      toast.warn('Select the submission row to save.');
-      return;
-    }
     const submittedAmount = Number(draft.currencyPayin) || 0;
     if (submittedAmount <= 0) {
       toast.error('Enter pay-in amount.');
@@ -285,7 +280,6 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       } as DsaPayoutSubmission);
       toast.success('Submission sent for approval. Media Upload margin updates after approval.');
       setDraft({
-        checked: true,
         mode: 'Cash',
         txnRef: '',
         currencyCode: 'INR',
@@ -304,179 +298,219 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
 
   const columns = React.useMemo((): TableColumn<DsaLimitTableRow>[] => [
     {
-      name: '',
-      width: '48px',
-      cell: (row) => (
-        <input
-          type="checkbox"
-          checked={row.isDraft ? !!row.draft?.checked : false}
-          disabled={!row.isDraft}
-          onChange={(e) => row.isDraft && updateDraft({ checked: e.target.checked })}
-          className="h-4 w-4 accent-primary"
-        />
-      ),
-    },
-    {
       name: 'Date',
       selector: (row) => row.date,
-      cell: (row) => <span className="whitespace-nowrap font-semibold text-slate-800">{row.date}</span>,
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800">{row.date}</span>
+        </TableCellBox>
+      ),
       sortable: true,
       minWidth: '6.5rem',
+      width: '6.5rem',
     },
-    { name: 'DSA Name', selector: (row) => row.dsaName, sortable: true, minWidth: '7rem' },
-    { name: 'Country', selector: (row) => row.country, sortable: true, minWidth: '5.5rem' },
+    {
+      name: 'DSA Name',
+      selector: (row) => row.dsaName,
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800" title={row.dsaName || 'NA'}>
+            {row.dsaName || 'NA'}
+          </span>
+        </TableCellBox>
+      ),
+      sortable: true,
+      minWidth: '14rem',
+      width: '14rem',
+    },
+    {
+      name: 'Country',
+      selector: (row) => row.country,
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800">{row.country || '—'}</span>
+        </TableCellBox>
+      ),
+      sortable: true,
+      minWidth: '7rem',
+      width: '7rem',
+    },
     {
       name: 'Sharing Ratio',
       selector: (row) => row.shareRatio,
-      minWidth: '7.5rem',
-      width: '7.5rem',
+      cell: (row) => (
+        <TableCellBox>
+          <span className="block truncate font-semibold text-slate-800">{row.shareRatio}</span>
+        </TableCellBox>
+      ),
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
       name: 'Mode',
       cell: (row) => {
         if (!row.isDraft) {
-          return <input className={disabledFieldClass} readOnly value={row.mode} />;
+          return (
+            <TableCellBox>
+              <input className={disabledFieldClass} readOnly value={row.mode} />
+            </TableCellBox>
+          );
         }
         const d = row.draft!;
-        const editableClass = [
-          inputClass,
-          d.checked ? '' : 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500',
-        ].join(' ');
         return (
-          <select
-            className={editableClass}
-            value={d.mode}
-            onChange={(e) => updateDraft({ mode: e.target.value as PaymentMode })}
-            disabled={!d.checked}
-          >
-            <option value="Cash">Cash</option>
-            <option value="QR">QR</option>
-            <option value="UPI">UPI</option>
-            <option value="Swift">Swift</option>
-            <option value="RTGS">RTGS</option>
-            <option value="NEFT">NEFT</option>
-          </select>
+          <TableCellBox>
+            <select
+              className={inputClass}
+              value={d.mode}
+              onChange={(e) => updateDraft({ mode: e.target.value as PaymentMode })}
+            >
+              <option value="Cash">Cash</option>
+              <option value="QR">QR</option>
+              <option value="UPI">UPI</option>
+              <option value="Swift">Swift</option>
+              <option value="RTGS">RTGS</option>
+              <option value="NEFT">NEFT</option>
+            </select>
+          </TableCellBox>
         );
       },
       minWidth: '6.5rem',
+      width: '6.5rem',
     },
     {
       name: 'Transaction Ref No.',
       cell: (row) => {
         if (!row.isDraft) {
-          return <input className={disabledFieldClass} readOnly value={row.txnRef || '-'} />;
+          return (
+            <TableCellBox>
+              <input className={disabledFieldClass} readOnly value={row.txnRef || '-'} />
+            </TableCellBox>
+          );
         }
         const d = row.draft!;
         return (
-          <input
-            type="text"
-            value={d.txnRef}
-            onChange={(e) => updateDraft({ txnRef: e.target.value })}
-            className={d.checked ? inputClass : disabledFieldClass}
-            disabled={!d.checked}
-          />
+          <TableCellBox>
+            <input
+              type="text"
+              value={d.txnRef}
+              onChange={(e) => updateDraft({ txnRef: e.target.value })}
+              className={inputClass}
+            />
+          </TableCellBox>
         );
       },
-      minWidth: '10rem',
-      width: '10rem',
+      minWidth: '11rem',
+      width: '11rem',
     },
     {
       name: 'Payin Currency',
       cell: (row) => {
         if (!row.isDraft) {
           return (
-            <input
-              className={`${disabledFieldClass} max-w-[6.5rem]`}
-              readOnly
-              value={row.currencyCode}
-            />
+            <TableCellBox>
+              <input className={disabledFieldClass} readOnly value={row.currencyCode} />
+            </TableCellBox>
           );
         }
         const d = row.draft!;
         return (
-          <CurrencySelect
-            className={d.checked ? undefined : disabledFieldClass}
-            value={d.currencyCode}
-            onChange={(code) => updateDraft({ currencyCode: code })}
-            disabled={!d.checked}
-          />
+          <TableCellBox>
+            <CurrencySelect
+              value={d.currencyCode}
+              onChange={(code) => updateDraft({ currencyCode: code })}
+            />
+          </TableCellBox>
         );
       },
-      minWidth: '8.5rem',
-      width: '8.5rem',
+      minWidth: '13rem',
+      width: '13rem',
     },
     {
-      name: 'Currency-Payin',
+      name: 'Amount-Payin',
       cell: (row) => {
         if (!row.isDraft) {
           return (
-            <input
-              className={disabledFieldClass}
-              readOnly
-              value={formatDsaPayinAmount(row.currencyPayin, row.currencyCode, countries)}
-            />
+            <TableCellBox>
+              <input
+                className={disabledFieldClass}
+                readOnly
+                value={formatDsaPayinAmount(row.currencyPayin, row.currencyCode, countries)}
+              />
+            </TableCellBox>
           );
         }
         const d = row.draft!;
         return (
-          <input
-            type="text"
-            value={d.currencyPayin}
-            onChange={(e) => updateDraft({ currencyPayin: e.target.value.replace(/[^\d.]/g, '') })}
-            className={d.checked ? inputClass : disabledFieldClass}
-            disabled={!d.checked}
-          />
+          <TableCellBox>
+            <input
+              type="text"
+              value={d.currencyPayin}
+              onChange={(e) => updateDraft({ currencyPayin: e.target.value.replace(/[^\d.]/g, '') })}
+              className={inputClass}
+            />
+          </TableCellBox>
         );
       },
-      minWidth: '8.5rem',
+      minWidth: '10rem',
+      width: '10rem',
     },
     {
-      name: 'Currency-INR',
+      name: 'Amount-INR',
       cell: (row) => (
-        <input
-          className={disabledFieldClass}
-          readOnly
-          disabled
-          value={row.isDraft ? row.draft?.currencyInr ?? '' : row.currencyInr}
-        />
+        <TableCellBox>
+          <input
+            className={disabledFieldClass}
+            readOnly
+            disabled
+            value={row.isDraft ? row.draft?.currencyInr ?? '' : row.currencyInr}
+          />
+        </TableCellBox>
       ),
-      minWidth: '8.5rem',
-      width: '8.5rem',
+      minWidth: '9rem',
+      width: '9rem',
     },
     {
       name: 'Limit',
       cell: (row) => (
-        <input
-          className={disabledFieldClass}
-          readOnly
-          disabled
-          value={row.isDraft ? row.draft?.calculatedLimit ?? '' : row.limit}
-        />
+        <TableCellBox>
+          <input
+            className={disabledFieldClass}
+            readOnly
+            disabled
+            value={row.isDraft ? row.draft?.calculatedLimit ?? '' : row.limit}
+          />
+        </TableCellBox>
       ),
-      minWidth: '7rem',
+      minWidth: '8rem',
+      width: '8rem',
     },
     {
       name: 'Available Balance',
       cell: (row) => {
         const limit = row.isDraft ? row.draft?.calculatedLimit ?? '' : row.limit;
         return (
-          <input
-            className={disabledFieldClass}
-            readOnly
-            disabled
-            value={rowLimitDisplay(limit) ? formatInrAmount(rowLimitDisplay(limit)) : ''}
-          />
+          <TableCellBox>
+            <input
+              className={disabledFieldClass}
+              readOnly
+              disabled
+              value={rowLimitDisplay(limit) ? formatInrAmount(rowLimitDisplay(limit)) : ''}
+            />
+          </TableCellBox>
         );
       },
-      minWidth: '9.5rem',
-      width: '9.5rem',
+      minWidth: '11rem',
+      width: '11rem',
     },
     {
       name: 'Approval',
       cell: (row) => (
-        <input className={disabledFieldClass} readOnly value={row.approval} />
+        <TableCellBox>
+          <input className={disabledFieldClass} readOnly value={row.approval} />
+        </TableCellBox>
       ),
-      minWidth: '8rem',
+      minWidth: '8.5rem',
+      width: '8.5rem',
     },
     {
       name: 'Remark',
@@ -494,23 +528,27 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
       name: 'Checker Date',
       selector: (row) => row.checkerDate,
       cell: (row) => (
-        <span className="whitespace-nowrap text-sm font-semibold text-slate-800">{row.checkerDate}</span>
+        <TableCellBox>
+          <span className="block truncate text-sm font-semibold text-slate-800">{row.checkerDate}</span>
+        </TableCellBox>
       ),
       sortable: true,
-      minWidth: '9rem',
-      width: '9rem',
+      minWidth: '9.5rem',
+      width: '9.5rem',
     },
     {
       name: 'Checker Id',
       selector: (row) => row.checkerId,
       cell: (row) => (
-        <span className="whitespace-nowrap font-semibold uppercase text-slate-800">{row.checkerId}</span>
+        <TableCellBox>
+          <span className="block truncate font-semibold uppercase text-slate-800">{row.checkerId}</span>
+        </TableCellBox>
       ),
       sortable: true,
-      minWidth: '8.5rem',
-      width: '8.5rem',
+      minWidth: '9rem',
+      width: '9rem',
     },
-  ], [updateDraft]);
+  ], [countries, updateDraft]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -530,12 +568,13 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
             {tab.label}
           </button>
         ))}
-        <div className="flex flex-wrap items-center gap-4 text-sm font-semibold text-slate-700">
+        <div className="flex w-full min-w-0 flex-col gap-1 text-sm font-semibold text-slate-700 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <span className="whitespace-nowrap">
             Margin Used: <span className="font-bold text-slate-900">{formatInrAmount(marginUsed)}</span>
           </span>
-          <span className="whitespace-nowrap">
-            Available Balance: <span className="font-bold text-slate-900">{formatInrAmount(availableBalance)}</span>
+          <span className="w-full whitespace-nowrap sm:w-auto">
+            Available Balance:{' '}
+            <span className="font-bold text-slate-900">{formatInrAmount(availableBalance)}</span>
           </span>
         </div>
       </div>
@@ -552,12 +591,14 @@ export const DsaLimit: React.FC<Props> = ({ refreshKey = 0, onSaved }) => {
         </button>
       </div>
 
-      <SectionCard title="" contentClassName="p-0 overflow-hidden">
+      <SectionCard title="" contentClassName="min-w-0 p-0">
         <DataTableWrapper
           columns={columns}
           data={filteredTableRows}
           loading={loading}
           searchable={false}
+          responsive={false}
+          horizontalScroll
           className="!rounded-none !border-0 !shadow-none"
         />
       </SectionCard>

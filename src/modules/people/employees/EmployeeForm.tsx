@@ -49,9 +49,13 @@ const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20';
 const selectClass = inputClass;
 
+const readOnlyClass =
+  `${inputClass} cursor-not-allowed border-slate-200 bg-slate-100 text-slate-600`;
+
 interface EmployeeFormProps {
   initial?: Partial<Employee>;
-  employeeCode: string;
+  employeeCode?: string;
+  isNew?: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -110,10 +114,14 @@ function calcCtc(vals: Partial<FormValues>) {
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({
   initial = {},
-  employeeCode,
+  employeeCode: initialEmployeeCode = '',
+  isNew = false,
   onSaved,
   onCancel,
 }) => {
+  const [employeeCode, setEmployeeCode] = React.useState(
+    () => String(initialEmployeeCode || initial.employeeCode || '').trim().toUpperCase(),
+  );
   const [step, setStep] = React.useState(0);
   const [photoUrl, setPhotoUrl] = React.useState(initial.photoUrl ?? initial.employeePhotoUrl ?? '');
   const [photoUploading, setPhotoUploading] = React.useState(false);
@@ -150,6 +158,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
         uan: base.uan ?? '',
         pf: base.pf ?? '',
         exitDate: base.exitDate ?? '',
+        address2: base.address2 ?? '',
         yearlyCtc: base.yearlyCtc ?? '',
         esiSalary: base.esiSalary ?? '',
         pfContribution: base.pfContribution ?? '',
@@ -198,11 +207,32 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
   }, [values, employeeCode]);
 
   const { monthly: monthlyCtc, perDay: perDayCtc, divisor: ctcDivisor } = calcCtc(values);
+  const employeeStatus = watch('status');
+  const isExitStatus = employeeStatus === 'EXIT';
+  const yearlyCtcCalculated = Math.round(monthlyCtc * 12 * 100) / 100;
+
+  const saveDraft = () => {
+    const code = employeeCode.trim().toUpperCase();
+    if (!code) {
+      toast.error('Employee code is required to save a draft.');
+      return;
+    }
+    sessionStorage.setItem(`${DRAFT_KEY}_${code}`, JSON.stringify(getValues()));
+    toast.success('Draft saved');
+  };
 
   const nextStep = async () => {
+    if (isNew && step === 0 && !employeeCode.trim()) {
+      toast.error('Please enter an employee code.');
+      return;
+    }
+    if (step === 1 && isExitStatus) {
+      const exitOk = await trigger('exitDate');
+      if (!exitOk) return;
+    }
     const fieldsPerStep: (keyof FormValues)[][] = [
       ['fullName', 'mobile', 'email', 'gender', 'dob', 'panNumber'],
-      ['department', 'designation', 'dateOfJoining', 'status'],
+      ['department', 'designation', 'dateOfJoining', 'status', ...(isExitStatus ? ['exitDate' as keyof FormValues] : [])],
       [],
       [],
       [],
@@ -212,6 +242,16 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
   };
 
   const onSubmit = async (data: FormValues) => {
+    const code = employeeCode.trim().toUpperCase();
+    if (!code) {
+      toast.error('Employee code is required.');
+      return;
+    }
+    if (data.status === 'EXIT' && !String(data.exitDate || '').trim()) {
+      toast.error('Exit date is required when employee status is EXIT.');
+      setStep(1);
+      return;
+    }
     const refMsg = findReferenceContactIssue(data.references || []);
     if (refMsg) {
       toast.error(refMsg);
@@ -222,10 +262,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
       const { monthly: mCtc, perDay: pCtc } = calcCtc(data);
       const emp: Employee = {
         ...data,
-        employeeCode,
+        employeeCode: code,
         photoUrl,
         monthlyCtc: mCtc,
         perDayCtc: pCtc,
+        yearlyCtc: String(Math.round(mCtc * 12 * 100) / 100),
         pTax: data.pTax || String(Number(data.professionalTax) || 0),
         basicSalary: Number(data.basicSalary) || 0,
         hra: Number(data.hra) || 0,
@@ -244,11 +285,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
         roundOff: Number(data.roundOff) || 0,
       };
       await saveEmployee(emp);
-      sessionStorage.removeItem(`${DRAFT_KEY}_${employeeCode}`);
-      toast.success(`Employee ${employeeCode} saved`);
+      sessionStorage.removeItem(`${DRAFT_KEY}_${code}`);
+      toast.success(`Employee ${code} saved`);
       onSaved();
-    } catch {
-      toast.error('Failed to save employee');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save employee');
     } finally {
       setSaving(false);
     }
@@ -271,7 +312,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     >
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-primary">
-          {initial.fullName ? `Edit: ${initial.fullName}` : `New Employee — ${employeeCode}`}
+          {initial.fullName ? `Edit: ${initial.fullName}` : 'New Employee'}
         </h2>
         <StatusBadge status={watch('status') || 'Active'} />
       </div>
@@ -282,6 +323,16 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
       {step === 0 && (
         <SectionCard title="Personal Information">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <FormField label="Employee Code" required>
+              <input
+                className={isNew ? inputClass : `${inputClass} cursor-not-allowed bg-slate-100 text-slate-600`}
+                value={employeeCode}
+                readOnly={!isNew}
+                maxLength={20}
+                placeholder="e.g. E001"
+                onChange={(e) => setEmployeeCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())}
+              />
+            </FormField>
             <Controller
               name="fullName"
               control={control}
@@ -367,22 +418,51 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               )}
             />
             <FormField label="Aadhaar Number">
-                <input
-                  className={inputClass}
-                  maxLength={12}
-                  inputMode="numeric"
-                  placeholder="12 digit Aadhaar"
-                  onKeyDown={onIntegerInputKeyDown}
-                  {...register('aadhaarNumber', {
+              <input
+                className={inputClass}
+                maxLength={12}
+                inputMode="numeric"
+                placeholder="12 digit Aadhaar"
+                onKeyDown={onIntegerInputKeyDown}
+                {...register('aadhaarNumber', {
                   setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 12),
                   validate: (v) =>
                     !v || String(v).length === 12 || 'Aadhaar must be 12 digits',
                 })}
               />
             </FormField>
-            <FormField label="Address" className="sm:col-span-2">
-              <input className={inputClass} {...register('address')} />
-            </FormField>
+            <Controller
+              name="address"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Address 1">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
+            <Controller
+              name="address2"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Address 2">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <Controller
               name="city"
               control={control}
@@ -468,6 +548,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               label={photoUploading ? 'Uploading…' : 'Click to upload'}
             />
           </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Save as draft
+            </button>
+          </div>
         </SectionCard>
       )}
 
@@ -502,16 +591,6 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 {...register('dateOfJoining', { required: 'Please enter the date of joining.' })}
               />
             </FormField>
-            <FormField label="Yearly CTC">
-              <input
-                className={inputClass}
-                inputMode="decimal"
-                onKeyDown={onNumericInputKeyDown}
-                {...register('yearlyCtc', {
-                  setValueAs: (v) => String(v || '').replace(/[^\d.]/g, ''),
-                })}
-              />
-            </FormField>
             <FormField label="PF Request">
               <select className={selectClass} {...register('pfRequest')}>
                 <option value="">Select</option>
@@ -522,9 +601,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 ))}
               </select>
             </FormField>
-            <FormField label="Centre Name">
-              <input className={inputClass} {...register('centreName')} />
-            </FormField>
+            <Controller
+              name="centreName"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Centre Name">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="Confirmation Status">
               <select className={selectClass} {...register('confirmationStatus')}>
                 <option value="">Select</option>
@@ -573,15 +665,41 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             <FormField label="Medical Insurance No.">
               <input className={inputClass} {...register('medicalInsuranceNo')} />
             </FormField>
-            <FormField label="Insurer (Medical)">
-              <input className={inputClass} {...register('medicalInsurer')} />
-            </FormField>
+            <Controller
+              name="medicalInsurer"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Insurer (Medical)">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="Gratuity No.">
               <input className={inputClass} {...register('gratuityNo')} />
             </FormField>
-            <FormField label="Insurer (Gratuity)">
-              <input className={inputClass} {...register('gratuityInsurer')} />
-            </FormField>
+            <Controller
+              name="gratuityInsurer"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Insurer (Gratuity)">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="Bonus">
               <select className={selectClass} {...register('bonus')}>
                 <option value="">Select</option>
@@ -592,12 +710,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 ))}
               </select>
             </FormField>
-            <FormField label="Exit Date">
-              <input type="date" className={inputClass} {...register('exitDate')} />
-            </FormField>
-            <FormField label="Remarks">
-              <input className={inputClass} {...register('remarks')} />
-            </FormField>
+            <Controller
+              name="remarks"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Remarks">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
             <FormField label="Employee Status" required error={errors.status?.message}>
               <select className={selectClass} {...register('status', { required: 'Please select employee status.' })}>
                 <option value="">Select</option>
@@ -608,6 +736,24 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 ))}
               </select>
             </FormField>
+            {isExitStatus ? (
+              <FormField label="Exit Date" required error={errors.exitDate?.message}>
+                <input
+                  type="date"
+                  className={inputClass}
+                  {...register('exitDate', { required: 'Exit date is required when status is EXIT.' })}
+                />
+              </FormField>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Save as draft
+            </button>
           </div>
         </SectionCard>
       )}
@@ -695,6 +841,13 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 ))}
               </select>
             </FormField>
+            <FormField label="Yearly CTC (Monthly × 12)">
+              <input
+                className={readOnlyClass}
+                readOnly
+                value={yearlyCtcCalculated > 0 ? `₹${yearlyCtcCalculated.toLocaleString()}` : '—'}
+              />
+            </FormField>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-6 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-3">
@@ -706,6 +859,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               <p className="text-xs font-semibold text-emerald-700">Per Day CTC (÷ {ctcDivisor})</p>
               <p className="text-xl font-bold text-emerald-800">₹{perDayCtc.toLocaleString()}</p>
             </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Save as draft
+            </button>
           </div>
         </SectionCard>
       )}
@@ -738,12 +900,47 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 })}
               />
             </FormField>
-            <FormField label="Area">
-              <input className={inputClass} {...register('bankArea')} />
-            </FormField>
-            <FormField label="City">
-              <input className={inputClass} {...register('bankCity')} />
-            </FormField>
+            <Controller
+              name="bankArea"
+              control={control}
+              render={({ field }) => (
+                <FormField label="Area">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
+            <Controller
+              name="bankCity"
+              control={control}
+              render={({ field }) => (
+                <FormField label="City">
+                  <input
+                    className={inputClass}
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    name={field.name}
+                    onChange={(e) => field.onChange(titleCaseWords(e.target.value))}
+                  />
+                </FormField>
+              )}
+            />
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Save as draft
+            </button>
           </div>
         </SectionCard>
       )}
@@ -932,6 +1129,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
               />
             </div>
           </SectionCard>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={saveDraft}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Save as draft
+            </button>
+          </div>
         </div>
       )}
 

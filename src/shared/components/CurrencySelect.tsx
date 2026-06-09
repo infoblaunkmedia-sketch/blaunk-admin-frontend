@@ -2,7 +2,7 @@ import React from 'react';
 import { useCountries } from '../hooks/useCountries';
 
 const selectClass =
-  'h-9 w-full min-w-[8.5rem] rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
+  'h-9 w-full min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/25';
 
 type Props = {
   value: string;

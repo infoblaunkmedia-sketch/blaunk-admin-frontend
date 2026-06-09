@@ -173,16 +173,43 @@ textarea:disabled {
   min-width: 100%;
 }
 
+.dt-horizontal-scroll .rdt_TableHead {
+  position: static !important;
+}
+
 .dt-horizontal-scroll .rdt_TableCol {
   background-color: var(--brand-primary);
   flex: 0 0 auto !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  word-break: break-word;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: normal !important;
   line-height: 1.3;
+  box-sizing: border-box;
+  align-items: center;
 }
 
 .dt-horizontal-scroll .rdt_TableCell {
   flex: 0 0 auto !important;
+  overflow: hidden;
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.dt-horizontal-scroll .rdt_TableCell > *,
+.dt-table-cell-box {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.dt-table-cell-box input,
+.dt-table-cell-box select,
+.dt-horizontal-scroll .rdt_TableCell input,
+.dt-horizontal-scroll .rdt_TableCell select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }

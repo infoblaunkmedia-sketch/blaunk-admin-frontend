@@ -4,7 +4,8 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import type { ModulePermission } from '../../shared/types/auth.types';
 import { useAuth } from '../../auth/useAuth';
-import { canAccessPath, getWorkspaceHomePath } from '../../auth/homePath';
+import { canAccessPath, getWorkspaceHomePath, modulePermissionForPath } from '../../auth/homePath';
+import { hasModuleAccess } from '../../shared/constants/moduleRights';
 import { api } from '../../shared/services/apiService';
 
 type MeMinimal = {
@@ -92,8 +93,8 @@ export const Shell: React.FC = () => {
         if (!same) updatePermissions(next);
 
         const modAfter = modulePermissionForPath(location.pathname);
-        if (modAfter !== null && !next.includes(modAfter)) {
-          navigate(getWorkspaceHomePath(user), { replace: true });
+        if (modAfter !== null && !hasModuleAccess(next, modAfter)) {
+          navigate(getWorkspaceHomePath({ ...user, permissions: next }), { replace: true });
         }
       } catch (e) {
         // If token is invalid/expired, logout to force re-auth.

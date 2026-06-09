@@ -5,11 +5,11 @@ import { ErrorBoundary } from '../../shared/components/ErrorBoundary';
 import { ShareholdingList } from './shareholding/ShareholdingList';
 import { ShareholdingForm } from './shareholding/ShareholdingForm';
 import { ShareholdingDetails } from './shareholding/ShareholdingDetails';
-import { CompanyProfile } from './companyProfile/CompanyProfile';
+import { ShareholdingMis } from './mis/ShareholdingMis';
 
 const TABS = [
   { label: 'Shareholding', path: '/corporate/shareholding', section: 'shareholding' },
-  { label: 'Company Profile', path: '/corporate/profile', section: 'profile' },
+  { label: 'MIS', path: '/corporate/mis', section: 'mis' },
 ];
 
 export const CorporatePage: React.FC = () => (
@@ -21,7 +21,8 @@ export const CorporatePage: React.FC = () => (
         <Route path="shareholding/new" element={<ShareholdingForm />} />
         <Route path="shareholding/:pan" element={<ShareholdingDetails />} />
         <Route path="shareholding/:pan/edit" element={<ShareholdingForm />} />
-        <Route path="profile" element={<CompanyProfile />} />
+        <Route path="mis" element={<ShareholdingMis />} />
+        <Route path="profile" element={<Navigate to="/management/company-profile" replace />} />
       </Routes>
     </ModuleLayout>
   </ErrorBoundary>

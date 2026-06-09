@@ -41,7 +41,6 @@ export const EmployeeWorkspacePage: React.FC = () => {
   }, []);
 
   const displayName = me?.username ?? user?.username ?? 'there';
-  const code = me?.employeeCode ?? user?.code ?? null;
   const quickLinks = buildWorkspaceQuickLinks(user?.permissions ?? []);
 
   return (
@@ -55,7 +54,6 @@ export const EmployeeWorkspacePage: React.FC = () => {
         <WelcomeHero
           title={`Welcome back, ${displayName}`}
           subtitle="Jump into your tools below or use the sidebar for full navigation."
-          code={code}
           department={me?.department}
         />
 

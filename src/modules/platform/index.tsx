@@ -9,6 +9,7 @@ import { Products } from './products/Products';
 import { Categories } from './categories/Categories';
 import { MatchDoe } from '../marketing/matchDoe/MatchDoe';
 import { Countries } from './countries/Countries';
+import { CompanyProfile } from '../corporate/companyProfile/CompanyProfile';
 
 const TABS = [
   { label: 'Plan Charges', path: '/management/plan-charges', section: 'plan-charges' },
@@ -17,6 +18,7 @@ const TABS = [
   { label: 'Products', path: '/management/products', section: 'products' },
   { label: 'Categories', path: '/management/categories', section: 'categories' },
   { label: 'Countries', path: '/management/countries', section: 'countries' },
+  { label: 'Company Profile', path: '/management/company-profile', section: 'company-profile' },
   { label: 'Match Code', path: '/management/match-code', section: 'match-code' },
 ];
 
@@ -32,6 +34,8 @@ export const ManagementPage: React.FC = () => (
         <Route path="products" element={<Products />} />
         <Route path="categories" element={<Categories />} />
         <Route path="countries" element={<Countries />} />
+        <Route path="company-profile" element={<CompanyProfile />} />
+        <Route path="profile" element={<Navigate to="company-profile" replace />} />
         <Route path="rights" element={<Navigate to="/it/rights" replace />} />
         <Route path="security" element={<Navigate to="/it/rights" replace />} />
         <Route path="slot-settings" element={<Navigate to="/management/plan-charges" replace />} />
