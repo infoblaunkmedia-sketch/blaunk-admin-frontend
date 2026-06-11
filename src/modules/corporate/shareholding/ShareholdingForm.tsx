@@ -1,6 +1,6 @@
 import React from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Controller, useForm, type UseFormReset } from 'react-hook-form';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FormBackLink } from '../../../shared/components/FormBackLink';
 import { SectionCard } from '../../../shared/components/SectionCard';
@@ -8,7 +8,12 @@ import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import type { Nominee, Shareholder } from '../corporate.types';
 import { SHARE_REMARK_OPTIONS, PLEDGE_OPTIONS, SHARE_STATUS_OPTIONS } from '../corporate.types';
-import { fetchShareholderByPan, saveShareholder } from '../corporate.service';
+import {
+  fetchShareholderByPan,
+  fetchShareholders,
+  resolveShareholderIdentity,
+  saveShareholder,
+} from '../corporate.service';
 import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
 import { toDateInputValue } from '../../../shared/utils/dateFormat';
 import { BankNameInput } from '../../../shared/components/BankNameInput';
@@ -38,10 +43,15 @@ const defaultValues: FormValues = {
   pan: '',
   aadhaar: '',
   address: '',
+  addressLine2: '',
   city: '',
+  area: '',
   landmark: '',
+  pincode: '',
+  state: '',
   country: '',
   gender: '',
+  formSubmission: '',
 
   holdingPercent: '',
   shareType: '',
@@ -76,29 +86,46 @@ const defaultValues: FormValues = {
   nominees: [emptyNominee(), emptyNominee(), emptyNominee()],
 };
 
+function pickNonEmpty(...values: (string | undefined | null)[]): string {
+  for (const value of values) {
+    const s = String(value ?? '').trim();
+    if (s) return s;
+  }
+  return '';
+}
+
 function pickPeriodForm(
   identity: Shareholder | null,
   historyRows: Shareholder[],
   record: Shareholder | null,
   historyIdParam: string | null,
 ): Shareholder {
-  const idNominees = identity?.nominees?.length ? identity.nominees : defaultValues.nominees;
-  const personal = (): Partial<FormValues> =>
-    identity
-      ? {
-          name: identity.name,
-          pan: identity.pan,
-          mobile: identity.mobile,
-          email: identity.email,
-          aadhaar: identity.aadhaar,
-          address: identity.address,
-          city: identity.city,
-          landmark: identity.landmark,
-          country: identity.country,
-          gender: identity.gender,
-          nominees: idNominees,
-        }
-      : {};
+  const idNominees = identity?.nominees?.length
+    ? identity.nominees
+    : record?.nominees?.length
+      ? record.nominees
+      : defaultValues.nominees;
+  const personal = (): Partial<FormValues> => {
+    if (!identity && !record) return {};
+    return {
+      name: pickNonEmpty(identity?.name, record?.name),
+      pan: pickNonEmpty(identity?.pan, record?.pan),
+      mobile: pickNonEmpty(identity?.mobile, record?.mobile),
+      email: pickNonEmpty(identity?.email, record?.email),
+      aadhaar: pickNonEmpty(identity?.aadhaar, record?.aadhaar),
+      address: pickNonEmpty(identity?.address, record?.address),
+      addressLine2: pickNonEmpty(identity?.addressLine2, record?.addressLine2),
+      city: pickNonEmpty(identity?.city, record?.city),
+      area: pickNonEmpty(identity?.area, record?.area),
+      landmark: pickNonEmpty(identity?.landmark, record?.landmark),
+      pincode: pickNonEmpty(identity?.pincode, record?.pincode),
+      state: pickNonEmpty(identity?.state, record?.state),
+      country: pickNonEmpty(identity?.country, record?.country),
+      gender: pickNonEmpty(identity?.gender, record?.gender),
+      formSubmission: pickNonEmpty(identity?.formSubmission, record?.formSubmission),
+      nominees: idNominees,
+    };
+  };
 
   if (historyIdParam === '__new__') {
     return {
@@ -135,25 +162,92 @@ function pickPeriodForm(
   return { ...defaultValues, ...personal() } as Shareholder;
 }
 
+type PanOption = { pan: string; name: string };
+
+function formValuesFromShareholder(merged: Shareholder): FormValues {
+  const vals = { ...defaultValues };
+  (Object.keys(defaultValues) as (keyof FormValues)[]).forEach((k) => {
+    const map = merged as unknown as Record<string, unknown>;
+    let val = map[k];
+    if (val === undefined || val === null) return;
+    if (k === 'yearOfIssuance' || k === 'dateOfAllotment' || k === 'exitDate') {
+      val = toDateInputValue(String(val));
+    }
+    if (k === 'nominees') {
+      const arr = Array.isArray(val) ? [...(val as Nominee[])] : [];
+      while (arr.length < 3) arr.push(emptyNominee());
+      vals.nominees = arr.slice(0, 3);
+      return;
+    }
+    (vals as unknown as Record<string, unknown>)[k] = val;
+  });
+  return vals;
+}
+
+function applyShareholderToForm(merged: Shareholder, reset: UseFormReset<FormValues>) {
+  reset(formValuesFromShareholder(merged));
+}
+
+function isAddShareholdingPath(pathname: string): boolean {
+  return /\/shareholding\/new\/?$/i.test(pathname);
+}
+
 export const ShareholdingForm: React.FC = () => {
   const { pan } = useParams();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const isEdit = !!pan && pan !== 'new';
+  const isNew = isAddShareholdingPath(location.pathname) || pan === 'new';
+  const isEdit = Boolean(pan) && !isNew;
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(isEdit);
   const [saving, setSaving] = React.useState(false);
   const [identityPan, setIdentityPan] = React.useState('');
   const [historyOptions, setHistoryOptions] = React.useState<Shareholder[]>([]);
+  const [setupStep, setSetupStep] = React.useState<'pan' | 'form'>(isNew ? 'pan' : 'form');
+  const [panOptions, setPanOptions] = React.useState<PanOption[]>([]);
+  const [pickerPan, setPickerPan] = React.useState('');
+  const [reusedPan, setReusedPan] = React.useState(false);
+  const [loadingPanOptions, setLoadingPanOptions] = React.useState(isNew);
 
   const {
     register,
     control,
     handleSubmit,
     setValue,
+    reset,
     watch,
     formState: { errors },
   } = useForm<FormValues>({ defaultValues });
   const prevModeRef = React.useRef('');
+
+  React.useEffect(() => {
+    if (!isNew) return;
+    let mounted = true;
+    (async () => {
+      setLoadingPanOptions(true);
+      try {
+        const rows = await fetchShareholders();
+        if (!mounted) return;
+        const seen = new Set<string>();
+        const opts: PanOption[] = [];
+        for (const r of rows) {
+          const p = String(r.pan || '').trim().toUpperCase();
+          if (!p || seen.has(p)) continue;
+          seen.add(p);
+          opts.push({ pan: p, name: String(r.name || '').trim() || p });
+        }
+        opts.sort((a, b) => a.pan.localeCompare(b.pan));
+        setPanOptions(opts);
+      } catch (e) {
+        if (mounted) toast.error(e instanceof Error ? e.message : 'Failed to load PAN list.');
+      } finally {
+        if (mounted) setLoadingPanOptions(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isNew]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -162,26 +256,13 @@ export const ShareholdingForm: React.FC = () => {
       try {
         setLoading(true);
         const res = await fetchShareholderByPan(pan);
-        const idPan = String(res.identity?.pan || res.record?.pan || pan).trim().toUpperCase();
+        const identity = resolveShareholderIdentity(res.identity, res.record, res.credential, pan);
+        const idPan = String(identity?.pan || res.record?.pan || pan).trim().toUpperCase();
         setIdentityPan(idPan);
         setHistoryOptions(res.history);
         const hid = searchParams.get('historyId');
-        const merged = pickPeriodForm(res.identity, res.history, res.record, hid);
-        (Object.keys(defaultValues) as (keyof FormValues)[]).forEach((k) => {
-          const map = merged as unknown as Record<string, unknown>;
-          const fallback = defaultValues as unknown as Record<string, unknown>;
-          let val = (map[k] ?? fallback[k]) as FormValues[keyof FormValues];
-          if (k === 'yearOfIssuance' && val) {
-            val = toDateInputValue(String(val)) as FormValues[keyof FormValues];
-          }
-          if (k === 'dateOfAllotment' && val) {
-            val = toDateInputValue(String(val)) as FormValues[keyof FormValues];
-          }
-          if (k === 'exitDate' && val) {
-            val = toDateInputValue(String(val)) as FormValues[keyof FormValues];
-          }
-          setValue(k, val as any, { shouldDirty: false });
-        });
+        const merged = pickPeriodForm(identity, res.history, res.record, hid);
+        applyShareholderToForm(merged, reset);
         prevModeRef.current = String(merged.mode || '');
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load shareholder.');
@@ -192,7 +273,49 @@ export const ShareholdingForm: React.FC = () => {
     }
     run();
     return () => { mounted = false; };
-  }, [isEdit, pan, navigate, setValue, searchParams]);
+  }, [isEdit, pan, navigate, reset, searchParams]);
+
+  const handleContinueExistingPan = async () => {
+    const selected = String(pickerPan || '').trim().toUpperCase();
+    if (!selected) {
+      toast.error('Please select a PAN from the list.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetchShareholderByPan(selected);
+      const identity = resolveShareholderIdentity(res.identity, res.record, res.credential, selected);
+      if (!identity?.pan) {
+        toast.error('No shareholder data found for this PAN.');
+        return;
+      }
+      const merged = pickPeriodForm(identity, res.history, res.record, '__new__');
+      applyShareholderToForm(merged, reset);
+      setIdentityPan(selected);
+      setReusedPan(true);
+      setSetupStep('form');
+      prevModeRef.current = '';
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load shareholder.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateNewPan = () => {
+    applyShareholderToForm({ ...defaultValues } as Shareholder, reset);
+    setIdentityPan('');
+    setReusedPan(false);
+    setPickerPan('');
+    setSetupStep('form');
+    prevModeRef.current = '';
+  };
+
+  const handleChangePanSelection = () => {
+    setSetupStep('pan');
+    setReusedPan(false);
+    setIdentityPan('');
+  };
 
   const onSubmit = async (data: FormValues) => {
     setSaving(true);
@@ -216,9 +339,9 @@ export const ShareholdingForm: React.FC = () => {
         id: isEdit && pan ? pan : panNorm,
         pan: panNorm,
         historyId: resolvedHistoryId,
-        mobile: data.mobile.replace(/\D/g, '').slice(0, 10),
-        aadhaar: data.aadhaar.replace(/\D/g, '').slice(0, 12),
-        email: data.email.trim(),
+        mobile: String(data.mobile || '').replace(/\D/g, '').slice(0, 10),
+        aadhaar: String(data.aadhaar || '').replace(/\D/g, '').slice(0, 12),
+        email: String(data.email || '').trim(),
         nominees: (data.nominees || []).map((n) => ({
           ...n,
           mobile: String(n.mobile || '').replace(/\D/g, '').slice(0, 10),
@@ -266,18 +389,78 @@ export const ShareholdingForm: React.FC = () => {
   }, [mode, setValue]);
 
   const goBack = () => navigate('/corporate/shareholding');
+  const showForm = isEdit || setupStep === 'form';
+  const panLocked = isEdit || reusedPan;
+  const selectedPanOption = panOptions.find((o) => o.pan === pickerPan);
 
   return (
     <ErrorBoundary>
-      {loading ? (
+      {isNew && setupStep === 'pan' ? (
+        <SectionCard title="Select PAN Card" actions={<FormBackLink onClick={goBack} />}>
+          <div className="flex max-w-md flex-col gap-2 sm:flex-row sm:items-end">
+            <FormField label="PAN Card" className="min-w-0 flex-[1.4] sm:min-w-[10.5rem]">
+              <select
+                className={`${inputClass} w-full min-w-0`}
+                value={pickerPan}
+                disabled={loadingPanOptions}
+                title={
+                  selectedPanOption
+                    ? `${selectedPanOption.pan} — ${selectedPanOption.name}`
+                    : 'Select existing PAN'
+                }
+                onChange={(e) => setPickerPan(e.target.value)}
+              >
+                <option value="">
+                  {loadingPanOptions ? 'Loading…' : 'Select existing PAN'}
+                </option>
+                {panOptions.map((o) => (
+                  <option key={o.pan} value={o.pan} title={`${o.pan} — ${o.name}`}>
+                    {o.pan} — {o.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <button
+              type="button"
+              onClick={handleContinueExistingPan}
+              disabled={!pickerPan || loading}
+              className="h-9 shrink-0 whitespace-nowrap rounded-lg bg-primary px-2 text-xs font-semibold text-white hover:bg-primary-dark disabled:opacity-60 sm:text-sm"
+            >
+              {loading ? 'Loading…' : 'Continue'}
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateNewPan}
+              className="h-9 shrink-0 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
+            >
+              Create New
+            </button>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {loading && isEdit ? (
         <div className="rounded-card border border-slate-200 bg-white shadow-card">
           <div className="flex justify-end border-b border-slate-100 px-5 py-3">
             <FormBackLink onClick={goBack} />
           </div>
           <p className="p-6 text-sm font-semibold text-slate-600">Loading…</p>
         </div>
-      ) : (
+      ) : showForm ? (
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {isNew && reusedPan ? (
+            <p className="text-sm text-slate-600">
+              Personal details loaded from PAN <strong className="text-slate-900">{identityPan}</strong>.
+              Fill shareholding period and other fields below.{' '}
+              <button
+                type="button"
+                onClick={handleChangePanSelection}
+                className="font-semibold text-primary hover:underline"
+              >
+                Change PAN
+              </button>
+            </p>
+          ) : null}
           <SectionCard title="Personal Details" actions={<FormBackLink onClick={goBack} />}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormField label="Name" required error={errors.name?.message}>
@@ -319,8 +502,8 @@ export const ShareholdingForm: React.FC = () => {
                       inputRef={field.ref}
                       name={field.name}
                       onChange={field.onChange}
-                      disabled={isEdit}
-                      className={isEdit ? `${inputClass} cursor-not-allowed bg-slate-50` : inputClass}
+                      disabled={panLocked}
+                      className={panLocked ? `${inputClass} cursor-not-allowed bg-slate-50` : inputClass}
                     />
                   )}
                 />
@@ -337,14 +520,34 @@ export const ShareholdingForm: React.FC = () => {
                   })}
                 />
               </FormField>
-              <FormField label="Address" className="sm:col-span-2">
+              <FormField label="Address 1">
                 <input className={inputClass} {...register('address')} />
+              </FormField>
+              <FormField label="Address 2">
+                <input className={inputClass} {...register('addressLine2')} />
+              </FormField>
+              <FormField label="Landmark / Area">
+                <input className={inputClass} {...register('landmark')} />
+              </FormField>
+              <FormField label="Area">
+                <input className={inputClass} {...register('area')} />
               </FormField>
               <FormField label="City">
                 <input className={inputClass} {...register('city')} />
               </FormField>
-              <FormField label="Landmark / Area">
-                <input className={inputClass} {...register('landmark')} />
+              <FormField label="Pincode">
+                <input
+                  className={inputClass}
+                  maxLength={6}
+                  inputMode="numeric"
+                  onKeyDown={onIntegerInputKeyDown}
+                  {...register('pincode', {
+                    setValueAs: (v) => String(v || '').replace(/\D/g, '').slice(0, 6),
+                  })}
+                />
+              </FormField>
+              <FormField label="State">
+                <input className={inputClass} {...register('state')} />
               </FormField>
               <FormField label="Country">
                 <input className={inputClass} {...register('country')} />
@@ -356,6 +559,9 @@ export const ShareholdingForm: React.FC = () => {
                   <option>Female</option>
                   <option>Other</option>
                 </select>
+              </FormField>
+              <FormField label="Form Submission">
+                <input className={inputClass} {...register('formSubmission')} />
               </FormField>
             </div>
           </SectionCard>
@@ -721,7 +927,7 @@ export const ShareholdingForm: React.FC = () => {
             </button>
           </div>
         </form>
-      )}
+      ) : null}
     </ErrorBoundary>
   );
 };

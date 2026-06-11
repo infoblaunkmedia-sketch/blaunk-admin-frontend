@@ -32,6 +32,7 @@ const SECTION_PATHS: Record<string, string> = {
   'platform:company-profile': '/management/company-profile',
   'platform:match-code': '/management/match-code',
   'it:ip-management': '/it',
+  'it:mac-address': '/it/mac-address',
   'it:rights': '/it/rights',
   'customers:individuals': '/customers/individuals',
   'customers:vendors': '/customers/vendors',
@@ -244,6 +245,12 @@ export const PartnerTipsCard: React.FC = () => (
 
 export const EmployeeTipsCard: React.FC = () => (
   <ul className="space-y-3 text-sm text-slate-700">
+    <li className="flex gap-2">
+      <span className="mt-0.5 text-primary">●</span>
+      <span>
+        Unauthorised login without IP address approval or from any other device will be considered a disciplinary action.
+      </span>
+    </li>
     <li className="flex gap-2">
       <span className="mt-0.5 text-primary">●</span>
       <span>Use the sidebar to jump into your assigned modules, quick links above mirror what you can access.</span>

@@ -71,6 +71,7 @@ export const MODULE_RIGHTS_TREE: ModuleRightNode[] = [
     label: 'IT',
     children: [
       { key: 'ip-management', label: 'IP Management' },
+      { key: 'mac-address', label: 'MAC Address' },
       { key: 'rights', label: 'User Rights' },
     ],
   },

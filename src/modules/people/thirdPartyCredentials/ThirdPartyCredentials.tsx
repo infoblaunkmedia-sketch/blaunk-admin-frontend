@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { CroppableImageUploader } from '../../../shared/components/CroppableImageUploader';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { BankNameInput } from '../../../shared/components/BankNameInput';
+import { useCountries } from '../../../shared/hooks/useCountries';
 import {
   DEPARTMENTS,
   DESIGNATIONS,
@@ -45,6 +46,11 @@ import {
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+function isVerifierDepartment(department: string): boolean {
+  const d = normalizeThirdPartyDepartment(department).toLowerCase();
+  return d === 'verifier' || d === 'verifiers';
+}
 
 function IconEdit({ className }: { className?: string }) {
   return (
@@ -143,6 +149,8 @@ const emptyForm = (): Omit<ThirdPartyCredential, 'id'> => ({
   exitDate: '',
   verifiedStatus: '',
   businessDeposit: '',
+  businessDepositCurrency: 'INR',
+  verifierFees: '',
   sharingThreeP: '0',
   sharingBlaunk: '100',
   commissionSubscriber: '',
@@ -175,6 +183,20 @@ export const ThirdPartyCredentials: React.FC = () => {
   const [confirmDel, setConfirmDel] = React.useState<string | null>(null);
   const [showPass, setShowPass] = React.useState<Record<string, boolean>>({});
   const [tableSearch, setTableSearch] = React.useState('');
+  const { countries, loading: countriesLoading } = useCountries();
+  const currencyOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const out: { code: string; icon: string }[] = [];
+    for (const c of countries) {
+      const code = String(c.currencyCode || '').trim().toUpperCase();
+      const icon = String(c.icon || code).trim();
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      out.push({ code, icon });
+    }
+    return out.sort((a, b) => a.code.localeCompare(b.code));
+  }, [countries]);
+  const verifierDept = isVerifierDepartment(form.department);
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
@@ -625,6 +647,21 @@ export const ThirdPartyCredentials: React.FC = () => {
                 onChange={(e) => setField('businessDeposit', e.target.value)}
               />
             </FormField>
+            <FormField label="Currency">
+              <select
+                className={inputClass}
+                value={form.businessDepositCurrency}
+                disabled={countriesLoading}
+                onChange={(e) => setField('businessDepositCurrency', e.target.value)}
+              >
+                {countriesLoading ? <option value="">Loading…</option> : null}
+                {currencyOptions.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.icon} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </FormField>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="Sharing Ratio (3P : Blaunk)">
@@ -681,6 +718,17 @@ export const ThirdPartyCredentials: React.FC = () => {
                 onChange={(e) => setField('commissionRenewal', e.target.value)}
               />
             </FormField>
+            {verifierDept ? (
+              <FormField label="Verifier Fees">
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  placeholder="Verifier fees"
+                  value={form.verifierFees}
+                  onChange={(e) => setField('verifierFees', e.target.value)}
+                />
+              </FormField>
+            ) : null}
           </div>
           </fieldset>
         </SectionCard>

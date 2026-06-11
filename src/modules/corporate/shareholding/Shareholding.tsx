@@ -27,7 +27,7 @@ const emptyNominee = (): Nominee => ({ name: '', mobile: '', relation: '', perce
 
 const emptyForm = (): Omit<Shareholder, 'id'> => ({
   name: '', pan: '', mobile: '', email: '', aadhaar: '',
-  address: '', city: '', landmark: '', country: '', gender: '',
+  address: '', addressLine2: '', city: '', area: '', landmark: '', pincode: '', state: '', country: '', gender: '', formSubmission: '',
   holdingPercent: '', shareType: '', faceValue: '', numberOfShares: '',
   mode: '', isinCode: '', dpNumber: '', dp: '', beneficiaryDpId: '', folioNumber: '', certificateNumber: '',
   distinctiveFrom: '', distinctiveTo: '', yearOfIssuance: '',

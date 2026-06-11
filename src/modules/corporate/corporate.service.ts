@@ -1,4 +1,5 @@
 import type { Shareholder, CompanyProfile, CompanyAddressBlock, Nominee } from './corporate.types';
+import type { ShareholdingMisRow } from './mis/shareholdingMisColumns';
 import { logger } from '../../shared/utils/logger';
 import { parseApiErrorBody } from '../../shared/utils/apiErrorMessage';
 
@@ -42,6 +43,98 @@ export interface ShareholderByPanResponse {
   record: Shareholder | null;
   history: Shareholder[];
   credential: unknown | null;
+}
+
+function pickNonEmpty(...values: (string | undefined | null)[]): string {
+  for (const value of values) {
+    const s = String(value ?? '').trim();
+    if (s) return s;
+  }
+  return '';
+}
+
+function identityPartialFromCredential(credential: unknown, panFallback = ''): Partial<Shareholder> {
+  const cred = credential as Record<string, unknown> | null;
+  if (!cred) return {};
+  return {
+    pan: pickNonEmpty(cred.pan as string, panFallback),
+    name: String(cred.employeeName ?? ''),
+    mobile: String(cred.mobile ?? ''),
+    email: String(cred.email ?? ''),
+    aadhaar: String(cred.aadhaar ?? ''),
+    address: String(cred.address ?? ''),
+    addressLine2: String(cred.address2 ?? ''),
+    city: String(cred.city ?? ''),
+    area: String(cred.bankArea ?? ''),
+    landmark: '',
+    pincode: String(cred.zip ?? ''),
+    state: String(cred.state ?? ''),
+    country: String(cred.country ?? ''),
+    gender: String(cred.gender ?? ''),
+    formSubmission: '',
+  };
+}
+
+/** Merge shareholder identity, latest list row, and employee credential (first non-empty wins). */
+export function resolveShareholderIdentity(
+  identity: Shareholder | null,
+  record: Shareholder | null,
+  credential: unknown,
+  panFallback = '',
+): Shareholder | null {
+  const cred = identityPartialFromCredential(credential, panFallback);
+  const pan = pickNonEmpty(identity?.pan, record?.pan, cred.pan, panFallback);
+  if (!pan) return identity;
+
+  const idNominees = identity?.nominees?.length ? identity.nominees : record?.nominees;
+
+  return {
+    id: identity?.id || record?.id || pan,
+    pan,
+    name: pickNonEmpty(identity?.name, record?.name, cred.name),
+    mobile: pickNonEmpty(identity?.mobile, record?.mobile, cred.mobile),
+    email: pickNonEmpty(identity?.email, record?.email, cred.email),
+    aadhaar: pickNonEmpty(identity?.aadhaar, record?.aadhaar, cred.aadhaar),
+    address: pickNonEmpty(identity?.address, record?.address, cred.address),
+    addressLine2: pickNonEmpty(identity?.addressLine2, record?.addressLine2, cred.addressLine2),
+    city: pickNonEmpty(identity?.city, record?.city, cred.city),
+    area: pickNonEmpty(identity?.area, record?.area, cred.area),
+    landmark: pickNonEmpty(identity?.landmark, record?.landmark, cred.landmark),
+    pincode: pickNonEmpty(identity?.pincode, record?.pincode, cred.pincode),
+    state: pickNonEmpty(identity?.state, record?.state, cred.state),
+    country: pickNonEmpty(identity?.country, record?.country, cred.country),
+    gender: pickNonEmpty(identity?.gender, record?.gender, cred.gender),
+    formSubmission: pickNonEmpty(identity?.formSubmission, record?.formSubmission, cred.formSubmission),
+    nominees: idNominees?.length ? idNominees : [],
+    holdingPercent: '',
+    shareType: '',
+    faceValue: '',
+    numberOfShares: '',
+    mode: '',
+    isinCode: '',
+    dpNumber: '',
+    dp: '',
+    beneficiaryDpId: '',
+    folioNumber: '',
+    certificateNumber: '',
+    distinctiveFrom: '',
+    distinctiveTo: '',
+    yearOfIssuance: '',
+    stakeholder: '',
+    dateOfAllotment: '',
+    remarks: '',
+    exitDate: '',
+    year: '',
+    projectKey: '',
+    bankName: '',
+    ifscCode: '',
+    bankAccountNumber: '',
+    bankCity: '',
+    bankCountry: '',
+    pledge: '',
+    shareStatus: '',
+    historyId: '',
+  };
 }
 
 export async function saveShareholder(sh: Shareholder): Promise<void> {
@@ -120,12 +213,15 @@ export async function fetchShareholderByPan(pan: string): Promise<ShareholderByP
     credential?: any;
   };
   const history = Array.isArray(json.history) ? json.history.map((h) => toShareholder(h)) : [];
-  const identity = json.shareholder ? toShareholder(json.shareholder) : null;
+  const rawIdentity = json.shareholder ? toShareholder(json.shareholder) : null;
+  const record = json.record ? toShareholder(json.record) : null;
+  const credential = json.credential ?? null;
+  const identity = resolveShareholderIdentity(rawIdentity, record, credential, pan);
   return {
     identity,
-    record: json.record ? toShareholder(json.record) : null,
+    record,
     history,
-    credential: json.credential ?? null,
+    credential,
   };
 }
 
@@ -159,10 +255,15 @@ function toShareholder(r: any): Shareholder {
     email: String(r?.email || ''),
     aadhaar: String(r?.aadhaar || ''),
     address: String(r?.address || ''),
+    addressLine2: String(r?.addressLine2 || ''),
     city: String(r?.city || ''),
+    area: String(r?.area || ''),
     landmark: String(r?.landmark || ''),
+    pincode: String(r?.pincode || ''),
+    state: String(r?.state || ''),
     country: String(r?.country || ''),
     gender: String(r?.gender || ''),
+    formSubmission: String(r?.formSubmission || ''),
     holdingPercent: r?.holdingPercent == null ? '' : String(r.holdingPercent),
     shareType: (r?.shareType || '') as any,
     faceValue: r?.faceValue == null ? '' : String(r.faceValue),
@@ -209,10 +310,15 @@ function toPayload(sh: Shareholder) {
     email: sh.email,
     aadhaar: sh.aadhaar,
     address: sh.address,
+    addressLine2: sh.addressLine2,
     city: sh.city,
+    area: sh.area,
     landmark: sh.landmark,
+    pincode: sh.pincode,
+    state: sh.state,
     country: sh.country,
     gender: sh.gender,
+    formSubmission: sh.formSubmission,
     holdingPercent: sh.holdingPercent ? Number(sh.holdingPercent) : undefined,
     shareType: sh.shareType || '',
     faceValue: sh.faceValue ? Number(sh.faceValue) : undefined,
@@ -351,6 +457,31 @@ export async function saveCompanyProfile(profile: CompanyProfile): Promise<void>
 
 export type ShareholdingMisExportResult = 'downloaded' | 'no-data';
 
+export async function fetchShareholdingMIS(params: {
+  fromDate: string;
+  toDate: string;
+}): Promise<ShareholdingMisRow[]> {
+  const base = import.meta.env.VITE_API_BASE_URL ?? '';
+  if (!base) throw new Error('VITE_API_BASE_URL is not configured');
+  const token = sessionStorage.getItem('authToken');
+  const qs = new URLSearchParams({
+    fromDate: params.fromDate,
+    toDate: params.toDate,
+  });
+  const res = await fetch(`${base}/api/shareholding/mis?${qs.toString()}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(parseApiErrorBody(text, res.status) || 'Failed to load MIS data');
+  }
+  const json = (await res.json()) as { rows?: ShareholdingMisRow[] };
+  return Array.isArray(json.rows) ? json.rows : [];
+}
+
 export async function exportShareholdingMIS(params: {
   fromDate: string;
   toDate: string;
@@ -387,4 +518,24 @@ export async function exportShareholdingMIS(params: {
   anchor.remove();
   URL.revokeObjectURL(url);
   return 'downloaded';
+}
+
+export async function importShareholdingMIS(file: File): Promise<{ imported: number; total: number; message: string }> {
+  const base = import.meta.env.VITE_API_BASE_URL ?? '';
+  if (!base) throw new Error('VITE_API_BASE_URL is not configured');
+  const token = sessionStorage.getItem('authToken');
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${base}/api/shareholding/mis-import`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  const text = await res.text().catch(() => res.statusText);
+  if (!res.ok) {
+    throw new Error(parseApiErrorBody(text, res.status) || 'Failed to import MIS file');
+  }
+  return JSON.parse(text) as { imported: number; total: number; message: string };
 }

@@ -1,11 +1,14 @@
 import React from 'react';
+import type { TableColumn } from 'react-data-table-component';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { SectionCard } from '../../../shared/components/SectionCard';
+import { FormField } from '../../../shared/components/FormField';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
-import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { DataTableWrapper } from '../../../shared/components/DataTableWrapper';
+import { RowActionsMenu } from '../../../shared/components/RowActionsMenu';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { IpEntry } from '../settings.types';
 import {
@@ -19,10 +22,26 @@ import { useAuthStore } from '../../../auth/authStore';
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
 
-const emptyForm = (): Omit<IpEntry, 'id' | 'addedAt' | 'addedBy'> => ({
+type IpFormState = {
+  ip: string;
+  label: string;
+  status: IpEntry['status'];
+  city: string;
+  state: string;
+  asn: string;
+  country: string;
+  timeZone: string;
+};
+
+const emptyForm = (): IpFormState => ({
   ip: '',
   label: '',
   status: 'Active',
+  city: '',
+  state: '',
+  asn: '',
+  country: '',
+  timeZone: '',
 });
 
 function parseErrMessage(raw: string): string {
@@ -38,6 +57,7 @@ export const IpManagement: React.FC = () => {
   const [entries, setEntries] = React.useState<IpEntry[]>([]);
   const [form, setForm] = React.useState(emptyForm());
   const [showForm, setShowForm] = React.useState(false);
+  const [editId, setEditId] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null);
@@ -69,23 +89,58 @@ export const IpManagement: React.FC = () => {
     };
   }, []);
 
-  const handleAdd = async () => {
+  const closeForm = () => {
+    setShowForm(false);
+    setEditId(null);
+    setForm(emptyForm());
+  };
+
+  const openAdd = () => {
+    setEditId(null);
+    setForm(emptyForm());
+    setShowForm(true);
+  };
+
+  const openEdit = (entry: IpEntry) => {
+    setEditId(entry.id);
+    setForm({
+      ip: entry.ip,
+      label: entry.label,
+      status: entry.status,
+      city: '',
+      state: '',
+      asn: '',
+      country: '',
+      timeZone: '',
+    });
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
     if (!form.ip.trim()) {
       toast.error('IP address is required');
       return;
     }
     setSaving(true);
     try {
-      await createIpWhitelistEntry({
-        ip: form.ip.trim(),
-        label: form.label.trim(),
-        status: form.status,
-        addedBy: currentUser?.code || currentUser?.username || '',
-      });
+      if (editId) {
+        await patchIpWhitelistEntry(editId, {
+          ip: form.ip.trim(),
+          label: form.label.trim(),
+          status: form.status,
+        });
+        toast.success('IP address updated');
+      } else {
+        await createIpWhitelistEntry({
+          ip: form.ip.trim(),
+          label: form.label.trim(),
+          status: form.status,
+          addedBy: currentUser?.code || currentUser?.username || '',
+        });
+        toast.success('IP address saved');
+      }
       await reload();
-      setForm(emptyForm());
-      setShowForm(false);
-      toast.success('IP address saved');
+      closeForm();
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Failed to save IP';
       toast.error(parseErrMessage(raw));
@@ -119,6 +174,60 @@ export const IpManagement: React.FC = () => {
     }
   };
 
+  const columns: TableColumn<IpEntry>[] = [
+    {
+      name: 'IP/CIDR',
+      selector: (r) => r.ip,
+      sortable: true,
+      grow: 2,
+      cell: (r) => <span className="font-mono font-semibold text-slate-900">{r.ip}</span>,
+    },
+    {
+      name: 'Label / ISP',
+      selector: (r) => r.label,
+      sortable: true,
+      grow: 2,
+      format: (r) => r.label || '—',
+    },
+    {
+      name: 'ASN',
+      selector: () => '',
+      width: '90px',
+      format: () => '—',
+    },
+    {
+      name: 'Added Date',
+      selector: (r) => r.addedAt,
+      sortable: true,
+      width: '115px',
+      format: (r) => (r.addedAt ? formatDateDDMMYYYY(String(r.addedAt)) : '—'),
+    },
+    {
+      name: 'Status',
+      cell: (r) => <StatusBadge status={r.status} />,
+      width: '95px',
+    },
+    {
+      name: 'Actions',
+      cell: (r) => (
+        <RowActionsMenu
+          onEdit={() => openEdit(r)}
+          onToggle={() => toggleStatus(r)}
+          toggleLabel={r.status === 'Active' ? 'Disable' : 'Enable'}
+          onDelete={() => setConfirmDelete(r.id)}
+        />
+      ),
+      width: '100px',
+      ignoreRowClick: true,
+    },
+    {
+      name: 'Approved',
+      selector: (r) => r.addedBy,
+      width: '100px',
+      format: (r) => r.addedBy || '—',
+    },
+  ];
+
   const hasApiBase = !!import.meta.env.VITE_API_BASE_URL;
 
   return (
@@ -126,7 +235,7 @@ export const IpManagement: React.FC = () => {
       <PageHeader
         title="IP Management"
         subtitle="Whitelist office IPs for employee requests. Admin login is not limited by this list."
-        actions={[{ label: 'Add IP', onClick: () => setShowForm(true) }]}
+        actions={[{ label: '+ Add', onClick: openAdd }]}
       />
 
       {!hasApiBase ? (
@@ -136,30 +245,57 @@ export const IpManagement: React.FC = () => {
       ) : null}
 
       {showForm && (
-        <SectionCard title="Add IP Address" className="mb-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-600">
-                IP Address / CIDR <span className="text-red-500">*</span>
-              </label>
+        <SectionCard title={editId ? 'Edit IP Address' : 'Add IP Address'} className="mb-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <FormField label="IP Address / CIDR" required>
               <input
                 className={inputClass}
                 placeholder="e.g. 192.168.1.1 or 10.0.0.0/24"
                 value={form.ip}
                 onChange={(e) => setForm((f) => ({ ...f, ip: e.target.value }))}
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-600">Label</label>
+            </FormField>
+            <FormField label="Label">
               <input
                 className={inputClass}
                 placeholder="e.g. Blaunk Office Mumbai"
                 value={form.label}
                 onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-600">Status</label>
+            </FormField>
+            <FormField label="City">
+              <input
+                className={inputClass}
+                placeholder="City"
+                value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+              />
+            </FormField>
+            <FormField label="State">
+              <input
+                className={inputClass}
+                placeholder="State"
+                value={form.state}
+                onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
+              />
+            </FormField>
+            <FormField label="ASN">
+              <input
+                className={inputClass}
+                placeholder="ASN"
+                value={form.asn}
+                onChange={(e) => setForm((f) => ({ ...f, asn: e.target.value }))}
+              />
+            </FormField>
+            <FormField label="Country">
+              <input
+                className={inputClass}
+                placeholder="Country"
+                value={form.country}
+                onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+              />
+            </FormField>
+            <FormField label="Status">
               <select
                 className={inputClass}
                 value={form.status}
@@ -170,23 +306,28 @@ export const IpManagement: React.FC = () => {
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
-            </div>
+            </FormField>
+            <FormField label="Time Zone">
+              <input
+                className={inputClass}
+                placeholder="e.g. Asia/Kolkata"
+                value={form.timeZone}
+                onChange={(e) => setForm((f) => ({ ...f, timeZone: e.target.value }))}
+              />
+            </FormField>
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={handleAdd}
+              onClick={handleSave}
               disabled={saving}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
             >
-              {saving ? 'Saving…' : 'Save IP'}
+              {saving ? 'Saving…' : editId ? 'Update IP' : 'Save IP'}
             </button>
             <button
               type="button"
-              onClick={() => {
-                setShowForm(false);
-                setForm(emptyForm());
-              }}
+              onClick={closeForm}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
               Cancel
@@ -195,71 +336,7 @@ export const IpManagement: React.FC = () => {
         </SectionCard>
       )}
 
-      <div className="rounded-card border border-slate-200 bg-white shadow-card">
-        {loading ? (
-          <div className="flex min-h-[120px] items-center justify-center text-sm text-slate-500">
-            Loading whitelist…
-          </div>
-        ) : entries.length === 0 ? (
-          <EmptyState
-            message="No IP addresses whitelisted yet."
-            action={{ label: 'Add IP', onClick: () => setShowForm(true) }}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-primary text-white">
-                  {['IP / CIDR', 'Label', 'Added By', 'Added Date', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-bold">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry, i) => (
-                  <tr key={entry.id} className={i % 2 === 0 ? 'bg-white' : 'bg-surface'}>
-                    <td className="border-b border-slate-100 px-4 py-2.5 font-mono text-sm font-semibold text-slate-900">
-                      {entry.ip}
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-2.5 text-slate-700">
-                      {entry.label || '—'}
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-2.5 text-slate-500">
-                      {entry.addedBy}
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">
-                      {entry.addedAt ? formatDateDDMMYYYY(String(entry.addedAt)) : '—'}
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-2.5">
-                      <StatusBadge status={entry.status} />
-                    </td>
-                    <td className="border-b border-slate-100 px-4 py-2.5">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleStatus(entry)}
-                          className="rounded px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                        >
-                          {entry.status === 'Active' ? 'Disable' : 'Enable'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDelete(entry.id)}
-                          className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <DataTableWrapper columns={columns} data={entries} loading={loading} searchable={false} />
 
       {confirmDelete && (
         <ConfirmDialog

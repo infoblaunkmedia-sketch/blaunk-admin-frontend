@@ -15,10 +15,19 @@ type MeResp = {
     username?: string;
     email?: string | null;
     employeeCode?: string | null;
+    employeeName?: string | null;
     department?: string | null;
     role?: string;
   };
 };
+
+function firstNameFromFullName(name: string): string {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '';
+  const first = trimmed.split(/\s+/)[0] || '';
+  if (!first) return '';
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
 
 export const EmployeeWorkspacePage: React.FC = () => {
   const { user } = useAuth();
@@ -40,7 +49,8 @@ export const EmployeeWorkspacePage: React.FC = () => {
     };
   }, []);
 
-  const displayName = me?.username ?? user?.username ?? 'there';
+  const welcomeName = firstNameFromFullName(me?.employeeName || '') || 'there';
+  const profileName = String(me?.employeeName || '').trim() || '—';
   const quickLinks = buildWorkspaceQuickLinks(user?.permissions ?? []);
 
   return (
@@ -52,7 +62,7 @@ export const EmployeeWorkspacePage: React.FC = () => {
 
       <div className="space-y-6">
         <WelcomeHero
-          title={`Welcome back, ${displayName}`}
+          title={`Welcome back, ${welcomeName}`}
           subtitle="Jump into your tools below or use the sidebar for full navigation."
           department={me?.department}
         />
@@ -68,14 +78,22 @@ export const EmployeeWorkspacePage: React.FC = () => {
           </SectionCard>
 
           <SectionCard title="Profile">
-            <dl className="grid gap-3 text-sm">
-              <div>
-                <dt className="font-semibold text-slate-500">Email</dt>
-                <dd className="text-slate-900">{me?.email ?? user?.email ?? '—'}</dd>
+            <dl className="space-y-2.5 text-sm">
+              <div className="flex flex-wrap gap-x-1">
+                <dt className="font-bold text-slate-600">Name :</dt>
+                <dd className="text-slate-900">{profileName}</dd>
               </div>
-              <div>
-                <dt className="font-semibold text-slate-500">Role</dt>
-                <dd className="capitalize text-slate-900">{me?.role ?? user?.role ?? '—'}</dd>
+              <div className="flex flex-wrap gap-x-1">
+                <dt className="font-bold text-slate-600">Emp Code :</dt>
+                <dd className="text-slate-900">{me?.employeeCode ?? user?.code ?? '—'}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-1">
+                <dt className="font-bold text-slate-600">Department :</dt>
+                <dd className="text-slate-900">{me?.department ?? '—'}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-1">
+                <dt className="font-bold text-slate-600">Email</dt>
+                <dd className="text-slate-900">{me?.email ?? user?.email ?? '—'}</dd>
               </div>
             </dl>
           </SectionCard>

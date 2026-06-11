@@ -37,6 +37,8 @@ export interface ThirdPartyCredential {
   exitDate: string;
   verifiedStatus: string;
   businessDeposit: string;
+  businessDepositCurrency: string;
+  verifierFees: string;
   sharingThreeP: string;
   sharingBlaunk: string;
   commissionSubscriber: string;

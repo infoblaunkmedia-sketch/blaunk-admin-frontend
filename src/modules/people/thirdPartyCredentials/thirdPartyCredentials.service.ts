@@ -40,6 +40,8 @@ type RecordDto = {
   exitDate?: string;
   verifiedStatus?: string;
   businessDeposit?: string;
+  businessDepositCurrency?: string;
+  verifierFees?: string;
   sharingThreeP?: string;
   sharingBlaunk?: string;
   commissionSubscriber?: string;
@@ -96,6 +98,8 @@ function toRecord(dto: RecordDto): ThirdPartyCredential {
     exitDate: dto.exitDate || '',
     verifiedStatus: dto.verifiedStatus || '',
     businessDeposit: dto.businessDeposit || '',
+    businessDepositCurrency: dto.businessDepositCurrency || 'INR',
+    verifierFees: dto.verifierFees || '',
     sharingThreeP: dto.sharingThreeP || '',
     sharingBlaunk: dto.sharingBlaunk || '',
     commissionSubscriber: dto.commissionSubscriber || '',

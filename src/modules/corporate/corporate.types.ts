@@ -60,10 +60,15 @@ export interface Shareholder {
   email: string;
   aadhaar: string;
   address: string;
+  addressLine2: string;
   city: string;
+  area: string;
   landmark: string;
+  pincode: string;
+  state: string;
   country: string;
   gender: string;
+  formSubmission: string;
   holdingPercent: string;
   shareType: ShareType | '';
   faceValue: string;

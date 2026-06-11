@@ -29,7 +29,7 @@ export const ShareholdingMis: React.FC = () => {
   const [toDate, setToDate] = React.useState(defaults.to);
   const [exporting, setExporting] = React.useState(false);
 
-  const handleGenerate = async (event: React.FormEvent) => {
+  const handleExport = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!fromDate || !toDate) {
       toast.error('Select from date and to date.');
@@ -59,7 +59,7 @@ export const ShareholdingMis: React.FC = () => {
     <>
       <PageHeader
         title="MIS"
-        subtitle="Download shareholding register data for the selected period."
+        subtitle="Exports one Excel row per shareholding history period (year / project) updated in the date range — not one row per shareholder. Example: 3 shareholders with 5 history periods in range → 5 Excel rows."
       />
 
       <div className="overflow-x-auto rounded-card border border-slate-200 bg-white shadow-card">
@@ -117,13 +117,13 @@ export const ShareholdingMis: React.FC = () => {
                 />
               </td>
               <td className={`${tdClass} text-right`}>
-                <form onSubmit={handleGenerate}>
+                <form onSubmit={handleExport}>
                   <button
                     type="submit"
                     disabled={exporting}
                     className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {exporting ? 'Generating…' : 'Generate Report'}
+                    {exporting ? 'Exporting…' : 'Export Excel'}
                   </button>
                 </form>
               </td>
