@@ -15,7 +15,7 @@ import {
   saveShareholder,
 } from '../corporate.service';
 import { onIntegerInputKeyDown, onNumericInputKeyDown } from '../../../shared/utils/numericInput';
-import { toDateInputValue } from '../../../shared/utils/dateFormat';
+import { toDateInputValue, toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { BankNameInput } from '../../../shared/components/BankNameInput';
 import { PanNumberInput } from '../../../shared/components/PanNumberInput';
 import { isValidIndianPan } from '../../../utils/inputFormats';
@@ -94,46 +94,44 @@ function pickNonEmpty(...values: (string | undefined | null)[]): string {
   return '';
 }
 
+function personalFields(identity: Shareholder | null, record: Shareholder | null): Partial<FormValues> {
+  if (!identity && !record) return {};
+  return {
+    name: pickNonEmpty(identity?.name, record?.name),
+    pan: pickNonEmpty(identity?.pan, record?.pan),
+    mobile: pickNonEmpty(identity?.mobile, record?.mobile),
+    email: pickNonEmpty(identity?.email, record?.email),
+    aadhaar: pickNonEmpty(identity?.aadhaar, record?.aadhaar),
+    address: pickNonEmpty(identity?.address, record?.address),
+    addressLine2: pickNonEmpty(identity?.addressLine2, record?.addressLine2),
+    city: pickNonEmpty(identity?.city, record?.city),
+    area: pickNonEmpty(identity?.area, record?.area),
+    landmark: pickNonEmpty(identity?.landmark, record?.landmark),
+    pincode: pickNonEmpty(identity?.pincode, record?.pincode),
+    state: pickNonEmpty(identity?.state, record?.state),
+    country: pickNonEmpty(identity?.country, record?.country),
+    gender: pickNonEmpty(identity?.gender, record?.gender),
+    formSubmission: pickNonEmpty(identity?.formSubmission, record?.formSubmission),
+  };
+}
+
 function pickPeriodForm(
   identity: Shareholder | null,
   historyRows: Shareholder[],
   record: Shareholder | null,
   historyIdParam: string | null,
+  newShareEntry = false,
 ): Shareholder {
-  const idNominees = identity?.nominees?.length
-    ? identity.nominees
-    : record?.nominees?.length
-      ? record.nominees
-      : defaultValues.nominees;
-  const personal = (): Partial<FormValues> => {
-    if (!identity && !record) return {};
-    return {
-      name: pickNonEmpty(identity?.name, record?.name),
-      pan: pickNonEmpty(identity?.pan, record?.pan),
-      mobile: pickNonEmpty(identity?.mobile, record?.mobile),
-      email: pickNonEmpty(identity?.email, record?.email),
-      aadhaar: pickNonEmpty(identity?.aadhaar, record?.aadhaar),
-      address: pickNonEmpty(identity?.address, record?.address),
-      addressLine2: pickNonEmpty(identity?.addressLine2, record?.addressLine2),
-      city: pickNonEmpty(identity?.city, record?.city),
-      area: pickNonEmpty(identity?.area, record?.area),
-      landmark: pickNonEmpty(identity?.landmark, record?.landmark),
-      pincode: pickNonEmpty(identity?.pincode, record?.pincode),
-      state: pickNonEmpty(identity?.state, record?.state),
-      country: pickNonEmpty(identity?.country, record?.country),
-      gender: pickNonEmpty(identity?.gender, record?.gender),
-      formSubmission: pickNonEmpty(identity?.formSubmission, record?.formSubmission),
-      nominees: idNominees,
-    };
-  };
+  const personal = personalFields(identity, record);
 
-  if (historyIdParam === '__new__') {
+  if (newShareEntry) {
     return {
       ...defaultValues,
-      ...personal(),
+      ...personal,
+      historyId: '',
       year: '',
       projectKey: '',
-      historyId: '',
+      nominees: defaultValues.nominees,
     } as Shareholder;
   }
 
@@ -142,10 +140,10 @@ function pickPeriodForm(
     if (row) {
       return {
         ...defaultValues,
-        ...personal(),
         ...row,
-        ...personal(),
-        nominees: row.nominees?.length ? row.nominees : idNominees,
+        ...personal,
+        historyId: row.historyId || '',
+        nominees: row.nominees?.length ? row.nominees : defaultValues.nominees,
       } as Shareholder;
     }
   }
@@ -153,13 +151,71 @@ function pickPeriodForm(
   if (record) {
     return {
       ...defaultValues,
-      ...personal(),
       ...record,
-      nominees: record.nominees?.length ? record.nominees : idNominees,
+      ...personal,
+      historyId: record.historyId || '',
+      nominees: record.nominees?.length ? record.nominees : defaultValues.nominees,
     } as Shareholder;
   }
 
-  return { ...defaultValues, ...personal() } as Shareholder;
+  return { ...defaultValues, ...personal } as Shareholder;
+}
+
+function historySortTime(row: Shareholder): number {
+  const raw = row.createdAt || row.updatedAt || '';
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function sortHistoryChronological(rows: Shareholder[]): Shareholder[] {
+  return [...rows].sort((a, b) => historySortTime(a) - historySortTime(b));
+}
+
+function formatHistorySavedAt(row: Shareholder): string {
+  const raw = row.updatedAt || row.createdAt || '';
+  return raw ? toDisplayDDMMYYYY(raw) || raw : '—';
+}
+
+function ShareholdingPreviousEntries({ rows }: { rows: Shareholder[] }) {
+  const ordered = sortHistoryChronological(rows);
+  if (!ordered.length) return null;
+  return (
+    <SectionCard title={`Previous shareholding entries (${ordered.length})`}>
+      <p className="mb-3 text-xs font-semibold text-slate-600">
+        Saved records for this PAN. Fill the form below to add a new entry.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+              <th className="py-2 pr-3">Entry</th>
+              <th className="py-2 pr-3">Saved on</th>
+              <th className="py-2 pr-3">Share Type</th>
+              <th className="py-2 pr-3">Shares</th>
+              <th className="py-2 pr-3">Holding %</th>
+              <th className="py-2 pr-3">Folio</th>
+              <th className="py-2 pr-3">Allotment</th>
+              <th className="py-2 pr-3">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((row, index) => (
+              <tr key={row.historyId || `${row.pan}-${index}`} className="border-b border-slate-100">
+                <td className="py-2 pr-3 font-semibold text-slate-800">Entry {index + 1}</td>
+                <td className="py-2 pr-3 text-slate-700">{formatHistorySavedAt(row)}</td>
+                <td className="py-2 pr-3 text-slate-700">{row.shareType || '—'}</td>
+                <td className="py-2 pr-3">{row.numberOfShares || '—'}</td>
+                <td className="py-2 pr-3">{row.holdingPercent || '—'}</td>
+                <td className="py-2 pr-3">{row.folioNumber || '—'}</td>
+                <td className="py-2 pr-3">{toDisplayDDMMYYYY(row.dateOfAllotment) || row.dateOfAllotment || '—'}</td>
+                <td className="py-2 pr-3">{row.shareStatus || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SectionCard>
+  );
 }
 
 type PanOption = { pan: string; name: string };
@@ -202,7 +258,7 @@ export const ShareholdingForm: React.FC = () => {
   const [loading, setLoading] = React.useState(isEdit);
   const [saving, setSaving] = React.useState(false);
   const [identityPan, setIdentityPan] = React.useState('');
-  const [historyOptions, setHistoryOptions] = React.useState<Shareholder[]>([]);
+  const [previousEntries, setPreviousEntries] = React.useState<Shareholder[]>([]);
   const [setupStep, setSetupStep] = React.useState<'pan' | 'form'>(isNew ? 'pan' : 'form');
   const [panOptions, setPanOptions] = React.useState<PanOption[]>([]);
   const [pickerPan, setPickerPan] = React.useState('');
@@ -259,7 +315,6 @@ export const ShareholdingForm: React.FC = () => {
         const identity = resolveShareholderIdentity(res.identity, res.record, res.credential, pan);
         const idPan = String(identity?.pan || res.record?.pan || pan).trim().toUpperCase();
         setIdentityPan(idPan);
-        setHistoryOptions(res.history);
         const hid = searchParams.get('historyId');
         const merged = pickPeriodForm(identity, res.history, res.record, hid);
         applyShareholderToForm(merged, reset);
@@ -289,9 +344,10 @@ export const ShareholdingForm: React.FC = () => {
         toast.error('No shareholder data found for this PAN.');
         return;
       }
-      const merged = pickPeriodForm(identity, res.history, res.record, '__new__');
+      const merged = pickPeriodForm(identity, res.history, res.record, null, true);
       applyShareholderToForm(merged, reset);
       setIdentityPan(selected);
+      setPreviousEntries(res.history);
       setReusedPan(true);
       setSetupStep('form');
       prevModeRef.current = '';
@@ -305,6 +361,7 @@ export const ShareholdingForm: React.FC = () => {
   const handleCreateNewPan = () => {
     applyShareholderToForm({ ...defaultValues } as Shareholder, reset);
     setIdentityPan('');
+    setPreviousEntries([]);
     setReusedPan(false);
     setPickerPan('');
     setSetupStep('form');
@@ -315,6 +372,7 @@ export const ShareholdingForm: React.FC = () => {
     setSetupStep('pan');
     setReusedPan(false);
     setIdentityPan('');
+    setPreviousEntries([]);
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -326,12 +384,10 @@ export const ShareholdingForm: React.FC = () => {
         return;
       }
       const hid = searchParams.get('historyId');
-      const isNewPeriod = hid === '__new__';
-      const resolvedHistoryId = isNewPeriod
-        ? undefined
-        : isMongoObjectId(hid)
+      const resolvedHistoryId =
+        isEdit && isMongoObjectId(hid)
           ? hid!.trim()
-          : isMongoObjectId(data.historyId)
+          : isEdit && isMongoObjectId(data.historyId)
             ? String(data.historyId).trim()
             : undefined;
       const payload: Shareholder = {
@@ -367,6 +423,14 @@ export const ShareholdingForm: React.FC = () => {
 
   const nominees = watch('nominees');
   const mode = watch('mode');
+  const shareStatus = watch('shareStatus');
+  const isExitStatus = shareStatus === 'Exit';
+
+  React.useEffect(() => {
+    if (!isExitStatus) {
+      setValue('exitDate', '');
+    }
+  }, [isExitStatus, setValue]);
   const isPhysical = mode === 'Physical';
   const isDemat = mode === 'Demat';
 
@@ -451,7 +515,7 @@ export const ShareholdingForm: React.FC = () => {
           {isNew && reusedPan ? (
             <p className="text-sm text-slate-600">
               Personal details loaded from PAN <strong className="text-slate-900">{identityPan}</strong>.
-              Fill shareholding period and other fields below.{' '}
+              Fill share details below to add a new entry.{' '}
               <button
                 type="button"
                 onClick={handleChangePanSelection}
@@ -460,6 +524,9 @@ export const ShareholdingForm: React.FC = () => {
                 Change PAN
               </button>
             </p>
+          ) : null}
+          {isNew && reusedPan && previousEntries.length > 0 ? (
+            <ShareholdingPreviousEntries rows={previousEntries} />
           ) : null}
           <SectionCard title="Personal Details" actions={<FormBackLink onClick={goBack} />}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -562,62 +629,6 @@ export const ShareholdingForm: React.FC = () => {
               </FormField>
               <FormField label="Form Submission">
                 <input className={inputClass} {...register('formSubmission')} />
-              </FormField>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Shareholding period (year / project)">
-            <p className="mb-3 text-xs font-semibold text-slate-600">
-              Same PAN re-used: set a different <strong>Year</strong> or <strong>Project reference</strong> to add another history row without duplicating the shareholder.
-            </p>
-            {isEdit && historyOptions.length > 0 ? (
-              <div className="mb-4">
-                <FormField label="Editing snapshot">
-                  <select
-                    className={inputClass}
-                    value={searchParams.get('historyId') || (historyOptions[0]?.historyId ?? '')}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      navigate(
-                        v
-                          ? `/corporate/shareholding/${encodeURIComponent(pan!)}/edit?historyId=${encodeURIComponent(v)}`
-                          : `/corporate/shareholding/${encodeURIComponent(pan!)}/edit`,
-                        { replace: true },
-                      );
-                    }}
-                  >
-                    {historyOptions.map((h) => (
-                      <option key={h.historyId} value={h.historyId}>
-                        {h.year || '—'} {h.projectKey ? `· ${h.projectKey}` : ''} ({h.folioNumber || 'folio —'})
-                      </option>
-                    ))}
-                    <option value="__new__">+ New year / project…</option>
-                  </select>
-                </FormField>
-              </div>
-            ) : null}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <FormField label="Year (FY / label)" required={!!isEdit} error={errors.year?.message}>
-                <input
-                  className={inputClass}
-                  placeholder="e.g. 2025-2026"
-                  {...register('year', {
-                    validate: (v) => {
-                      if (!isEdit) return true;
-                      if (searchParams.get('historyId') === '__new__' && !String(v || '').trim()) {
-                        return 'Enter year for the new snapshot';
-                      }
-                      return true;
-                    },
-                  })}
-                />
-              </FormField>
-              <FormField label="Project / scheme ref (optional)">
-                <input
-                  className={inputClass}
-                  placeholder="Distinguishes same year"
-                  {...register('projectKey')}
-                />
               </FormField>
             </div>
           </SectionCard>
@@ -778,9 +789,6 @@ export const ShareholdingForm: React.FC = () => {
                   ))}
                 </select>
               </FormField>
-              <FormField label="Exit Date">
-                <input type="date" className={`${inputClass} [color-scheme:light]`} {...register('exitDate')} />
-              </FormField>
               <FormField label="Pledge">
                 <select className={inputClass} {...register('pledge')}>
                   <option value="">Select…</option>
@@ -791,12 +799,26 @@ export const ShareholdingForm: React.FC = () => {
               </FormField>
               <FormField label="Status">
                 <select className={inputClass} {...register('shareStatus')}>
-                  <option value="">Select…</option>
+                  <option value="">Select status</option>
                   {SHARE_STATUS_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               </FormField>
+              {isExitStatus ? (
+                <FormField label="Exit Date" required error={errors.exitDate?.message}>
+                  <input
+                    type="date"
+                    className={`${inputClass} [color-scheme:light]`}
+                    {...register('exitDate', {
+                      validate: (v) =>
+                        isExitStatus && !String(v || '').trim()
+                          ? 'Exit date is required when status is Exit.'
+                          : true,
+                    })}
+                  />
+                </FormField>
+              ) : null}
               <input type="hidden" {...register('historyId')} />
             </div>
           </SectionCard>

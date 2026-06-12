@@ -267,6 +267,10 @@ export const ThirdPartyCredentials: React.FC = () => {
       toast.error('PIN code must be exactly 6 digits.');
       return;
     }
+    if (form.status === 'Exit' && !String(form.exitDate || '').trim()) {
+      toast.error('Exit date is required when status is Exit.');
+      return;
+    }
     const sharingErr = validateSharingRatioStrings(form.sharingThreeP, form.sharingBlaunk);
     if (sharingErr) {
       toast.error(sharingErr);
@@ -603,11 +607,19 @@ export const ThirdPartyCredentials: React.FC = () => {
             <FormField label="IRA">
               <input className={inputClass} value={form.ira} onChange={(e) => setField('ira', e.target.value)} />
             </FormField>
-            <FormField label="Exit Date">
-              <input type="date" className={inputClass} value={form.exitDate} onChange={(e) => setField('exitDate', e.target.value)} />
-            </FormField>
             <FormField label="Status">
-              <select className={inputClass} value={form.status} onChange={(e) => setField('status', e.target.value)}>
+              <select
+                className={inputClass}
+                value={form.status}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setForm((p) => ({
+                    ...p,
+                    status: next,
+                    exitDate: next === 'Exit' ? p.exitDate : '',
+                  }));
+                }}
+              >
                 <option value="">Select status</option>
                 {THIRD_PARTY_STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>
@@ -616,6 +628,16 @@ export const ThirdPartyCredentials: React.FC = () => {
                 ))}
               </select>
             </FormField>
+            {form.status === 'Exit' ? (
+              <FormField label="Exit Date" required>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.exitDate}
+                  onChange={(e) => setField('exitDate', e.target.value)}
+                />
+              </FormField>
+            ) : null}
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <FormField label="Verified Status">

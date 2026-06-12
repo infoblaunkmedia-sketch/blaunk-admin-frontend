@@ -5,6 +5,7 @@ import { FormBackLink } from '../../../shared/components/FormBackLink';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
+import { toDisplayDDMMYYYY } from '../../../shared/utils/dateFormat';
 import type { Shareholder } from '../corporate.types';
 import { deleteShareholdingHistory, fetchShareholderByPan } from '../corporate.service';
 
@@ -19,6 +20,21 @@ function Field({ label, value }: { label: string; value?: React.ReactNode }) {
       <div className={fieldValueClass}>{empty ? <span className="text-slate-400">—</span> : value}</div>
     </div>
   );
+}
+
+function historySortTime(row: Shareholder): number {
+  const raw = row.createdAt || row.updatedAt || '';
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function sortHistoryChronological(rows: Shareholder[]): Shareholder[] {
+  return [...rows].sort((a, b) => historySortTime(a) - historySortTime(b));
+}
+
+function formatHistorySavedAt(row: Shareholder): string {
+  const raw = row.updatedAt || row.createdAt || '';
+  return raw ? toDisplayDDMMYYYY(raw) || raw : '—';
 }
 
 export const ShareholdingDetails: React.FC = () => {
@@ -53,15 +69,16 @@ export const ShareholdingDetails: React.FC = () => {
     if (!pan) return;
     try {
       await deleteShareholdingHistory(pan, historyId);
-      toast.success('History row removed');
+      toast.success('History entry removed');
       setDeletingId(null);
       load();
     } catch {
-      toast.error('Could not delete history row');
+      toast.error('Could not delete history entry');
     }
   };
 
   const person = identity;
+  const chronologicalHistory = sortHistoryChronological(history);
 
   const goBack = () => navigate('/corporate/shareholding');
 
@@ -73,7 +90,7 @@ export const ShareholdingDetails: React.FC = () => {
           onClick={() => navigate(`/corporate/shareholding/${encodeURIComponent(pan)}/edit`)}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
         >
-          Edit
+          Edit latest
         </button>
       ) : null}
       <FormBackLink onClick={goBack} />
@@ -110,36 +127,42 @@ export const ShareholdingDetails: React.FC = () => {
           ) : null}
 
           <SectionCard
-            title={`Shareholding history (${history.length} period${history.length === 1 ? '' : 's'})`}
+            title={`Shareholding history (${chronologicalHistory.length} entr${chronologicalHistory.length === 1 ? 'y' : 'ies'})`}
             actions={!person ? cardHeaderActions : undefined}
           >
-            {history.length === 0 ? (
-              <p className="text-sm text-slate-600">No year/project rows yet. Use Edit to add a snapshot.</p>
+            {chronologicalHistory.length === 0 ? (
+              <p className="text-sm text-slate-600">No shareholding entries yet.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                      <th className="py-2 pr-3">Year</th>
+                      <th className="py-2 pr-3">Entry</th>
+                      <th className="py-2 pr-3">Saved on</th>
                       <th className="py-2 pr-3">Share Type</th>
                       <th className="py-2 pr-3">Face Value</th>
                       <th className="py-2 pr-3">Folio</th>
                       <th className="py-2 pr-3">Shares</th>
                       <th className="py-2 pr-3">Holding %</th>
                       <th className="py-2 pr-3">Allotment</th>
+                      <th className="py-2 pr-3">Status</th>
                       <th className="py-2 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {history.map((row) => (
+                    {chronologicalHistory.map((row, index) => (
                       <tr key={row.historyId} className="border-b border-slate-100">
-                        <td className="py-2 pr-3 font-semibold text-slate-800">{row.year || '—'}</td>
+                        <td className="py-2 pr-3 font-semibold text-slate-800">Entry {index + 1}</td>
+                        <td className="py-2 pr-3 text-slate-700">{formatHistorySavedAt(row)}</td>
                         <td className="py-2 pr-3 text-slate-700">{row.shareType || '—'}</td>
                         <td className="py-2 pr-3">{row.faceValue || '—'}</td>
                         <td className="py-2 pr-3">{row.folioNumber || '—'}</td>
                         <td className="py-2 pr-3">{row.numberOfShares || '—'}</td>
                         <td className="py-2 pr-3">{row.holdingPercent || '—'}</td>
-                        <td className="py-2 pr-3">{row.dateOfAllotment || '—'}</td>
+                        <td className="py-2 pr-3">
+                          {toDisplayDDMMYYYY(row.dateOfAllotment) || row.dateOfAllotment || '—'}
+                        </td>
+                        <td className="py-2 pr-3">{row.shareStatus || '—'}</td>
                         <td className="py-2 text-right">
                           <button
                             type="button"
@@ -173,8 +196,8 @@ export const ShareholdingDetails: React.FC = () => {
       {deletingId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-            <p className="text-sm font-semibold text-slate-800">Remove this year/project row only?</p>
-            <p className="mt-2 text-xs text-slate-600">The shareholder (PAN) is kept if other periods exist.</p>
+            <p className="text-sm font-semibold text-slate-800">Remove this shareholding entry?</p>
+            <p className="mt-2 text-xs text-slate-600">The shareholder (PAN) is kept if other entries exist.</p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
@@ -188,7 +211,7 @@ export const ShareholdingDetails: React.FC = () => {
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
                 onClick={() => handleDeletePeriod(deletingId)}
               >
-                Delete row
+                Delete entry
               </button>
             </div>
           </div>

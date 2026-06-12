@@ -319,7 +319,7 @@ export const MacAddressManagement: React.FC = () => {
             <FormField label="MAC Address" required>
               <input
                 className={inputClass}
-                placeholder="enter MAC address"
+                placeholder="e.g. 00-E0-21-8E-A1-37"
                 value={form.macAddress}
                 onChange={(e) => setForm((f) => ({ ...f, macAddress: e.target.value }))}
               />

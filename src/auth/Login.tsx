@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 import { getWorkspaceHomePath } from './homePath';
 import type { AuthUser, ModulePermission } from '../shared/types/auth.types';
 import { api } from '../shared/services/apiService';
+import { getDeviceMacAddress } from '../shared/utils/deviceMac';
 import Blaunk_Logo from '../../public/blaunk_logo.png';
 
 type LoginTab = 'employee' | 'admin';
@@ -100,10 +101,14 @@ export const Login: React.FC = () => {
       if (!code.trim()) throw new Error('Please enter your username.');
       if (!captcha.trim()) throw new Error('Please enter your password.');
 
+      // Laptop MAC is read locally and checked against IT → MAC Address (no login UI field).
+      const macAddress = await getDeviceMacAddress();
+
       const result = await api.post<LoginResponse>('/api/auth/login', {
         username: code.trim(),
         password: captcha.trim(), // captcha acts as password
         captcha: captcha.trim(),
+        ...(macAddress ? { macAddress } : {}),
       });
 
       const me = await api.get<MeResponse>('/api/auth/me', {

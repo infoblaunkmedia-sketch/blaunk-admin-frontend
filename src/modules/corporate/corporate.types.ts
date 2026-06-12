@@ -34,9 +34,9 @@ export const PLEDGE_OPTIONS: Exclude<Pledge, ''>[] = [
   'Free Stock',
 ];
 
-export type ShareStatus = '' | 'Active' | 'Sold' | 'Hold';
+export type ShareStatus = '' | 'Active' | 'Sold' | 'Hold' | 'Exit';
 
-export const SHARE_STATUS_OPTIONS: Exclude<ShareStatus, ''>[] = ['Active', 'Sold', 'Hold'];
+export const SHARE_STATUS_OPTIONS: Exclude<ShareStatus, ''>[] = ['Active', 'Sold', 'Hold', 'Exit'];
 
 export interface Nominee {
   name: string;
@@ -96,6 +96,9 @@ export interface Shareholder {
   pledge: Pledge;
   shareStatus: ShareStatus;
   nominees: Nominee[];
+  /** History row timestamp (ISO) for display ordering. */
+  updatedAt?: string;
+  createdAt?: string;
 }
 
 export interface CompanyAddressBlock {

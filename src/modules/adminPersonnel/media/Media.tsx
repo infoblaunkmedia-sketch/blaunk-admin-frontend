@@ -1,6 +1,7 @@
 import React from 'react';
 import { toast } from 'react-toastify';
 import { PageHeader } from '../../../shared/components/PageHeader';
+import { ListTableSearchInput } from '../../../shared/components/DataTableWrapper';
 import { SectionCard } from '../../../shared/components/SectionCard';
 import { FormField } from '../../../shared/components/FormField';
 import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
@@ -26,6 +27,7 @@ import {
   recordsToSlotMaps,
   saveSiteMediaSlot,
 } from '../adminPersonnel.service';
+import { Testimonials, type TestimonialsHandle } from '../testimonials/Testimonials';
 
 const inputClass =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-primary';
@@ -35,6 +37,8 @@ const addBtnClass =
 
 export const Media: React.FC = () => {
   const [sectionId, setSectionId] = React.useState<MediaSectionId>('contact-us');
+  const testimonialsRef = React.useRef<TestimonialsHandle>(null);
+  const [tableSearch, setTableSearch] = React.useState('');
   const [imageSlots, setImageSlots] = React.useState<Record<string, ImageSlotValue>>({});
   const [socialUrls, setSocialUrls] = React.useState<Record<string, string>>({});
   const [loading, setLoading] = React.useState(true);
@@ -49,10 +53,15 @@ export const Media: React.FC = () => {
   const saveTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const section = getMediaSection(sectionId);
+  const isTestimonials = section.kind === 'testimonials';
   const showCardTitleInput = Boolean(section.editableCardTitle);
   const titleFieldConfig = section.expandableImages;
 
   const loadSavedMedia = React.useCallback(async () => {
+    if (isTestimonials) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const records = await fetchSiteMediaAssets();
@@ -64,7 +73,7 @@ export const Media: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isTestimonials]);
 
   React.useEffect(() => {
     void loadSavedMedia();
@@ -344,7 +353,20 @@ export const Media: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <PageHeader title="Media" />
+      <PageHeader
+        title="Media"
+        toolbarLeft={
+          isTestimonials ? (
+            <ListTableSearchInput value={tableSearch} onChange={setTableSearch} />
+          ) : undefined
+        }
+        actions={
+          isTestimonials
+            ? [{ label: '+ Add', onClick: () => testimonialsRef.current?.openNew() }]
+            : []
+        }
+        reserveActionsColumn={isTestimonials}
+      />
 
       <SectionCard>
         <div className="mb-6 max-w-md">
@@ -352,8 +374,11 @@ export const Media: React.FC = () => {
             <select
               className={inputClass}
               value={sectionId}
-              onChange={(e) => setSectionId(e.target.value as MediaSectionId)}
-              disabled={loading}
+              onChange={(e) => {
+                setSectionId(e.target.value as MediaSectionId);
+                setTableSearch('');
+              }}
+              disabled={loading && !isTestimonials}
             >
               {MEDIA_SECTIONS.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -364,7 +389,14 @@ export const Media: React.FC = () => {
           </FormField>
         </div>
 
-        {loading ? (
+        {isTestimonials ? (
+          <Testimonials
+            ref={testimonialsRef}
+            embedded
+            tableSearch={tableSearch}
+            onTableSearchChange={setTableSearch}
+          />
+        ) : loading ? (
           <div className="flex min-h-[8rem] items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>

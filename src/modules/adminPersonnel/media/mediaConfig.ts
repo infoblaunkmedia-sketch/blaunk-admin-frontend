@@ -46,7 +46,7 @@ export type ExpandableImageConfig = {
 export type MediaSectionConfig = {
   id: MediaSectionId;
   label: string;
-  kind: 'images' | 'urls' | 'mixed';
+  kind: 'images' | 'urls' | 'mixed' | 'testimonials';
   imageSlots: MediaImageSlotDef[];
   urlSlots?: MediaUrlSlotDef[];
   maxSizeKb: number;
@@ -168,6 +168,13 @@ export const MEDIA_SECTIONS: MediaSectionConfig[] = [
       sliderSlot(2, 'Slider image 1', 'Slider'),
       sliderSlot(3, 'Slider image 2', 'Slider'),
     ],
+  },
+  {
+    id: 'testimonials',
+    label: 'Testimonials',
+    kind: 'testimonials',
+    maxSizeKb: 1024,
+    imageSlots: [],
   },
   // Hidden for now — re-enable when needed:
   // {

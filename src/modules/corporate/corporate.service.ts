@@ -291,6 +291,8 @@ function toShareholder(r: any): Shareholder {
     pledge: String(r?.pledge || ''),
     shareStatus: String(r?.shareStatus || ''),
     nominees: Array.isArray(r?.nominees) ? r.nominees.map(toNominee) : [],
+    updatedAt: r?.updatedAt ? String(r.updatedAt) : undefined,
+    createdAt: r?.createdAt ? String(r.createdAt) : undefined,
   };
 }
 
