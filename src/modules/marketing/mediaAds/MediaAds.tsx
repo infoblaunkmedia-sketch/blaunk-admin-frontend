@@ -22,17 +22,13 @@ import {
 import { parseApiErrorBody } from '../../../shared/utils/apiErrorMessage';
 import { formatDateDDMMYYYY } from '../../../shared/utils/dateFormat';
 import { onNumericInputKeyDown } from '../../../shared/utils/numericInput';
-import { MEDIA_TAB_TO_AD_PLAN, resolveAdPlanFees } from '../../platform/platform.service';
-import { allowedTiersForAdPlan } from '../../../shared/constants/adPlanTiers';
+import { resolveAdPlanFees } from '../../platform/platform.service';
+import { MEDIA_PLAN_TIERS } from '../../../shared/constants/adPlanTiers';
 import { uploadGiffImage } from '../../cms/giff/giff.service';
 import { StatusBadge } from '../../../shared/components/StatusBadge';
 import { isNegativePayoutStatus, payoutStatusLabel } from '../../../shared/constants/payoutStatus';
 import { CountryNameSelect } from '../../../shared/components/CountryNameSelect';
-import {
-  STATUSES,
-  planOptionLabel,
-  toAbsoluteMediaUrl,
-} from './constants';
+import { planOptionLabel, toAbsoluteMediaUrl } from './constants';
 import {
   BANNER_CMS_PAGES,
   defaultSlotForPage,
@@ -113,14 +109,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
   );
   const placementMaxSize = React.useMemo(() => placementImageMaxSize(form.cmsPage), [form.cmsPage]);
   const cropSubtitle = `${placementCrop.label} · Crop ${placementCrop.aspectLabel} · Max ${placementMaxSize.hint} · JPG, PNG, WebP · Drag to reposition · scroll to zoom`;
-  const adPlanCategory = React.useMemo(() => {
-    const tab = mediaTabForPage(form.cmsPage);
-    return MEDIA_TAB_TO_AD_PLAN[tab] || tab;
-  }, [form.cmsPage]);
-  const allowedPlanOptions = React.useMemo(
-    () => allowedTiersForAdPlan(adPlanCategory),
-    [adPlanCategory],
-  );
+  const allowedPlanOptions = React.useMemo(() => [...MEDIA_PLAN_TIERS], []);
 
   React.useEffect(() => {
     setForm((prev) => {
@@ -323,6 +312,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
     try {
       const payload = {
         ...form,
+        status: 'Active' as SliderStatus,
         productId: '',
         mediaTab: mediaTabForPage(form.cmsPage),
         category: form.category || DEFAULT_CATEGORY,
@@ -469,17 +459,6 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <FormField label="Status">
-                <select
-                  className={inputClass}
-                  value={form.status}
-                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as SliderStatus }))}
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </FormField>
               <FormField label="Plan Charge">
                 <input
                   type="number"
@@ -487,7 +466,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
                   className={`${inputClass} bg-slate-50`}
                   value={form.planCharge}
                   readOnly
-                  title="From Management → Adv Plan"
+                  title="From Management → Plan Charges (Adv plan)"
                 />
               </FormField>
               <FormField label="Luxury Fees">
@@ -513,6 +492,7 @@ export const MediaAds: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) 
               <FormField label="To Pay">
                 <input className={`${inputClass} bg-slate-50`} value={form.toPay} readOnly />
               </FormField>
+              <div className="hidden lg:block" aria-hidden />
             </div>
           </div>
 
